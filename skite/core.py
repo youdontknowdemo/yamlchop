@@ -31,7 +31,7 @@ if hasattr(__builtins__, "__IPYTHON__") or __name__ != "__main__":
     h2 = lambda text: display(Markdown(f"## {text}"))
     h3 = lambda text: display(Markdown(f"### {text}"))
 
-    file = "sites.csv"
+    file = "site.csv"
 else:
     h1 = lambda text: print(f"# {text}")
     h2 = lambda text: print(f"## {text}")
@@ -51,11 +51,11 @@ df.columns = [x.strip() for x in df.columns]
 Site = namedtuple("Site", "path, apex, title, gaid, tagline")
 
 
-def git(args):
+def git(cwd, args):
     cmd = [git_exe] + shlex.split(args)
     process = Popen(
         args=cmd,
-        cwd=here,
+        cwd=cwd,
         stdout=PIPE,
         stderr=PIPE,
         shell=False,
@@ -64,7 +64,7 @@ def git(args):
     )
     print(f"GIT: {shlex.join(cmd)}")
     for line in process.stdout:
-        print(line)
+        print(line.strip())
         sys.stdout.flush()
 
 
@@ -75,6 +75,7 @@ for index, series in df.iterrows():
     site = Site(**series.to_dict())
     h3(site.apex)
     here = Path(home / site.path)
+    [x.unlink() for x in Path(here / "_posts/").glob("*")]
 
     # Blog Slicer
     cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "blog" -a "Mike Levin"'
@@ -83,9 +84,9 @@ for index, series in df.iterrows():
         for line in pout.stdout.readlines():
             print(line.decode().strip())
 
-    git("add _posts/*")
-    git('commit -am "Publising Blog Posts"')
-    git("push")
+    git(here, "add _posts/*")
+    git(here, 'commit -am "Publising Blog Posts"')
+    git(here, "push")
 
 
 h2("Done!")
