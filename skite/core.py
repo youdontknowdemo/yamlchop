@@ -5,21 +5,22 @@ __all__ = ['git', 'python', 'home', 'blogslicer', 'file_obj', 'df', 'df', 'Site'
 # Cell
 
 import os
-
-if os.name == "nt":
-    git_exe = r"C:\Program Files\Git\cmd\git.exe"
-else:
-    git_exe = "/usr/bin/git"
-os.environ["GIT_PYTHON_GIT_EXECUTABLE"] = git_exe
 import sys
 import shlex
 import argparse
 import pandas as pd
 from git import Repo
 from pathlib import Path
+from art import text2art
 from collections import namedtuple
 from subprocess import Popen, PIPE
 
+
+if os.name == "nt":
+    git_exe = r"C:\Program Files\Git\cmd\git.exe"
+else:
+    git_exe = "/usr/bin/git"
+os.environ["GIT_PYTHON_GIT_EXECUTABLE"] = git_exe
 
 python = sys.executable
 home = Path(os.path.expanduser("~"))
@@ -30,29 +31,34 @@ if hasattr(__builtins__, "__IPYTHON__") or __name__ != "__main__":
     h1 = lambda text: display(Markdown(f"# {text}"))
     h2 = lambda text: display(Markdown(f"## {text}"))
     h3 = lambda text: display(Markdown(f"### {text}"))
-
-    file = "site.csv"
+    file = "sites.csv"
+    # apex = "/mnt/c/Users/mikle/github/MikeAtEleven.com"
+    apex = ""
 else:
     h1 = lambda text: print(f"# {text}")
     h2 = lambda text: print(f"## {text}")
-    h3 = lambda text: print(f"## {text}")
-
+    h3 = lambda text: print(f"### {text}")
     aparser = argparse.ArgumentParser()
     add_arg = aparser.add_argument
     add_arg("-f", "--file", required=True)
+    add_arg("-x", "--apex", required=False)
     args = aparser.parse_args()
     file = args.file
+    apex = args.apex
 
-h1("Generaring sites...")
+text2art("Generaring Sites...")
 file_obj = Path(file)
 df = pd.read_csv(file_obj, delimiter="|")
 df = df.applymap(lambda x: x.strip())
 df.columns = [x.strip() for x in df.columns]
+if apex:
+    apex = Path(apex).name
+    df = df[df['apex'] == apex]
 Site = namedtuple("Site", "path, apex, title, gaid, tagline")
-
 
 def git(cwd, args):
     cmd = [git_exe] + shlex.split(args)
+    h2(f"git cmd: {shlex.join(cmd)}")
     process = Popen(
         args=cmd,
         cwd=cwd,
@@ -62,10 +68,16 @@ def git(cwd, args):
         bufsize=1,
         universal_newlines=True,
     )
-    print(f"GIT: {shlex.join(cmd)}")
+    h3('git stdout')
     for line in process.stdout:
         print(line.strip())
         sys.stdout.flush()
+    print()
+    h3('git stderr')
+    for line in process.stderr:
+        print(line.strip())
+        sys.stdout.flush()
+    print()
 
 
 h2(f"Python: {python}")
@@ -87,6 +99,5 @@ for index, series in df.iterrows():
     git(here, "add _posts/*")
     git(here, 'commit -am "Publising Blog Posts"')
     git(here, "push")
-
 
 h2("Done!")
