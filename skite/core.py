@@ -48,14 +48,14 @@ for index, series in df.iterrows():
     site = Site(**series.to_dict())
     h3(site.apex)
     here = Path(home / site.path)
-    cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "/blog/" -a "Mike Levin"'
+    cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "blog" -a "Mike Levin"'
     print(cmd)
     print()
     with Popen(args=cmd, cwd=here, stdout=PIPE, stderr=PIPE, shell=True) as pout:
-        err = pout.stderr.read()
-        if len(err) > 0:
-            h3(err)
-            break
+        # err = pout.stderr.read()
+        # if len(err) > 0:
+        #     h3(err)
+        #     break
         for line in pout.stdout.readlines():
             print(line.decode().strip())
 print('Done')
