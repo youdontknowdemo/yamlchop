@@ -19,5 +19,5 @@ else:
 
 file_obj = Path(file)
 df = pd.read_csv(file_obj, delimiter="|")
-df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
-print(df)
+df = df.applymap(lambda x: x.strip())
+df.columns = [x.strip() for x in df.columns]

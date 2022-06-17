@@ -3,7 +3,8 @@
 __all__ = ["index", "modules", "custom_doc_links", "git_url"]
 
 index = {"file_obj": "00_core.ipynb",
-         "df": "00_core.ipynb"}
+         "df": "00_core.ipynb",
+         "df.columns": "00_core.ipynb"}
 
 modules = ["core.py"]
 
