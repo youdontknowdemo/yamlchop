@@ -16,30 +16,46 @@ python = sys.executable
 home = Path(os.path.expanduser("~"))
 blogslicer = Path(home / Path("github/blogslicer/blogslicer/core.py"))
 if hasattr(__builtins__, "__IPYTHON__") or __name__ != "__main__":
+    from IPython.display import display, Markdown
+
+    h1 = lambda text: display(Markdown(f"# {text}"))
+    h2 = lambda text: display(Markdown(f"## {text}"))
+    h3 = lambda text: display(Markdown(f"### {text}"))
+
     file = "sites.csv"
 else:
+    h1 = lambda text: print(f"# {text}")
+    h2 = lambda text: print(f"## {text}")
+    h3 = lambda text: print(f"## {text}")
+
     aparser = argparse.ArgumentParser()
     add_arg = aparser.add_argument
     add_arg("-f", "--file", required=True)
     args = aparser.parse_args()
     file = args.file
 
+h1("Generaring sites...")
 file_obj = Path(file)
 df = pd.read_csv(file_obj, delimiter="|")
 df = df.applymap(lambda x: x.strip())
 df.columns = [x.strip() for x in df.columns]
 Site = namedtuple("Site", "path, apex, title, gaid, tagline")
 
-print(f"Python: {python}")
-print(f"Blogslicer: {blogslicer}")
+h2(f"Python: {python}")
+h2(f"Blogslicer: {blogslicer}")
 print()
 for index, series in df.iterrows():
     site = Site(**series.to_dict())
+    h3(site.apex)
     here = Path(home / site.path)
-    cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "/blog" -a "Mike Levin"'
+    cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "/blog/" -a "Mike Levin"'
     print(cmd)
     print()
     with Popen(args=cmd, cwd=here, stdout=PIPE, stderr=PIPE, shell=True) as pout:
+        err = pout.stderr.read()
+        if len(err) > 0:
+            h3(err)
+            break
         for line in pout.stdout.readlines():
             print(line.decode().strip())
 print('Done')
