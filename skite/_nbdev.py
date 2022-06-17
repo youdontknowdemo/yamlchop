@@ -2,7 +2,8 @@
 
 __all__ = ["index", "modules", "custom_doc_links", "git_url"]
 
-index = {"python": "00_core.ipynb",
+index = {"git": "00_core.ipynb",
+         "python": "00_core.ipynb",
          "home": "00_core.ipynb",
          "blogslicer": "00_core.ipynb",
          "file_obj": "00_core.ipynb",
