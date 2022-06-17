@@ -2,7 +2,10 @@
 
 __all__ = ["index", "modules", "custom_doc_links", "git_url"]
 
-index = {"file_obj": "00_core.ipynb",
+index = {"python": "00_core.ipynb",
+         "home": "00_core.ipynb",
+         "blogslicer": "00_core.ipynb",
+         "file_obj": "00_core.ipynb",
          "df": "00_core.ipynb",
          "df.columns": "00_core.ipynb",
          "Site": "00_core.ipynb"}
