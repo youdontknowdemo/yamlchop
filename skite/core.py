@@ -9,7 +9,6 @@ import sys
 import shlex
 import argparse
 import pandas as pd
-from git import Repo
 from pathlib import Path
 from art import text2art
 from collections import namedtuple
@@ -30,17 +29,11 @@ if hasattr(__builtins__, "__IPYTHON__") or __name__ != "__main__":
     is_jupyter = True
     from IPython.display import display, Markdown, HTML
 
-    h1 = lambda text: display(Markdown(f"# {text}"))
-    h2 = lambda text: display(Markdown(f"## {text}"))
-    h3 = lambda text: display(Markdown(f"### {text}"))
     file = "sites.csv"
-    # apex = "/mnt/c/Users/mikle/github/MikeAtEleven.com"
-    apex = ""
+    apex = "/mnt/c/Users/mikle/github/MikeAtEleven.com"
+    # apex = ""
 else:
     is_jupyter = False
-    h1 = lambda text: print(f"# {text}")
-    h2 = lambda text: print(f"## {text}")
-    h3 = lambda text: print(f"### {text}")
     aparser = argparse.ArgumentParser()
     add_arg = aparser.add_argument
     add_arg("-f", "--file", required=True)
@@ -52,25 +45,11 @@ else:
 
 def fig(text, font="Standard"):
     if is_jupyter:
-        display(
-            HTML(
-                f'<pre style="white-space: pre;">{text2art(text, font=font).replace(lr, "<br/>")}</pre>'
-            )
-        )
+        text_br = text2art(text, font=font).replace(lr, "<br/>")
+        text_html = f'<pre style="white-space: pre;">{text_br}</pre>'
+        display(HTML(text_html))
     else:
         print(text2art(text, font))
-
-
-fig("Making Sites...")
-
-file_obj = Path(file)
-df = pd.read_csv(file_obj, delimiter="|")
-df = df.applymap(lambda x: x.strip())
-df.columns = [x.strip() for x in df.columns]
-if apex:
-    apex = Path(apex).name
-    df = df[df["apex"] == apex]
-Site = namedtuple("Site", "path, apex, title, gaid, tagline")
 
 
 def flush(std):
@@ -83,7 +62,7 @@ def flush(std):
 
 def git(cwd, args):
     cmd = [git_exe] + shlex.split(args)
-    h2(f"git cmd: {shlex.join(cmd)}")
+    print(f"COMMAND: << {shlex.join(cmd)} >>")
     process = Popen(
         args=cmd,
         cwd=cwd,
@@ -93,28 +72,34 @@ def git(cwd, args):
         bufsize=1,
         universal_newlines=True,
     )
-    h3("git stdout")
     flush(process.stdout)
     flush(process.stderr)
 
+fig("Making Sites...")
 
-print(f"INTERPRETER: {python}")
-print(f"SLICER: {blogslicer}")
-
+file_obj = Path(file)
+df = pd.read_csv(file_obj, delimiter="|")
+df = df.applymap(lambda x: x.strip())
+df.columns = [x.strip() for x in df.columns]
+if apex:
+    apex = Path(apex).name
+    df = df[df["apex"] == apex]
+Site = namedtuple("Site", "path, apex, title, gaid, tagline")
+print(f"INTERPRETER: << {python} >>")
+print(f"SLICER: << {blogslicer} >>")
 for index, series in df.iterrows():
     site = Site(**series.to_dict())
     fig(site.apex, font="Cybermedium")
     here = Path(home / site.path)
     [x.unlink() for x in Path(here / "_posts/").glob("*")]
-
     cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "blog" -a "Mike Levin"'
     print(cmd, end="\n\n")
     with Popen(args=cmd, cwd=here, stdout=PIPE, stderr=PIPE, shell=True) as pout:
         for line in pout.stdout.readlines():
             print(line.decode().strip())
-
+    fig('Github...')
     git(here, "add _posts/*")
-    git(here, 'commit -am "Publising Blog Posts"')
+    git(here, "add assets/images/*")
+    git(here, 'commit -am "Pushing to Github..."')
     git(here, "push")
-
-h2("Done!")
+fig("Done!")
