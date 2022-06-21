@@ -31,7 +31,7 @@ if hasattr(__builtins__, "__IPYTHON__") or __name__ != "__main__":
     from IPython.display import display, Markdown, HTML
 
     file = "sites.csv"
-    apex = "/mnt/c/Users/mikle/github/MikeAtEleven.com"
+    apex = "/mnt/c/Users/mikle/github/MikeLev.in"
     # apex = ""
 else:
     is_jupyter = False
@@ -106,7 +106,10 @@ for index, series in df.iterrows():
         for line in pout.stdout.readlines():
             print(line.decode().strip())
     fig("Github...")
+    if is_jupyter:
+        continue
     git(here, "add _posts/*")
+    git(here, "add category-*")
     git(here, "add assets/images/*")
     git(here, f'commit -am "Pushing {site.apex} to Github..."')
     git(here, "push")
