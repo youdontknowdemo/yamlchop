@@ -2,19 +2,33 @@
 
 __all__ = ["index", "modules", "custom_doc_links", "git_url"]
 
-index = {"fig": "00_core.ipynb",
-         "flush": "00_core.ipynb",
-         "git": "00_core.ipynb",
-         "lr": "00_core.ipynb",
-         "python": "00_core.ipynb",
-         "home": "00_core.ipynb",
-         "blogslicer": "00_core.ipynb",
-         "file_obj": "00_core.ipynb",
-         "df": "00_core.ipynb",
-         "df.columns": "00_core.ipynb",
-         "Site": "00_core.ipynb"}
+index = {"fig": "00_skite.ipynb",
+         "flush": "00_skite.ipynb",
+         "git": "00_skite.ipynb",
+         "lr": "00_skite.ipynb",
+         "python": "00_skite.ipynb",
+         "home": "00_skite.ipynb",
+         "blogslicer": "00_skite.ipynb",
+         "file_obj": "00_skite.ipynb",
+         "df": "00_skite.ipynb",
+         "df.columns": "00_skite.ipynb",
+         "Site": "00_skite.ipynb",
+         "index_front_matter": "10_slice.ipynb",
+         "journal_path": "10_slice.ipynb",
+         "output_path": "10_slice.ipynb",
+         "slicer": "10_slice.ipynb",
+         "counter": "10_slice.ipynb",
+         "dates": "10_slice.ipynb",
+         "categories": "10_slice.ipynb",
+         "date_next": "10_slice.ipynb",
+         "stats": "10_slice.ipynb",
+         "table": "10_slice.ipynb",
+         "at_top": "10_slice.ipynb",
+         "index_list": "10_slice.ipynb",
+         "index_page": "10_slice.ipynb"}
 
-modules = ["core.py"]
+modules = ["skite.py",
+           "slice.py"]
 
 doc_url = "https://miklevin.github.io/skite/"
 
