@@ -100,7 +100,7 @@ for index, series in df.iterrows():
     fig(site.apex, font="Cybermedium")
     here = Path(home / site.path)
     [x.unlink() for x in Path(here / "_posts/").glob("*")]
-    cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "blog" -a "Mike Levin" -n="{site.tagline}"'
+    cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "blog" -a "Mike Levin"'
     print(cmd, end="\n\n")
     with Popen(args=cmd, cwd=here, stdout=PIPE, stderr=PIPE, shell=True) as pout:
         for line in pout.stdout.readlines():

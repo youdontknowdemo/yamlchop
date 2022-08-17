@@ -51,7 +51,7 @@ tagline: "{tagline}"
 ---
 
 """
-index_front_matter += "## Welcome to The {{ page.title }} Blog\n\n"
+index_front_matter += "# Welcome to The {{ page.title }} Blog\n\n"
 index_front_matter += '<p class="notice">{{ page.tagline }}</p>'
 
 

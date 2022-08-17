@@ -1,24 +1,15 @@
----
-layout: none
-search: exclude
----
-
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  {% for post in site.posts %}
-  {% unless post.search == "exclude" %}
   <url>
-    <loc>{{site.url}}{{post.url}}</loc>
+    <loc>https://miklevin.github.io/skite/00_skite.html</loc>
+    <lastmod>2022-08-16T20:21:51.415Z</lastmod>
   </url>
-  {% endunless %}
-  {% endfor %}
-
-
-  {% for page in site.pages %}
-  {% unless page.search == "exclude" %}
   <url>
-    <loc>{{site.url}}{{ page.url}}</loc>
+    <loc>https://miklevin.github.io/skite/10_slice.html</loc>
+    <lastmod>2022-08-16T20:21:52.462Z</lastmod>
   </url>
-  {% endunless %}
-  {% endfor %}
+  <url>
+    <loc>https://miklevin.github.io/skite/CONTRIBUTING.html</loc>
+    <lastmod>2022-08-16T20:21:53.597Z</lastmod>
+  </url>
 </urlset>
