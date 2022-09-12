@@ -154,9 +154,14 @@ print()
 print(f"ENTRIES: {stats['entries']}")
 categories = {x for x in categories if x}
 
-index_page = index_front_matter + "\n\n" + "\n".join(index_list)
 
-with open(f"{folder_name}/blog.md", "w", encoding="utf-8") as fh:
+## Replace this with outputting a subset of it to folder_name/_inculdes
+# index_page = index_front_matter + "\n\n" + "\n".join(index_list)
+# with open(f"{folder_name}/blog.md", "w", encoding="utf-8") as fh:
+#     fh.writelines(index_page)
+
+index_page = "\n".join(index_list)
+with open(f"{folder_name}/_includes/posts-main.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
 
 for category in categories:

@@ -25,13 +25,13 @@ os.environ["GIT_PYTHON_GIT_EXECUTABLE"] = git_exe
 lr = "\n"
 python = sys.executable
 home = Path(os.path.expanduser("~"))
-blogslicer = Path(home / Path("github/skite/skite/slice.py"))
+blogslicer = Path(home / Path("repos/skite/skite/slice.py"))
 if hasattr(__builtins__, "__IPYTHON__") or __name__ != "__main__":
     is_jupyter = True
     from IPython.display import display, Markdown, HTML
 
     file = "sites.csv"
-    apex = "/mnt/c/Users/mikle/github/MikeLev.in"
+    apex = "/mnt/c/Users/mikle/repos/MikeLev.in"
     # apex = ""
 else:
     is_jupyter = False
@@ -109,6 +109,7 @@ for index, series in df.iterrows():
     if is_jupyter:
         continue
     git(here, "add _posts/*")
+    git(here, "add _includes/*")
     git(here, "add category-*")
     git(here, "add assets/images/*")
     git(here, f'commit -am "Pushing {site.apex} to Github..."')
