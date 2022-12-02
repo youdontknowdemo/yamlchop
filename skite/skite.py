@@ -95,10 +95,11 @@ else:
         print(f"- {site[0]}")
 print()
 Site = namedtuple("Site", "path, apex, title, gaid, tagline")
+basepath = "/home/ubuntu/repos/hide/"
 for index, series in df.iterrows():
     site = Site(**series.to_dict())
     fig(site.apex, font="Cybermedium")
-    here = Path(home / site.path)
+    here = Path(f"{basepath}{Path(site.path)}")
     [x.unlink() for x in Path(here / "_posts/").glob("*")]
     cmd = f'{python} {blogslicer} -p {here} -t "{site.title}" -s "blog" -a "Mike Levin" -n="{site.tagline}"'
     print(cmd, end="\n\n")
