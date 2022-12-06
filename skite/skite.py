@@ -31,7 +31,7 @@ if hasattr(__builtins__, "__IPYTHON__") or __name__ != "__main__":
     from IPython.display import display, Markdown, HTML
 
     file = "sites.csv"
-    apex = "/mnt/c/Users/mikle/repos/MikeLev.in"
+    apex = "/mnt/c/Users/mikle/repos/hide/MikeLev.in"
     # apex = ""
 else:
     is_jupyter = False
@@ -42,6 +42,7 @@ else:
     args = aparser.parse_args()
     file = args.file
     apex = args.apex
+
 
 
 def fig(text, font="Standard"):
