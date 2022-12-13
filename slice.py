@@ -23,7 +23,6 @@ else:
     add_arg("-s", "--slug", required=True)
     add_arg("-a", "--author", required=True)
     add_arg("-v", "--verbose", required=False, default=False)
-    add_arg("-n", "--tagline", required=False)
     args = aparser.parse_args()
 
     folder_name = args.path
@@ -31,7 +30,6 @@ else:
     blog_slug = args.slug
     author = args.author
     verbose = args.verbose
-    tagline = args.tagline
 
 index_front_matter = f"""---
 layout: default
@@ -39,13 +37,10 @@ author: {author}
 title: "{blog_title}"
 slug: {blog_slug}
 permalink: /blog/
-tagline: "{tagline}"
 ---
 
 """
 index_front_matter += "## Welcome to The {{ page.title }} Blog\n\n"
-index_front_matter += '<p class="notice">{{ page.tagline }}</p>'
-
 
 journal_path = f"{folder_name}/journal.md"
 output_path = f"{folder_name}/_posts/"
