@@ -106,7 +106,7 @@ for index, series in df.iterrows():
         continue
     git(here, "add _posts/*")
     git(here, "add _includes/*")
-    git(here, "add category-*")
+    # git(here, "add category-*")
     git(here, "add assets/images/*")
     git(here, f'commit -am "Pushing {site.apex} to Github..."')
     git(here, "push")
