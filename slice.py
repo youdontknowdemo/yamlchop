@@ -146,38 +146,8 @@ print()
 print(f"ENTRIES: {stats['entries']}")
 categories = {x for x in categories if x}
 
-
-# Replace this with outputting a subset of it to folder_name/_inculdes
-index_page = index_front_matter + "\n\n" + "\n".join(index_list)
-with open(f"{folder_name}/blog.md", "w", encoding="utf-8") as fh:
-    fh.writelines(index_page)
-
-
 index_page = "\n".join(index_list)
 with open(f"{folder_name}/_includes/posts-main.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
 
-# for category in categories:
-#     slug_cat = slugify(category)
-#     category_front_matter = f"""---
-# layout: default
-# author: {author}
-# title: "{blog_title} {category}"
-# slug: {blog_slug}
-# permalink: /{slug_cat}/
-# ---
-# 
-# # {category}
-# 
-# """
-#     cat_file = f"{folder_name}/category-{slug_cat}.md"
-#     cat_list = []
-#     for acat in categories:
-#         if acat != category:
-#             cat_list.append(f"- [{acat}](/{slugify(acat)}/)")
-#     category_page = category_front_matter + "\n".join(category_lists[category])
-#     category_page += "\n\n## Other Categories: \n"
-#     category_page += "\n".join(sorted(cat_list))
-#     with open(cat_file, "w", encoding="utf-8") as fh:
-#         fh.writelines(category_page)
 print("Sliced successfully!")
