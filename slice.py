@@ -38,6 +38,7 @@ index_front_matter = f"""---
 layout: default
 author: {author}
 title: "{blog_title}"
+description: "{blog_title}"
 slug: {blog_slug}
 permalink: /blog/
 ---
@@ -113,6 +114,7 @@ with open(journal_path, "r", encoding="utf-8") as fh:
                     top.append("---\n")
                     top.append("layout: post\n")
                     top.append(f'title: "{title}"\n')
+                    top.append(f'description: "{title}"\n')
                     top.append(f'author: "{author}"\n')
                     top.append(f"slug: {slug}\n")
                     top.append(f"permalink: /{blog_slug}/{slug}/\n")
