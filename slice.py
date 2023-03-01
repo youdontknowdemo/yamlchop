@@ -9,30 +9,20 @@ from collections import Counter
 from dumbquotes import dumbquote
 
 
-if hasattr(__builtins__, "__IPYTHON__") or __name__ != "__main__":
-    from IPython.display import display, Markdown
+aparser = argparse.ArgumentParser()
+add_arg = aparser.add_argument
+add_arg("-p", "--path", required=True)
+add_arg("-t", "--title", required=True)
+add_arg("-s", "--slug", required=True)
+add_arg("-a", "--author", required=True)
+add_arg("-v", "--verbose", required=False, default=False)
+args = aparser.parse_args()
 
-    folder_name = "../MikeLev.in"
-    blog_title = "Mike Levin's Blog"
-    blog_slug = "blog"
-    author = "Mike Levin"
-    verbose = False
-else:
-
-    aparser = argparse.ArgumentParser()
-    add_arg = aparser.add_argument
-    add_arg("-p", "--path", required=True)
-    add_arg("-t", "--title", required=True)
-    add_arg("-s", "--slug", required=True)
-    add_arg("-a", "--author", required=True)
-    add_arg("-v", "--verbose", required=False, default=False)
-    args = aparser.parse_args()
-
-    folder_name = args.path
-    blog_title = args.title
-    blog_slug = args.slug
-    author = args.author
-    verbose = args.verbose
+folder_name = args.path
+blog_title = args.title
+blog_slug = args.slug
+author = args.author
+verbose = args.verbose
 
 index_front_matter = f"""---
 layout: default
@@ -60,7 +50,7 @@ with open(journal_path, "r", encoding="utf-8") as fh:
         line = line.rstrip()
         if date_next:
             try:
-                adate = line[3:]
+                adate = line[2:]
                 date_next = False
                 adatetime = parser.parse(adate).date()
             except:
