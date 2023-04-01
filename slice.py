@@ -1,6 +1,4 @@
-# This takes command-line input and spits out a bunch of files.
-# We need to do some debugging. posts-main.html is not being updated.
-
+# Import global modules
 import argparse
 from pathlib import Path
 from dateutil import parser
@@ -8,7 +6,7 @@ from slugify import slugify
 from collections import Counter
 from dumbquotes import dumbquote
 
-
+# Parse arguments from command-line
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
 add_arg("-p", "--path", required=True)
