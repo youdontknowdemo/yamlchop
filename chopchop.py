@@ -32,6 +32,9 @@ print(f"Processing {full_file}")
 
 # Check if output path exists and create it if not
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
+# Delete all files from output path
+for f in os.listdir(OUTPUT_PATH):
+    os.remove(f"{OUTPUT_PATH}/{f}")
 
 
 def parse_journal(full_file):
@@ -61,7 +64,10 @@ def write_post_to_file(post, index):
                 date_str = parser.parse(adate).date()
                 top_matter.append(f"date: {date_str}")
             except:
-                break
+                # If no date, skip post
+                print(f"Skipping post {index} - no date")
+                return
+
         elif i == 1:
             # Second line is always headline begginning with #
             if line[1] == "#":
@@ -101,5 +107,5 @@ def write_post_to_file(post, index):
 
 posts = parse_journal(full_file)
 for i, post in enumerate(posts):
-    write_post_to_file(post, i+1)
+    write_post_to_file(post, i)
 
