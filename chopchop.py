@@ -54,11 +54,14 @@ def write_post_to_file(post, index):
     ---
     """
 
+    # Set up per-post variables
     date_str = None
+    top_matter = ["---"]
     content = []
     in_content = False
+
     for i, line in enumerate(lines):
-        if not i:
+        if i == 0:
             # First line is always date
             filename_date = None
             try:
@@ -66,6 +69,13 @@ def write_post_to_file(post, index):
                 date_str = parser.parse(adate).date()
             except:
                 break
+        elif i == 1:
+            # Second line is always headline begginning with #
+            if line[1] == "#":
+                title = line.split("# ")[1]  # Remove leading #
+            else:
+                title = r"Post {index} - {date_str}"
+            top_matter.append(f"title: {title}")
         else:
             # Subsequent lines are either top matter or content
             if not line:
@@ -74,14 +84,23 @@ def write_post_to_file(post, index):
                 pass
             if in_content:
                 content.append(line)
+            else:
+                # Top matter
+                pass
     file_name = f"{date_str}-post-{index:04}.md"
     full_path = f"{OUTPUT_PATH}/{file_name}"
+
+    # Combine top matter and content
+    top_matter.append(f"date: {date_str}")
+    top_matter.append(f"slug: {slugify(line)}")
+    top_matter.append("---")
+    top_matter.extend(content)
+    content = top_matter
 
     print(full_path)
     with open(full_path, 'w') as f:
         flat_content = "\n".join(content)
         f.writelines(flat_content)
-
 
 
 posts = parse_journal(full_file)
