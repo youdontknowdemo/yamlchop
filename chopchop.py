@@ -42,7 +42,7 @@ for f in os.listdir(OUTPUT_PATH):
     os.remove(f"{OUTPUT_PATH}/{f}")
 
 # Get OpenAI API key
-with open ("../assets/openai.txt") as fh:
+with open ("openai.txt") as fh:
     openai.api_key = fh.readline()
 
 
@@ -53,23 +53,6 @@ def parse_journal(FULL_FILE):
         posts = post_str.split(PARSE_TOKEN)
         for post in posts:
             yield post
-
-
-def summarize_and_extract_keywords(text):
-    model_engine = "davinci-junior-002"
-    prompt = (f"Please summarize the following text:\n{text}\n"
-              "Keywords:")
-    response = openai.Completion.create(
-        engine=model_engine,
-        prompt=prompt,
-        max_tokens=60,
-        n=1,
-        stop=None,
-        temperature=0.5,
-    )
-    summary = response.choices[0].text.strip()
-    keywords = [t.strip() for t in response.choices[0].text.split(",")]
-    return summary, keywords
 
 
 def write_post_to_file(post, index):
@@ -119,18 +102,18 @@ def write_post_to_file(post, index):
     full_path = f"{OUTPUT_PATH}/{file_name}"
 
     # Hit OpenAI to get summary and keywords
-    summary, keywords = None, None
+    summary = None
     with sqldict(API_CACHE) as db:
         if index not in db:
-            summary, keywords = summarize_and_extract_keywords(post)
-            db[index] = (summary, keywords)
+            summary = summarize(post)
+            db[index] = summary
             db.commit()
+        else:
+            summary = db[index]
 
     # Combine top matter and content
     if summary:
-        top_matter.append(f"summary: {summary}")
-    if keywords:
-        top_matter.append(f"keywords: {keywords}")
+        top_matter.append(f"description: {summary.strip()}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {author}")
     top_matter.append("---")
@@ -143,6 +126,49 @@ def write_post_to_file(post, index):
     with open(full_path, 'w') as f:
         flat_content = "\n".join(content)
         f.writelines(flat_content)
+
+
+def chunk_text(text, chunk_size=4000):
+    """
+    Chunk a long text into smaller segments of 4000 characters or less.
+    """
+    chunks = []
+    start_idx = 0
+    while start_idx < len(text):
+        end_idx = start_idx + chunk_size
+        if end_idx >= len(text):
+            end_idx = len(text)
+        chunk = text[start_idx:end_idx]
+        chunks.append(chunk)
+        start_idx = end_idx
+    return chunks
+
+
+def summarize(text):
+    """
+    Summarize a long text using OpenAI's GPT-3 API.
+    """
+    # Chunk the text into smaller segments
+    chunks = chunk_text(text, chunk_size=4000)
+
+    # Initialize the summarized text
+    summarized_text = ""
+
+    # Loop over each chunk and summarize it using OpenAI
+    for chunk in chunks:
+        response = openai.Completion.create(
+            engine="text-davinci-002",
+            prompt=(f"Please summarize the following text:\n{chunk}\n\n"
+                    "Summary:"),
+            temperature=0.5,
+            max_tokens=100,
+            n = 1,
+            stop=None
+        )
+        summary = response.choices[0].text.strip()
+        summarized_text += summary + "\n"
+
+    return summarized_text.strip()
 
 
 posts = parse_journal(FULL_FILE)
