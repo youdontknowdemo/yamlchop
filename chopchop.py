@@ -13,9 +13,13 @@ aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
 add_arg("-r", "--repo", required=True)
 add_arg("-f", "--file", default="journal.md")
+add_arg("-a", "--author", default="Mike Levin")
+add_arg("-b", "--blog", default="blog")
 args = aparser.parse_args()
+author = args.author
 repo = args.repo
 file = args.file
+blog = args.blog
 
 # Constants
 COMMON_PATH = "/home/ubuntu/repos/hide/"
@@ -42,18 +46,6 @@ def parse_journal(full_file):
 def write_post_to_file(post, index):
     lines = post.strip().split('\n')
 
-    # Example top matter
-    """
-    ---
-    layout: post
-    title: "Embedding YouTube Video Thumbnails on Github.io Pages"
-    description: "Embedding YouTube Video Thumbnails on Github.io Pages"
-    author: "Mike Levin"
-    slug: embedding-youtube-video-thumbnails-on-github-io-pages
-    permalink: /blog/embedding-youtube-video-thumbnails-on-github-io-pages/
-    ---
-    """
-
     # Set up per-post variables
     date_str = None
     top_matter = ["---"]
@@ -67,6 +59,7 @@ def write_post_to_file(post, index):
             try:
                 adate = line[2:]
                 date_str = parser.parse(adate).date()
+                top_matter.append(f"date: {date_str}")
             except:
                 break
         elif i == 1:
@@ -75,7 +68,10 @@ def write_post_to_file(post, index):
                 title = line.split("# ")[1]  # Remove leading #
             else:
                 title = r"Post {index} - {date_str}"
+            slug = slugify(title)
             top_matter.append(f"title: {title}")
+            top_matter.append(f"slug: {slug}")
+            top_matter.append(f"permalink: /{blog}/{slug}/")
         else:
             # Subsequent lines are either top matter or content
             if not line:
@@ -91,8 +87,8 @@ def write_post_to_file(post, index):
     full_path = f"{OUTPUT_PATH}/{file_name}"
 
     # Combine top matter and content
-    top_matter.append(f"date: {date_str}")
-    top_matter.append(f"slug: {slugify(line)}")
+    top_matter.append(f"layout: post")
+    top_matter.append(f"author: {author}")
     top_matter.append("---")
     top_matter.extend(content)
     content = top_matter
