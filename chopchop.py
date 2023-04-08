@@ -1,11 +1,13 @@
 import os
 import re
+import openai
 import slugify
 import datetime
 import argparse
 from pathlib import Path
 from slugify import slugify
 from dateutil import parser
+from sqlitedict import SqliteDict as sqldict
 
 
 # CLI args
@@ -30,6 +32,7 @@ path = args.path
 PARSE_TOKEN = "\n" + "-"*80 + "\n"
 OUTPUT_PATH = f"{path}{repo}/{output}"
 FULL_FILE = f"{path}{repo}/{file}"
+API_CACHE = f"{repo}-openai.db"
 print(f"Processing {FULL_FILE}")
 
 # Check if output path exists and create it if not
@@ -37,6 +40,10 @@ Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 # Delete all files from output path
 for f in os.listdir(OUTPUT_PATH):
     os.remove(f"{OUTPUT_PATH}/{f}")
+
+# Get OpenAI API key
+with open ("../assets/openai.txt") as fh:
+    openai.api_key = fh.readline()
 
 
 def parse_journal(FULL_FILE):
@@ -46,6 +53,23 @@ def parse_journal(FULL_FILE):
         posts = post_str.split(PARSE_TOKEN)
         for post in posts:
             yield post
+
+
+def summarize_and_extract_keywords(text):
+    model_engine = "davinci-junior-002"
+    prompt = (f"Please summarize the following text:\n{text}\n"
+              "Keywords:")
+    response = openai.Completion.create(
+        engine=model_engine,
+        prompt=prompt,
+        max_tokens=60,
+        n=1,
+        stop=None,
+        temperature=0.5,
+    )
+    summary = response.choices[0].text.strip()
+    keywords = [t.strip() for t in response.choices[0].text.split(",")]
+    return summary, keywords
 
 
 def write_post_to_file(post, index):
@@ -94,7 +118,19 @@ def write_post_to_file(post, index):
     file_name = f"{date_str}-post-{index:04}.md"
     full_path = f"{OUTPUT_PATH}/{file_name}"
 
+    # Hit OpenAI to get summary and keywords
+    summary, keywords = None, None
+    with sqldict(API_CACHE) as db:
+        if index not in db:
+            summary, keywords = summarize_and_extract_keywords(post)
+            db[index] = (summary, keywords)
+            db.commit()
+
     # Combine top matter and content
+    if summary:
+        top_matter.append(f"summary: {summary}")
+    if keywords:
+        top_matter.append(f"keywords: {keywords}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {author}")
     top_matter.append("---")
@@ -112,4 +148,6 @@ def write_post_to_file(post, index):
 posts = parse_journal(FULL_FILE)
 for i, post in enumerate(posts):
     write_post_to_file(post, i)
+    if i > 5:
+        raise SystemExit()
 
