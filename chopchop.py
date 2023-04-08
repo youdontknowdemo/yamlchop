@@ -15,20 +15,22 @@ add_arg("-r", "--repo", required=True)
 add_arg("-f", "--file", default="journal.md")
 add_arg("-a", "--author", default="Mike Levin")
 add_arg("-b", "--blog", default="blog")
+add_arg("-p", "--path", default="/home/ubuntu/repos/hide/")
+add_arg("-o", "--output", default="_test")
+
 args = aparser.parse_args()
 author = args.author
+output = args.output
 repo = args.repo
 file = args.file
 blog = args.blog
+path = args.path
 
 # Constants
-COMMON_PATH = "/home/ubuntu/repos/hide/"
 PARSE_TOKEN = "\n" + "-"*80 + "\n"
-OUTPUT_PATH = f"{COMMON_PATH}{repo}/_test"
-
-# Set full file path and show user
-full_file = f"{COMMON_PATH}{repo}/{file}"
-print(f"Processing {full_file}")
+OUTPUT_PATH = f"{path}{repo}/{output}"
+FULL_FILE = f"{path}{repo}/{file}"
+print(f"Processing {FULL_FILE}")
 
 # Check if output path exists and create it if not
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
@@ -37,9 +39,9 @@ for f in os.listdir(OUTPUT_PATH):
     os.remove(f"{OUTPUT_PATH}/{f}")
 
 
-def parse_journal(full_file):
+def parse_journal(FULL_FILE):
     """Parse a journal file into posts. Returns a generator of posts."""
-    with open(full_file, "r") as f:
+    with open(FULL_FILE, "r") as f:
         post_str = f.read()
         posts = post_str.split(PARSE_TOKEN)
         for post in posts:
@@ -70,10 +72,10 @@ def write_post_to_file(post, index):
 
         elif i == 1:
             # Second line is always headline begginning with #
-            if line[1] == "#":
-                title = line.split("# ")[1]  # Remove leading #
+            if line and line[0] == "#" and " " in line:
+                title = " ".join(line.split(" ")[1:])
             else:
-                title = r"Post {index} - {date_str}"
+                return
             slug = slugify(title)
             top_matter.append(f"title: {title}")
             top_matter.append(f"slug: {slug}")
@@ -96,6 +98,8 @@ def write_post_to_file(post, index):
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {author}")
     top_matter.append("---")
+    top_matter.append("")
+    top_matter.append(f"# {title}")
     top_matter.extend(content)
     content = top_matter
 
@@ -105,7 +109,7 @@ def write_post_to_file(post, index):
         f.writelines(flat_content)
 
 
-posts = parse_journal(full_file)
+posts = parse_journal(FULL_FILE)
 for i, post in enumerate(posts):
     write_post_to_file(post, i)
 
