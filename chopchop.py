@@ -37,8 +37,6 @@ print(f"PATH: {PATH}")
 print(f"REPO: {REPO}")
 print(f"FILE: {FILE}")
 
-raise SystemExit(0)
-
 # Define Constants
 SUMMARY_LENGTH = 350
 PARSE_TOKEN = "\n" + "-"*80 + "\n"
