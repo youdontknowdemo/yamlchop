@@ -56,6 +56,7 @@ def parse_journal(FULL_FILE):
 
 
 def write_post_to_file(post, index):
+    """Write a post to a file."""
     lines = post.strip().split('\n')
 
     # Set up per-post variables
@@ -113,6 +114,7 @@ def write_post_to_file(post, index):
 
     # Combine top matter and content
     if summary:
+        summary = " ".join(summary.splitlines())
         top_matter.append(f"description: {summary.strip()}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {author}")
@@ -122,16 +124,15 @@ def write_post_to_file(post, index):
     top_matter.extend(content)
     content = top_matter
 
-    print(full_path)
+    # Write to file
+    print(index, full_path)
     with open(full_path, 'w') as f:
         flat_content = "\n".join(content)
         f.writelines(flat_content)
 
 
 def chunk_text(text, chunk_size=4000):
-    """
-    Chunk a long text into smaller segments of 4000 characters or less.
-    """
+    """Split a text into chunks of a given size."""
     chunks = []
     start_idx = 0
     while start_idx < len(text):
@@ -145,16 +146,9 @@ def chunk_text(text, chunk_size=4000):
 
 
 def summarize(text):
-    """
-    Summarize a long text using OpenAI's GPT-3 API.
-    """
-    # Chunk the text into smaller segments
+    """Summarize a text using OpenAI's API."""
     chunks = chunk_text(text, chunk_size=4000)
-
-    # Initialize the summarized text
     summarized_text = ""
-
-    # Loop over each chunk and summarize it using OpenAI
     for chunk in chunks:
         response = openai.Completion.create(
             engine="text-davinci-002",
@@ -166,14 +160,14 @@ def summarize(text):
             stop=None
         )
         summary = response.choices[0].text.strip()
-        summarized_text += summary + "\n"
-
+        summarized_text += summary
+        summarized_text = " ".join(summarized_text.splitlines())
     return summarized_text.strip()
 
 
 posts = parse_journal(FULL_FILE)
 for i, post in enumerate(posts):
     write_post_to_file(post, i)
-    if i > 5:
-        raise SystemExit()
+    # if i > 50:
+    #     raise SystemExit()
 
