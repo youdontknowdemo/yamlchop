@@ -6,7 +6,7 @@ from slugify import slugify
 from collections import Counter
 from dumbquotes import dumbquote
 
-# Parse arguments from command-line
+# Define command line arguments
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
 add_arg("-p", "--path", required=True)
@@ -14,8 +14,9 @@ add_arg("-t", "--title", required=True)
 add_arg("-s", "--slug", required=True)
 add_arg("-a", "--author", required=True)
 add_arg("-v", "--verbose", required=False, default=False)
-args = aparser.parse_args()
 
+# Parse command line arguments
+args = aparser.parse_args()
 folder_name = args.path
 blog_title = args.title
 blog_slug = args.slug
