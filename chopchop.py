@@ -53,7 +53,7 @@ for f in os.listdir(OUTPUT_PATH):
     os.remove(f"{OUTPUT_PATH}/{f}")
 
 # Get OpenAI API key
-with open ("openai.txt") as fh:
+with open("openai.txt") as fh:
     openai.api_key = fh.readline()
 
 
@@ -62,18 +62,19 @@ def parse_journal(FULL_PATH):
     with open(FULL_PATH, "r") as fh:
         print(f"Reading {FULL_PATH}")
         post_str = fh.read()
-        pattern = r'-{78,82}\s*\n'
+        pattern = r"-{78,82}\s*\n"
         posts = re.split(pattern, post_str)
+        posts.reverse()  # Reverse so article indexes don't change.
         for post in posts:
             yield post
 
 
 def write_post_to_file(post, index):
     """Write a post to a file. Returns a markdown link to the post."""
-    lines = post.strip().split('\n')
+    lines = post.strip().split("\n")
 
     # Set up per-post variables
-    date_str = None
+    date_str, slug = None, None
     top_matter = ["---"]
     content = []
     in_content = False
@@ -118,13 +119,13 @@ def write_post_to_file(post, index):
 
     # Hit OpenAI to get summary and keywords
     summary = None
-    with sqldict(REPO_DATA + "descriptions.db") as db:
-        if index not in db:
+    with sqldict(REPO_DATA + "long-descriptions.db") as db:
+        if slug not in db:
             summary = summarize(post)
-            db[index] = summary
+            db[slug] = summary
             db.commit()
         else:
-            summary = db[index]
+            summary = db[slug]
 
     # Combine top matter and content
     if summary:
@@ -141,19 +142,18 @@ def write_post_to_file(post, index):
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
-    top_matter.append("")
     top_matter.extend(content)
     content = top_matter
 
     # Write to file
     print(index, full_path)
-    with open(full_path, 'w') as f:
+    with open(full_path, "w") as f:
         flat_content = "\n".join(content)
         f.writelines(flat_content)
 
     us_date = date_str.strftime("%m/%d/%Y")
     if summary and len(summary) > SUMMARY_LENGTH:
-            summary = summary[:SUMMARY_LENGTH] + "..."
+        summary = summary[:SUMMARY_LENGTH] + "..."
     link = f"- [{title}](/{BLOG}/{slug}/) {us_date}<br/>\n  {summary}"
     return link
 
@@ -180,12 +180,11 @@ def summarize(text):
     for chunk in chunks:
         response = openai.Completion.create(
             engine="text-davinci-002",
-            prompt=(f"Please summarize the following text:\n{chunk}\n\n"
-                    "Summary:"),
+            prompt=(f"Please summarize the following text:\n{chunk}\n\n" "Summary:"),
             temperature=0.5,
             max_tokens=100,
-            n = 1,
-            stop=None
+            n=1,
+            stop=None,
         )
         summary = response.choices[0].text.strip()
         summarized_text += summary
@@ -197,7 +196,7 @@ def summarize(text):
 posts = parse_journal(FULL_PATH)
 links = []
 for i, post in enumerate(posts):
-    link = write_post_to_file(post, i)
+    link = write_post_to_file(post, i - 1)
     if link:
         links.append(link)
 
