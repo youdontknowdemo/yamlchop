@@ -40,7 +40,6 @@ else:
     apex = args.apex
 
 
-
 def fig(text, font="Standard"):
     if is_jupyter:
         text_br = text2art(text, font=font).replace(lr, "<br/>")

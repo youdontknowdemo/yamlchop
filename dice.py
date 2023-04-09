@@ -15,7 +15,7 @@ file = f"/home/ubuntu/repos/hide/{myloc}/{journal}"
 
 
 def split_file(filename):
-    delimiter = 80 * '-'
+    delimiter = 80 * "-"
     with open(filename) as f:
         chunk = []
         for line in f:
@@ -28,9 +28,7 @@ def split_file(filename):
 
 
 for i, chunk in enumerate(split_file(file)):
-    with open(f'/home/ubuntu/repos/hide/{myloc}/files/file_{i}.txt', 'w') as f:
+    with open(f"/home/ubuntu/repos/hide/{myloc}/files/file_{i}.txt", "w") as f:
         f.writelines(chunk)
 
 print("Done")
-
-

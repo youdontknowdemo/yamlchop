@@ -1,5 +1,7 @@
 import os
 import re
+import sys
+import shlex
 import openai
 import slugify
 import datetime
@@ -8,6 +10,7 @@ from retry import retry
 from pathlib import Path
 from slugify import slugify
 from dateutil import parser
+from subprocess import Popen, PIPE
 from sqlitedict import SqliteDict as sqldict
 
 
@@ -39,8 +42,8 @@ print(f"FILE: {FILE}")
 
 # Define Constants
 SUMMARY_LENGTH = 350
+GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
-
 REPO_DATA = f"{PATH}{REPO}_data/"
 print(f"Processing {FULL_PATH}")
 
@@ -53,7 +56,7 @@ for f in os.listdir(OUTPUT_PATH):
     os.remove(f"{OUTPUT_PATH}/{f}")
 
 # Get OpenAI API key
-with open("openai.txt") as fh:
+with open("/home/ubuntu/repos/skite/openai.txt") as fh:
     openai.api_key = fh.readline()
 
 
@@ -154,7 +157,7 @@ def write_post_to_file(post, index):
     us_date = date_str.strftime("%m/%d/%Y")
     if summary and len(summary) > SUMMARY_LENGTH:
         summary = summary[:SUMMARY_LENGTH] + "..."
-    link = f"- [{title}](/{BLOG}/{slug}/) {us_date}<br/>\n  {summary}"
+    link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {summary}"
     return link
 
 
@@ -192,15 +195,50 @@ def summarize(text):
     return summarized_text.strip()
 
 
+def git(cwd, line_command):
+    """Run a Linux git command."""
+    cmd = [GIT_EXE] + shlex.split(line_command)
+    print(f"COMMAND: <<{shlex.join(cmd)}>>")
+    process = Popen(
+        args=cmd,
+        cwd=cwd,
+        stdout=PIPE,
+        stderr=PIPE,
+        shell=False,
+        bufsize=1,
+        universal_newlines=True,
+    )
+    flush(process.stdout)
+    flush(process.stderr)
+
+
+def flush(std):
+    """Flush a stream."""
+    for line in std:
+        line = line.strip()
+        if line:
+            print(line)
+            sys.stdout.flush()
+
+
 # Parse the journal file
 posts = parse_journal(FULL_PATH)
 links = []
 for i, post in enumerate(posts):
     link = write_post_to_file(post, i - 1)
     if link:
-        links.append(link)
+        links.insert(0, link)
 
 # Write index page
 index_page = "\n".join(links)
 with open(f"{PATH}{REPO}_includes/posts-main.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
+
+here = f"{PATH}{REPO}"
+
+# Git commands
+git(here, "add _posts/*")
+git(here, "add _includes/*")
+git(here, "add assets/images/*")
+git(here, f'commit -am "Pushing {REPO} to Github..."')
+git(here, "push")
