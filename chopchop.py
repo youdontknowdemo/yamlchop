@@ -4,6 +4,7 @@ import openai
 import slugify
 import datetime
 import argparse
+from retry import retry
 from pathlib import Path
 from slugify import slugify
 from dateutil import parser
@@ -145,6 +146,7 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
+@retry(Exception, delay=1, backoff=2, max_delay=60)
 def summarize(text):
     """Summarize a text using OpenAI's API."""
     chunks = chunk_text(text, chunk_size=4000)
