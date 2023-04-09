@@ -132,15 +132,15 @@ def write_post_to_file(post, index):
 
     # Combine top matter and content
     if summary:
-        # Summary needs a lot of cleanup
-        summary = " ".join(summary.splitlines()).strip()
-        # If a period doesn't have a space after it, add one
-        summary = re.sub(r"(\.)(\w)", r"\1 \2", summary)
-        # If a summary starts with a dash, remove it
-        if summary[:2] == "- ":
-            summary = summary[2:]
-        # If a summary contains double quotes, replace with single quotes
+        # Strip numbered markdown lists from summary
+        summary = re.sub(r"\d+\.\s", "", summary)
+        # Strip asterisk or hyphen markdown lists from summary
+        summary = re.sub(r"[\*\-]\s", "", summary)
+        # Replace double quotes with single quotes
         summary.replace('"', "'")
+        # If a period doesn't have a space after it, add one
+        summary = re.sub(r"\.(\w)", r". \1", summary)
+        # Add to top matter
         top_matter.append(f"description: {summary}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
@@ -155,10 +155,18 @@ def write_post_to_file(post, index):
         f.writelines(flat_content)
 
     us_date = date_str.strftime("%m/%d/%Y")
-    if summary and len(summary) > SUMMARY_LENGTH:
-        summary = summary[:SUMMARY_LENGTH] + "..."
+    summary = trun(summary)
     link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {summary}"
     return link
+
+
+def trun(text):
+    """Truncate a string to a given length, but not in the middle of a word."""
+    if len(text) <= SUMMARY_LENGTH:
+        return text
+    else:
+        return text[: SUMMARY_LENGTH - 1].rsplit(" ", 1)[0] + "..."
+    return text
 
 
 def chunk_text(text, chunk_size=4000):
