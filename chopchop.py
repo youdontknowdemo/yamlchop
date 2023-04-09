@@ -132,15 +132,7 @@ def write_post_to_file(post, index):
 
     # Combine top matter and content
     if summary:
-        # Strip numbered markdown lists from summary
-        summary = re.sub(r"\d+\.\s", "", summary)
-        # Strip asterisk or hyphen markdown lists from summary
-        summary = re.sub(r"[\*\-]\s", "", summary)
-        # Replace double quotes with single quotes
-        summary.replace('"', "'")
-        # If a period doesn't have a space after it, add one
-        summary = re.sub(r"\.(\w)", r". \1", summary)
-        # Add to top matter
+        summary = summary_to_excerpt(summary)
         top_matter.append(f"description: {summary}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
@@ -158,6 +150,22 @@ def write_post_to_file(post, index):
     summary = trun(summary)
     link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {summary}"
     return link
+
+
+def summary_to_excerpt(summary):
+    """Clean up a summary for use as an excerpt."""
+    # Strip numbered markdown lists from summary
+    summary = re.sub(r"\d+\.\s", "", summary)
+    # Strip asterisk or hyphen markdown lists from summary
+    summary = re.sub(r"[\*\-]\s", "", summary)
+    # Replace double quotes with single quotes
+    summary.replace('"', "'")
+    # Flatten wrapped lines
+    summary = " ".join(summary.split("\n"))
+    # If a period doesn't have a space after it, add one
+    summary = re.sub(r"\.(\w)", r". \1", summary)
+
+    return summary
 
 
 def trun(text):
