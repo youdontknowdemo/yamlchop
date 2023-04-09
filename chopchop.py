@@ -39,7 +39,6 @@ print(f"FILE: {FILE}")
 
 # Define Constants
 SUMMARY_LENGTH = 350
-PARSE_TOKEN = "\n" + "-"*80 + "\n"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 
 REPO_DATA = f"{PATH}{REPO}_data/"
@@ -60,9 +59,11 @@ with open ("openai.txt") as fh:
 
 def parse_journal(FULL_PATH):
     """Parse a journal file into posts. Returns a generator of posts."""
-    with open(FULL_PATH, "r") as f:
-        post_str = f.read()
-        posts = post_str.split(PARSE_TOKEN)
+    with open(FULL_PATH, "r") as fh:
+        print(f"Reading {FULL_PATH}")
+        post_str = fh.read()
+        pattern = r'-{78,82}\s*\n'
+        posts = re.split(pattern, post_str)
         for post in posts:
             yield post
 
@@ -150,10 +151,10 @@ def write_post_to_file(post, index):
         flat_content = "\n".join(content)
         f.writelines(flat_content)
 
-    fdate = date_str.strftime("%m/%d/%Y")
-    if len(summary) > SUMMARY_LENGTH:
-        summary = summary[:SUMMARY_LENGTH] + "..."
-    link = f"- [{title}](/{BLOG}/{slug}/) {fdate}<br/>\n  {summary}"
+    us_date = date_str.strftime("%m/%d/%Y")
+    if summary and len(summary) > SUMMARY_LENGTH:
+            summary = summary[:SUMMARY_LENGTH] + "..."
+    link = f"- [{title}](/{BLOG}/{slug}/) {us_date}<br/>\n  {summary}"
     return link
 
 
