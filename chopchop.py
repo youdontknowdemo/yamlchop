@@ -31,6 +31,7 @@ blog = args.blog
 path = args.path
 
 # Define Constants
+SUMMARY_LENGTH = 350
 PARSE_TOKEN = "\n" + "-"*80 + "\n"
 OUTPUT_PATH = f"{path}{repo}/{output}"
 FULL_FILE = f"{path}{repo}/{file}"
@@ -119,8 +120,16 @@ def write_post_to_file(post, index):
 
     # Combine top matter and content
     if summary:
-        summary = " ".join(summary.splitlines())
-        top_matter.append(f"description: {summary.strip()}")
+        # Summary needs a lot of cleanup
+        summary = " ".join(summary.splitlines()).strip()
+        # If a period doesn't have a space after it, add one
+        summary = re.sub(r"(\.)(\w)", r"\1 \2", summary)
+        # If a summary starts with a dash, remove it
+        if summary[:2] == "- ":
+            summary = summary[2:]
+        # If a summary contains double quotes, replace with single quotes
+        summary.replace('"', "'")
+        top_matter.append(f"description: {summary}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {author}")
     top_matter.append("---")
@@ -134,7 +143,10 @@ def write_post_to_file(post, index):
         flat_content = "\n".join(content)
         f.writelines(flat_content)
 
-    link = f"- [{title}](/{blog}/{slug}/) {date_str}\n  {summary[:200]}"
+    fdate = date_str.strftime("%m/%d/%Y")
+    if len(summary) > SUMMARY_LENGTH:
+        summary = summary[:SUMMARY_LENGTH] + "..."
+    link = f"- [{title}](/{blog}/{slug}/) {fdate}<br/>\n  {summary}"
     return link
 
 
