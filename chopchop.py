@@ -129,11 +129,8 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             summary = db[slug]
-
-    # Combine top matter and content
-    if summary:
-        summary = summary_to_excerpt(summary)
-        top_matter.append(f"description: {summary}")
+        meta_description = write_meta(summary, slug)
+    top_matter.append(f"description: {meta_description}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
@@ -147,7 +144,7 @@ def write_post_to_file(post, index):
         f.writelines(flat_content)
 
     us_date = date_str.strftime("%m/%d/%Y")
-    summary = trun(summary)
+    summary = trunc(summary)
     link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {summary}"
     return link
 
@@ -164,11 +161,10 @@ def summary_to_excerpt(summary):
     summary = " ".join(summary.split("\n"))
     # If a period doesn't have a space after it, add one
     summary = re.sub(r"\.(\w)", r". \1", summary)
-
     return summary
 
 
-def trun(text):
+def trunc(text):
     """Truncate a string to a given length, but not in the middle of a word."""
     if len(text) <= SUMMARY_LENGTH:
         return text
@@ -189,6 +185,28 @@ def chunk_text(text, chunk_size=4000):
         chunks.append(chunk)
         start_idx = end_idx
     return chunks
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def write_meta(data, key):
+    """Write a meta description for a post."""
+    with sqldict(REPO_DATA + "descriptions.db") as db2:
+        if key in db2:
+            rv = db2[key]
+        else:
+            response = openai.Completion.create(
+                engine="text-davinci-002",
+                prompt=(f"Please write a meta description for the following text:\n{data}\n\n" "Summary:"),
+                temperature=0.5,
+                max_tokens=100,
+                n=1,
+                stop=None,
+            )
+            meta_description = response.choices[0].text.strip()
+            db2[key] = meta_description
+            db2.commit()
+            rv = meta_description
+    return rv
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
