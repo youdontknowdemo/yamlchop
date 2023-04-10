@@ -41,7 +41,7 @@ print(f"REPO: {REPO}")
 print(f"FILE: {FILE}")
 
 # Define Constants
-SUMMARY_LENGTH = 350
+SUMMARY_LENGTH = 500
 GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
@@ -145,7 +145,7 @@ def write_post_to_file(post, index):
 
     us_date = date_str.strftime("%m/%d/%Y")
     summary = trunc(summary)
-    link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {summary}"
+    link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {meta_description}"
     return link
 
 
