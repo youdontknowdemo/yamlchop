@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import html
 import shlex
 import openai
 import slugify
@@ -59,6 +60,10 @@ for f in os.listdir(OUTPUT_PATH):
 # Get OpenAI API key
 with open("/home/ubuntu/repos/skite/openai.txt") as fh:
     openai.api_key = fh.readline()
+
+
+def neutralize_html(string):
+    return html.escape(string)
 
 
 def parse_journal(FULL_PATH):
@@ -152,9 +157,9 @@ def write_post_to_file(post, index):
         f.writelines(flat_content)
 
     us_date = date_str.strftime("%m/%d/%Y")
-    summary = trunc(summary)
+    meta_description = neutralize_html(meta_description)
     # link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {meta_description}"
-    link = f'<li><a href="/{BLOG}/{slug}/">{title} ({us_date})<br/>\n{meta_description}</li>'
+    link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
     return link
 
 
