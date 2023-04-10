@@ -143,6 +143,7 @@ def write_post_to_file(post, index):
         else:
             meta_description = db[slug]
     meta_description = scrub_excerpt(meta_description)
+    meta_description = neutralize_html(meta_description)
     top_matter.append(f"description: {meta_description}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
@@ -275,7 +276,7 @@ for i, post in enumerate(posts):
 
 # Add countdown ordered list to index page
 links.insert(0, f'<ol start="{len(links)}" reversed>')
-links.append("</ol>")
+links.append("\n</ ol>\n")
 # Write index page
 index_page = "\n".join(links)
 with open(f"{PATH}{REPO}_includes/post-index.html", "w", encoding="utf-8") as fh:
