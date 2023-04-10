@@ -128,7 +128,7 @@ def write_post_to_file(post, index):
 
     # Hit OpenAI to get summary and keywords
     summary = None
-    with sqldict(REPO_DATA + "long-descriptions.db") as db:
+    with sqldict(REPO_DATA + "summaries.db") as db:
         if slug not in db:
             summary = summarize(post)
             db[slug] = summary
@@ -157,7 +157,7 @@ def write_post_to_file(post, index):
         f.writelines(flat_content)
 
     us_date = date_str.strftime("%m/%d/%Y")
-    meta_description = neutralize_html(meta_description)
+    
     # link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {meta_description}"
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
     return link
