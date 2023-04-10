@@ -53,7 +53,8 @@ Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 
 # Delete old files in output path
 for f in os.listdir(OUTPUT_PATH):
-    os.remove(f"{OUTPUT_PATH}/{f}")
+    delete_me = f"{OUTPUT_PATH}/{f}"
+    os.remove(delete_me)
 
 # Get OpenAI API key
 with open("/home/ubuntu/repos/skite/openai.txt") as fh:
@@ -129,7 +130,14 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             summary = db[slug]
-        meta_description = write_meta(summary, slug)
+    with sqldict(REPO_DATA + "descriptions.db") as db:
+        if slug not in db:
+            meta_description = write_meta(summary)
+            db[slug] = meta_description
+            db.commit()
+        else:
+            meta_description = db[slug]
+    meta_description = scrub_excerpt(meta_description)
     top_matter.append(f"description: {meta_description}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
@@ -145,23 +153,24 @@ def write_post_to_file(post, index):
 
     us_date = date_str.strftime("%m/%d/%Y")
     summary = trunc(summary)
-    link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {meta_description}"
+    # link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {meta_description}"
+    link = f'<li><a href="/{BLOG}/{slug}/">{title} ({us_date})<br/>\n{meta_description}</li>'
     return link
 
 
-def summary_to_excerpt(summary):
-    """Clean up a summary for use as an excerpt."""
-    # Strip numbered markdown lists from summary
-    summary = re.sub(r"\d+\.\s", "", summary)
-    # Strip asterisk or hyphen markdown lists from summary
-    summary = re.sub(r"[\*\-]\s", "", summary)
+def scrub_excerpt(text):
+    """Clean up a text for use as an excerpt."""
+    # Strip numbered markdown lists from text
+    text = re.sub(r"\d+\.\s", "", text)
+    # Strip asterisk or hyphen markdown lists from text
+    text = re.sub(r"[\*\-]\s", "", text)
     # Replace double quotes with single quotes
-    summary.replace('"', "'")
+    text.replace('"', "'")
     # Flatten wrapped lines
-    summary = " ".join(summary.split("\n"))
+    text = " ".join(text.split("\n"))
     # If a period doesn't have a space after it, add one
-    summary = re.sub(r"\.(\w)", r". \1", summary)
-    return summary
+    text = re.sub(r"\.(\w)", r". \1", text)
+    return text
 
 
 def trunc(text):
@@ -188,25 +197,21 @@ def chunk_text(text, chunk_size=4000):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_meta(data, key):
+def write_meta(data):
     """Write a meta description for a post."""
-    with sqldict(REPO_DATA + "descriptions.db") as db2:
-        if key in db2:
-            rv = db2[key]
-        else:
-            response = openai.Completion.create(
-                engine="text-davinci-002",
-                prompt=(f"Please write a meta description for the following text:\n{data}\n\n" "Summary:"),
-                temperature=0.5,
-                max_tokens=100,
-                n=1,
-                stop=None,
-            )
-            meta_description = response.choices[0].text.strip()
-            db2[key] = meta_description
-            db2.commit()
-            rv = meta_description
-    return rv
+    response = openai.Completion.create(
+        engine="text-davinci-002",
+        prompt=(
+            f"Please write a meta description for the following text:\n{data}\n\n"
+            "Summary:"
+        ),
+        temperature=0.5,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+    meta_description = response.choices[0].text.strip()
+    return meta_description
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
@@ -263,14 +268,16 @@ for i, post in enumerate(posts):
     if link:
         links.insert(0, link)
 
+# Add countdown ordered list to index page
+links.insert(0, f'<ol start="{len(links)}" reversed>')
+links.append("</ol>")
 # Write index page
 index_page = "\n".join(links)
-with open(f"{PATH}{REPO}_includes/posts-main.html", "w", encoding="utf-8") as fh:
+with open(f"{PATH}{REPO}_includes/post-index.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
 
-here = f"{PATH}{REPO}"
-
 # Git commands
+here = f"{PATH}{REPO}"
 git(here, "add _posts/*")
 git(here, "add _includes/*")
 git(here, "add assets/images/*")
