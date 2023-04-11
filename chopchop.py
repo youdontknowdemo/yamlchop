@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import html
+import yake
 import shlex
 import openai
 import slugify
@@ -142,9 +143,22 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             meta_description = db[slug]
+    with sqldict(REPO_DATA + "keywords.db") as db:
+        if slug not in db:
+            full_text = f"{title} {summary} {meta_description}"
+            keywords = yake.KeywordExtractor().extract_keywords(full_text)
+            db[slug] = keywords
+            db.commit()
+        else:
+            keywords = db[slug]
+
+    keywords = [x[0].lower() for x in keywords]
+    keywords = dehyphen_and_dedupe(keywords)
+
     meta_description = scrub_excerpt(meta_description)
     meta_description = neutralize_html(meta_description)
     top_matter.append(f"description: {meta_description}")
+    top_matter.append(f"keywords: {keywords}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
@@ -162,6 +176,16 @@ def write_post_to_file(post, index):
     # link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {meta_description}"
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
     return link
+
+
+def dehyphen_and_dedupe(keywords):
+    """Preserves order of keywords, but removes duplicates and hyphens"""
+    keywords = [x.replace("-", " ") for x in keywords]
+    seen = set()
+    # A fascinating way to add to a set within a list comprehension
+    seen_add = seen.add
+    keywords = [x for x in keywords if not (x in seen or seen_add(x))]
+    return ", ".join(keywords)
 
 
 def scrub_excerpt(text):
@@ -276,7 +300,7 @@ for i, post in enumerate(posts):
 
 # Add countdown ordered list to index page
 links.insert(0, f'<ol start="{len(links)}" reversed>')
-links.append("\n</ ol>\n")
+links.append("</ol>")
 # Write index page
 index_page = "\n".join(links)
 with open(f"{PATH}{REPO}_includes/post-index.html", "w", encoding="utf-8") as fh:
