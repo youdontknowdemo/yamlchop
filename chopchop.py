@@ -16,6 +16,8 @@ from subprocess import Popen, PIPE
 from sqlitedict import SqliteDict as sqldict
 
 
+disable_git = True
+
 # Define command line arguments
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
@@ -151,6 +153,11 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             keywords = db[slug]
+    with sqldict(REPO_DATA + "topics.db") as db:
+        if slug not in db:
+            topic = None
+        else:
+            topic = db[slug]
 
     keywords = [x[0].lower() for x in keywords]
     keywords = dehyphen_and_dedupe(keywords)
@@ -159,6 +166,7 @@ def write_post_to_file(post, index):
     meta_description = neutralize_html(meta_description)
     top_matter.append(f"description: {meta_description}")
     top_matter.append(f"keywords: {keywords}")
+    top_matter.append(f"category: {topic}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
@@ -298,6 +306,7 @@ for i, post in enumerate(posts):
     if link:
         links.insert(0, link)
 
+
 # Add countdown ordered list to index page
 links.insert(0, f'<ol start="{len(links)}" reversed>')
 links.append("</ol>")
@@ -306,10 +315,11 @@ index_page = "\n".join(links)
 with open(f"{PATH}{REPO}_includes/post-index.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
 
-# Git commands
-here = f"{PATH}{REPO}"
-git(here, "add _posts/*")
-git(here, "add _includes/*")
-git(here, "add assets/images/*")
-git(here, f'commit -am "Pushing {REPO} to Github..."')
-git(here, "push")
+if not disable_git:
+    # Git commands
+    here = f"{PATH}{REPO}"
+    git(here, "add _posts/*")
+    git(here, "add _includes/*")
+    git(here, "add assets/images/*")
+    git(here, f'commit -am "Pushing {REPO} to Github..."')
+    git(here, "push")
