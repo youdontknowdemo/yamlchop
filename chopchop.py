@@ -8,15 +8,26 @@ import openai
 import slugify
 import datetime
 import argparse
+import pandas as pd
 from retry import retry
 from pathlib import Path
 from slugify import slugify
 from dateutil import parser
+from sklearn.cluster import KMeans
 from subprocess import Popen, PIPE
 from sqlitedict import SqliteDict as sqldict
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 disable_git = True
+
+# Topic Clustering
+number_of_clusters = 10
+random_seed = 2
+
+# Set pandas options to display all columns and rows
+pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
 
 # Define command line arguments
 aparser = argparse.ArgumentParser()
@@ -298,6 +309,163 @@ def flush(std):
             sys.stdout.flush()
 
 
+
+
+
+
+
+
+
+def shortest(keywords):
+    """Return the longest common sequence of words in a list of keywords"""
+    keywords = [x.split(" ") for x in keywords]
+
+    shortest = min(keywords, key=lambda x: len(x))
+
+    for i, word in enumerate(shortest):
+        if not all([word in x for x in keywords]):
+            rv = shortest[:i]
+    if len(shortest) > 1:
+        rv = " ".join(shortest)
+    elif len(shortest) == 1:
+        rv = shortest[0]
+    else:
+        rv = keywords[0]
+    return rv
+
+
+def get_winning_keywords(keywords):
+    """Return a list of the winning keywords. Winning keywords are those that
+    are longer and whose stem words have the highest frequency."""
+
+    keywords = sorted(keywords, key=lambda x: len(x[0]), reverse=True)
+    # Get the stem words
+    stems = [x[0].split(" ")[0] for x in keywords]
+    # Get the frequency of each stem word
+    stem_freq = {x: stems.count(x) for x in stems}
+    # Get the winning stem words
+    winning_stems = [x for x in stem_freq if stem_freq[x] == max(stem_freq.values())]
+    # Get the winning keywords
+    winning_keywords = [x for x in keywords if x[0].split(" ")[0] in winning_stems]
+    # Return those with the highest frequency but favor 2-word keywords
+    winning_keywords = sorted(
+        winning_keywords, key=lambda x: x[1] * (len(x[0].split(" ")) + 1), reverse=True
+    )
+    return winning_keywords[:5]
+
+
+def cluster_test(n, r):
+    
+    filter_us = [
+        ".",
+        "encourages",
+        "readers",
+        "called",
+        "things",
+        "general",
+        "order",
+        "offer",
+        "has made",
+        "process",
+        "generated",
+        "including",
+        "blog",
+        "importance",
+        "important",
+        "person",
+        "people",
+        "discussing",
+        "discusses",
+        "describes",
+        "author",
+        "suggests",
+        "talks",
+        "argues",
+        "reflects",
+    ]
+    table = []
+    with sqldict(REPO_DATA + "keywords.db") as db:
+        for key, keywords in db.iteritems():
+            keywords = [x[0] for x in keywords]
+            keywords = dehyphen_and_dedupe(keywords)
+            table.append((key, keywords))
+
+    df = pd.DataFrame(table, columns=["title", "keywords"])
+
+    # Extract the keywords and create a matrix
+    vectorizer = TfidfVectorizer(stop_words="english")
+    X = vectorizer.fit_transform([", ".join(x) for x in df["keywords"]])
+
+    # Apply KMeans clustering with 10 clusters
+    kmeans = KMeans(n_clusters=n, n_init="auto", random_state=r)
+    kmeans.fit(X)
+
+    # Assign each article to its cluster
+    df["cluster"] = kmeans.labels_
+    df_grouped = df.groupby("cluster")
+
+    cluster_dict = {}
+    for i, dfc_tuple in enumerate(df_grouped):
+        key, dfc = dfc_tuple
+        dfx = dfc.explode("keywords")
+        top_picks = list(
+            dfx[["keywords", "cluster"]]
+            .groupby("keywords")
+            .count()
+            .sort_values("cluster", ascending=False)
+            .to_records()
+        )
+        top_pics = [x for x in top_picks if x[1] > 3]
+        top_picks = [x for x in top_picks if len(x[0].split(" ")) > 1]
+        top_picks = [x for x in top_picks if not any([y in x[0] for y in filter_us])]
+        top_picks = get_winning_keywords(top_picks)
+        top_picks = [x[0] for x in top_picks][0]
+        cluster_dict[key] = top_picks
+    return df, cluster_dict
+
+
+def dehyphen_and_dedupe(keywords):
+    """Preserves order of keywords, but removes duplicates and hyphens"""
+    keywords = [x.replace("-", " ") for x in keywords]
+    seen = set()
+    # A fascinating way to add to a set within a list comprehension
+    seen_add = seen.add
+    keywords = [x.lower() for x in keywords if not (x in seen or seen_add(x))]
+    return keywords
+
+
+def get_topics(n, r):
+    df, cluster_dict = cluster_test(n, r)
+    # cluster_dict = {x: cluster_dict[x][0] for x in cluster_dict}
+    cluster_dict = {x: cluster_dict[x] for x in cluster_dict}
+    return df, cluster_dict
+
+
+def cluster_topics():
+
+    df, topics = get_topics(number_of_clusters, random_seed)
+    topic_dict = {}
+    for key in topics:
+        topic = topics[key]
+        word = shortest(topics[key])
+        topic_dict[key] = word
+        print(key, word)
+
+    # Add a column to df that contains the topic by feeding the cluster number into the topics dict
+    df["topic"] = df["cluster"].apply(lambda x: topic_dict[x])
+    df = df[["title", "topic"]]
+
+    # Commit the dataframe to a database
+    with sqldict(REPO_DATA + "topics.db") as db:
+        for key, value in list(df.to_records(index=False)):
+            # print(key)
+            db[key] = value
+        db.commit()
+
+# Process Topics From Last Go-Round
+print("Processing Topics")
+df, cluster_dict = cluster_test(10, 2)
+
 # Parse the journal file
 posts = parse_journal(FULL_PATH)
 links = []
@@ -305,7 +473,6 @@ for i, post in enumerate(posts):
     link = write_post_to_file(post, i - 1)
     if link:
         links.insert(0, link)
-
 
 # Add countdown ordered list to index page
 links.insert(0, f'<ol start="{len(links)}" reversed>')
