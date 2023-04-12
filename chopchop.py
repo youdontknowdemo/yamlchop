@@ -20,9 +20,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 disable_git = True
+disable_git = False
 
 # Topic Clustering
-number_of_clusters = 10
+number_of_clusters = 12
 random_seed = 2
 
 # Set pandas options to display all columns and rows
@@ -309,26 +310,19 @@ def flush(std):
             sys.stdout.flush()
 
 
-
-
-
-
-
-
-
 def shortest(keywords):
     """Return the longest common sequence of words in a list of keywords"""
     keywords = [x.split(" ") for x in keywords]
 
-    shortest = min(keywords, key=lambda x: len(x))
+    short = min(keywords, key=lambda x: len(x))
 
-    for i, word in enumerate(shortest):
+    for i, word in enumerate(short):
         if not all([word in x for x in keywords]):
-            rv = shortest[:i]
-    if len(shortest) > 1:
-        rv = " ".join(shortest)
-    elif len(shortest) == 1:
-        rv = shortest[0]
+            rv = short[:i]
+    if len(short) > 1:
+        rv = " ".join(short)
+    elif len(short) == 1:
+        rv = short[0]
     else:
         rv = keywords[0]
     return rv
@@ -354,8 +348,17 @@ def get_winning_keywords(keywords):
     return winning_keywords[:5]
 
 
-def cluster_test(n, r):
-    
+def dehyphen_and_dedupe(keywords):
+    """Preserves order of keywords, but removes duplicates and hyphens"""
+    keywords = [x.replace("-", " ") for x in keywords]
+    seen = set()
+    # A fascinating way to add to a set within a list comprehension
+    seen_add = seen.add
+    keywords = [x.lower() for x in keywords if not (x in seen or seen_add(x))]
+    return keywords
+
+
+def cluster_topics(n, r):
     filter_us = [
         ".",
         "encourages",
@@ -422,39 +425,26 @@ def cluster_test(n, r):
         top_picks = [x[0] for x in top_picks]
         top_picks = shortest(top_picks)
         cluster_dict[key] = top_picks
-    return df, cluster_dict
 
-
-def dehyphen_and_dedupe(keywords):
-    """Preserves order of keywords, but removes duplicates and hyphens"""
-    keywords = [x.replace("-", " ") for x in keywords]
-    seen = set()
-    # A fascinating way to add to a set within a list comprehension
-    seen_add = seen.add
-    keywords = [x.lower() for x in keywords if not (x in seen or seen_add(x))]
-    return keywords
-
-
-def get_topics(n, r):
-    df, cluster_dict = cluster_test(n, r)
-    # cluster_dict = {x: cluster_dict[x][0] for x in cluster_dict}
-    cluster_dict = {x: cluster_dict[x] for x in cluster_dict}
-    return df, cluster_dict
-
-
-def cluster_topics():
-
-    df, topics = get_topics(number_of_clusters, random_seed)
+    # return df, cluster_dict
+    # df, topics = cluster_test(n, r)
+    topics = cluster_dict
     topic_dict = {}
     for key in topics:
         topic = topics[key]
-        word = shortest(topics[key])
+        word = topics[key]
         topic_dict[key] = word
         print(key, word)
+    print(topic_dict)
 
     # Add a column to df that contains the topic by feeding the cluster number into the topics dict
     df["topic"] = df["cluster"].apply(lambda x: topic_dict[x])
     df = df[["title", "topic"]]
+    print(df.head())
+
+    # Delete the old topics database
+    if os.path.exists(REPO_DATA + "topics.db"):
+        os.remove(REPO_DATA + "topics.db")
 
     # Commit the dataframe to a database
     with sqldict(REPO_DATA + "topics.db") as db:
@@ -463,9 +453,12 @@ def cluster_topics():
             db[key] = value
         db.commit()
 
+
 # Process Topics From Last Go-Round
 print("Processing Topics")
-df, cluster_dict = cluster_test(10, 2)
+cluster_topics(12, 2)
+print("Done Processing Topics")
+raise SystemExit()
 
 # Parse the journal file
 posts = parse_journal(FULL_PATH)
