@@ -419,7 +419,8 @@ def cluster_test(n, r):
         top_picks = [x for x in top_picks if len(x[0].split(" ")) > 1]
         top_picks = [x for x in top_picks if not any([y in x[0] for y in filter_us])]
         top_picks = get_winning_keywords(top_picks)
-        top_picks = [x[0] for x in top_picks][0]
+        top_picks = [x[0] for x in top_picks]
+        top_picks = shortest(top_picks)
         cluster_dict[key] = top_picks
     return df, cluster_dict
 
