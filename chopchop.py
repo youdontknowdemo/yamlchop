@@ -1,3 +1,7 @@
+# Author: Mike Levin
+# Date: 2023-04-11
+# Description: A script to convert a journal file into a blog.
+
 import os
 import re
 import sys
@@ -12,6 +16,7 @@ import pandas as pd
 from retry import retry
 from pathlib import Path
 from slugify import slugify
+from pyfiglet import Figlet
 from dateutil import parser
 from sklearn.cluster import KMeans
 from subprocess import Popen, PIPE
@@ -19,23 +24,31 @@ from sqlitedict import SqliteDict as sqldict
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
+def fig(text):
+    """Print a figlet."""
+    f = Figlet()
+    print(f.renderText(text))
+
+
+fig("ChopChop")
+
 disable_git = True
 disable_git = False
 
-# Topic Clustering
-number_of_clusters = 12
-random_seed = 2
-
-# Set pandas options to display all columns and rows
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", None)
+# Define constants
+AUTHOR = "Mike Levin"
+NUMBER_OF_CLUSTERS = 12
+RANDOM_SEED = 2
 
 # Define command line arguments
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
 
+# Example:
+# python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
+
 add_arg("-f", "--full_path", required=True)
-add_arg("-a", "--author", default="Mike Levin")
+add_arg("-a", "--author", default=AUTHOR)
 add_arg("-b", "--blog", default="blog")
 add_arg("-o", "--output", default="_posts")
 
@@ -51,9 +64,12 @@ parts = FULL_PATH.split("/")
 FILE = parts[-1]
 REPO = parts[-2] + "/"
 PATH = "/".join(parts[:-2]) + "/"
+
+# Print out constants
+fig(REPO)
+print(f"REPO: {REPO}")
 print(f"FULL_PATH: {FULL_PATH}")
 print(f"PATH: {PATH}")
-print(f"REPO: {REPO}")
 print(f"FILE: {FILE}")
 
 # Define Constants
@@ -61,7 +77,6 @@ SUMMARY_LENGTH = 500
 GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
-print(f"Processing {FULL_PATH}")
 
 # Create output path if it doesn't exist
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
@@ -143,7 +158,10 @@ def write_post_to_file(post, index):
 
     # Hit OpenAI to get summary and keywords
     summary = None
+    meta_description = None
+    keywords = None
     with sqldict(REPO_DATA + "summaries.db") as db:
+        # Check if we've already summarized this post
         if slug not in db:
             summary = summarize(post)
             db[slug] = summary
@@ -151,6 +169,7 @@ def write_post_to_file(post, index):
         else:
             summary = db[slug]
     with sqldict(REPO_DATA + "descriptions.db") as db:
+        # Check if we've already written a meta description
         if slug not in db:
             meta_description = write_meta(summary)
             db[slug] = meta_description
@@ -158,6 +177,7 @@ def write_post_to_file(post, index):
         else:
             meta_description = db[slug]
     with sqldict(REPO_DATA + "keywords.db") as db:
+        # Check if we've already extracted keywords
         if slug not in db:
             full_text = f"{title} {summary} {meta_description}"
             keywords = yake.KeywordExtractor().extract_keywords(full_text)
@@ -166,14 +186,15 @@ def write_post_to_file(post, index):
         else:
             keywords = db[slug]
     with sqldict(REPO_DATA + "topics.db") as db:
+        # Check if we've already assigned a topic (a.k.a, category)
         if slug not in db:
             topic = None
         else:
             topic = db[slug]
 
+    # Write top matter
     keywords = [x[0].lower() for x in keywords]
     keywords = dehyphen_and_dedupe(keywords)
-
     meta_description = scrub_excerpt(meta_description)
     meta_description = neutralize_html(meta_description)
     top_matter.append(f"description: {meta_description}")
@@ -188,12 +209,10 @@ def write_post_to_file(post, index):
     # Write to file
     print(index, full_path)
     with open(full_path, "w") as f:
+        # Flatten list of lines into a single string
         flat_content = "\n".join(content)
         f.writelines(flat_content)
-
     us_date = date_str.strftime("%m/%d/%Y")
-    
-    # link = f"- [{title}](/{BLOG}/{slug}/) ({us_date})<br/>\n  {meta_description}"
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
     return link
 
@@ -201,8 +220,8 @@ def write_post_to_file(post, index):
 def dehyphen_and_dedupe(keywords):
     """Preserves order of keywords, but removes duplicates and hyphens"""
     keywords = [x.replace("-", " ") for x in keywords]
-    seen = set()
     # A fascinating way to add to a set within a list comprehension
+    seen = set()
     seen_add = seen.add
     keywords = [x for x in keywords if not (x in seen or seen_add(x))]
     return ", ".join(keywords)
@@ -311,19 +330,24 @@ def flush(std):
 
 
 def shortest(keywords):
-    """Return the longest common sequence of words in a list of keywords"""
+    """Return the shortest common keyword."""
+    # Split keywords into lists of words
     keywords = [x.split(" ") for x in keywords]
-
+    # Get the shortest keyword
     short = min(keywords, key=lambda x: len(x))
-
     for i, word in enumerate(short):
+        # If any of the words in the shortest keyword are not in the other
         if not all([word in x for x in keywords]):
+            # Return the keyword up to that word
             rv = short[:i]
     if len(short) > 1:
+        # Join the words into a string
         rv = " ".join(short)
     elif len(short) == 1:
+        # If there's only one word, return it
         rv = short[0]
     else:
+        # If there are no words, return the first keyword
         rv = keywords[0]
     return rv
 
@@ -359,6 +383,9 @@ def dehyphen_and_dedupe(keywords):
 
 
 def cluster_topics(n, r):
+    """Cluster topics using k-means."""
+
+    # Filter out keywords that would be bad in topic labels
     filter_us = [
         ".",
         "encourages",
@@ -386,78 +413,84 @@ def cluster_topics(n, r):
         "argues",
         "reflects",
     ]
+
+    # Load the keywords from the database
     table = []
     with sqldict(REPO_DATA + "keywords.db") as db:
         for key, keywords in db.iteritems():
-            keywords = [x[0] for x in keywords]
+            keywords = [x[0] for x in keywords]  # Remove weights
             keywords = dehyphen_and_dedupe(keywords)
             table.append((key, keywords))
 
-    df = pd.DataFrame(table, columns=["title", "keywords"])
+    df = pd.DataFrame(table, columns=["slug", "keywords"])
 
     # Extract the keywords and create a matrix
     vectorizer = TfidfVectorizer(stop_words="english")
     X = vectorizer.fit_transform([", ".join(x) for x in df["keywords"]])
 
-    # Apply KMeans clustering with 10 clusters
+    # Apply KMeans clustering with n clusters
     kmeans = KMeans(n_clusters=n, n_init="auto", random_state=r)
     kmeans.fit(X)
 
     # Assign each article to its cluster
-    df["cluster"] = kmeans.labels_
-    df_grouped = df.groupby("cluster")
+    # kmeans.labels_ is a list of cluster ids
+    df["cluster_id"] = kmeans.labels_
 
+    # Group the articles by cluster
+    df_grouped = df.groupby("cluster_id")
+
+    # Get the top keywords for each cluster
     cluster_dict = {}
+    # Iterate over the clusters
     for i, dfc_tuple in enumerate(df_grouped):
-        key, dfc = dfc_tuple
+        # dfc_tuple is a tuple of (cluster_id, dfc)
+        cluster_id, dfc = dfc_tuple
+        # Explode the keywords into a new row for each keyword
         dfx = dfc.explode("keywords")
+        # Get the top keywords
         top_picks = list(
-            dfx[["keywords", "cluster"]]
+            dfx[["keywords", "cluster_id"]]
             .groupby("keywords")
             .count()
-            .sort_values("cluster", ascending=False)
+            .sort_values("cluster_id", ascending=False)
             .to_records()
         )
-        top_pics = [x for x in top_picks if x[1] > 3]
+        # Filter out keywords that appear in only one article
+        top_pics = [x for x in top_picks if x[1] > 2]
+        # Filter out single-word keywords
         top_picks = [x for x in top_picks if len(x[0].split(" ")) > 1]
+        # Filter out keywords that would be bad in topic labels
         top_picks = [x for x in top_picks if not any([y in x[0] for y in filter_us])]
+        # Filter out keywords that are too long
         top_picks = get_winning_keywords(top_picks)
+        # Get the longest common sequence of words
         top_picks = [x[0] for x in top_picks]
         top_picks = shortest(top_picks)
-        cluster_dict[key] = top_picks
+        # Add the top picks to the cluster_dict
+        cluster_dict[cluster_id] = top_picks
 
-    # return df, cluster_dict
-    # df, topics = cluster_test(n, r)
-    topics = cluster_dict
-    topic_dict = {}
-    for key in topics:
-        topic = topics[key]
-        word = topics[key]
-        topic_dict[key] = word
-        print(key, word)
-    print(topic_dict)
 
     # Add a column to df that contains the topic by feeding the cluster number into the topics dict
-    df["topic"] = df["cluster"].apply(lambda x: topic_dict[x])
-    df = df[["title", "topic"]]
-    print(df.head())
+    df["topic"] = df["cluster_id"].apply(lambda x: cluster_dict[x])
+    df = df[["slug", "topic"]]
+    for irec, record in enumerate(df.to_records(index=False)):
+        print(irec, record)
 
     # Delete the old topics database
     if os.path.exists(REPO_DATA + "topics.db"):
         os.remove(REPO_DATA + "topics.db")
 
-    # Commit the dataframe to a database
+    # While keeping cluster_id in sync with the right slugs, map slugs to topics
     with sqldict(REPO_DATA + "topics.db") as db:
         for key, value in list(df.to_records(index=False)):
-            # print(key)
             db[key] = value
         db.commit()
 
 
 # Process Topics From Last Go-Round
-print("Processing Topics")
-cluster_topics(12, 2)
-print("Done Processing Topics")
+fig("Topics")
+cluster_topics(NUMBER_OF_CLUSTERS, RANDOM_SEED)
+print("Done Topics")
 raise SystemExit()
 
 # Parse the journal file
