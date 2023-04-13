@@ -10,11 +10,11 @@
 
 # TODO: Add a way to add tags to posts
 
-#  ___         __ _               ____                _              _
-# |  _ \  ___ / _(_)_ __   ___   / ___|___  _ __  ___| |_ __ _ _ __ | |_ ___
-# | | | |/ _ \ |_| | '_ \ / _ \ | |   / _ \| '_ \/ __| __/ _` | '_ \| __/ __|
-# | |_| |  __/  _| | | | |  __/ | |__| (_) | | | \__ \ || (_| | | | | |_\__ \
-# |____/ \___|_| |_|_| |_|\___|  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
+#   ____                _              _
+#  / ___|___  _ __  ___| |_ __ _ _ __ | |_ ___
+# | |   / _ \| '_ \/ __| __/ _` | '_ \| __/ __|
+# | |__| (_) | | | \__ \ || (_| | | | | |_\__ \
+#  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
 
 # Define constants
 AUTHOR = "Mike Levin"
@@ -65,13 +65,14 @@ from sqlitedict import SqliteDict as sqldict
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
+# We load this function early
 def fig(text):
     """Print a figlet."""
     f = Figlet()
     print(f.renderText(text))
     sleep(0.5)
 
-
+# So we can do this
 fig("ChopChop")
 
 #  ____                          _
@@ -87,6 +88,11 @@ add_arg = aparser.add_argument
 
 # Example:
 # python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
+
+# Use in a vim or NeoVim macro from .vimrc or init.vim like this:
+# let @p = ":execute '!python ~/repos/skite/chopchop.py -f ' . expand('%:p')"
+# Or in interactive mode in NeoVim using it's :terminal command:
+# let @p = ":terminal 'python ~/repos/skite/chopchop.py -f ' .expand('%:p')"
 
 add_arg("-f", "--full_path", required=True)
 add_arg("-a", "--author", default=AUTHOR)
