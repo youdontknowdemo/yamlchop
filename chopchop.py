@@ -1,23 +1,64 @@
 # Author: Mike Levin
-# Date: 2023-04-11
+# Date: 2023-04-12
 # Description: A script to convert a journal file into a blog.
+#   ____ _                  ____ _
+#  / ___| |__   ___  _ __  / ___| |__   ___  _ __
+# | |   | '_ \ / _ \| '_ \| |   | '_ \ / _ \| '_ \
+# | |___| | | | (_) | |_) | |___| | | | (_) | |_) |
+#  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
+#                   |_|                     |_|
+
+# TODO: Add a way to add tags to posts
+
+#  ___         __ _               ____                _              _
+# |  _ \  ___ / _(_)_ __   ___   / ___|___  _ __  ___| |_ __ _ _ __ | |_ ___
+# | | | |/ _ \ |_| | '_ \ / _ \ | |   / _ \| '_ \/ __| __/ _` | '_ \| __/ __|
+# | |_| |  __/  _| | | | |  __/ | |__| (_) | | | \__ \ || (_| | | | | |_\__ \
+# |____/ \___|_| |_|_| |_|\___|  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
+
+# Define constants
+AUTHOR = "Mike Levin"
+SUMMARY_LENGTH = 500
+NUMBER_OF_CLUSTERS = 15
+RANDOM_SEED = 2
+
+# Default Mode
+INTERACTIVE = False
+DISABLE_GIT = False
+RE_EXTRACT_KEYWORDS = False
+
+# Debug Mode
+INTERACTIVE = True
+DISABLE_GIT = True
+# RE_EXTRACT_KEYWORDS = True
+
+#  ___                            _
+# |_ _|_ __ ___  _ __   ___  _ __| |_ ___
+#  | || '_ ` _ \| '_ \ / _ \| '__| __/ __|
+#  | || | | | | | |_) | (_) | |  | |_\__ \
+# |___|_| |_| |_| .__/ \___/|_|   \__|___/
+#               |_|
 
 import os
 import re
 import sys
 import html
 import yake
+import rich
 import shlex
 import openai
 import slugify
 import datetime
 import argparse
 import pandas as pd
+from time import sleep
 from retry import retry
 from pathlib import Path
 from slugify import slugify
 from pyfiglet import Figlet
 from dateutil import parser
+from rich.table import Table
+from rich.console import Console
 from sklearn.cluster import KMeans
 from subprocess import Popen, PIPE
 from sqlitedict import SqliteDict as sqldict
@@ -28,17 +69,17 @@ def fig(text):
     """Print a figlet."""
     f = Figlet()
     print(f.renderText(text))
+    sleep(0.5)
 
 
 fig("ChopChop")
 
-disable_git = True
-disable_git = False
-
-# Define constants
-AUTHOR = "Mike Levin"
-NUMBER_OF_CLUSTERS = 12
-RANDOM_SEED = 2
+#  ____                          _
+# |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___
+# | |_) / _` | '__/ __|/ _ \   / _ \ | '__/ _` / __|
+# |  __/ (_| | |  \__ \  __/  / ___ \| | | (_| \__ \
+# |_|   \__,_|_|  |___/\___| /_/   \_\_|  \__, |___/
+#                                         |___/
 
 # Define command line arguments
 aparser = argparse.ArgumentParser()
@@ -61,38 +102,35 @@ FULL_PATH = args.full_path
 
 # Parse full path into path, repo, and file
 parts = FULL_PATH.split("/")
-FILE = parts[-1]
 REPO = parts[-2] + "/"
+fig(REPO)  # Print the repo name
+FILE = parts[-1]
 PATH = "/".join(parts[:-2]) + "/"
+GIT_EXE = "/usr/bin/git"
+OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
+REPO_DATA = f"{PATH}{REPO}_data/"
 
 # Print out constants
-fig(REPO)
 print(f"REPO: {REPO}")
 print(f"FULL_PATH: {FULL_PATH}")
 print(f"PATH: {PATH}")
 print(f"FILE: {FILE}")
 
-# Define Constants
-SUMMARY_LENGTH = 500
-GIT_EXE = "/usr/bin/git"
-OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
-REPO_DATA = f"{PATH}{REPO}_data/"
+#  ____        __ _              _____                 _   _
+# |  _ \  ___ / _(_)_ __   ___  |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
+# | | | |/ _ \ |_| | '_ \ / _ \ | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
+# | |_| |  __/  _| | | | |  __/ |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
+# |____/ \___|_| |_|_| |_|\___| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
-# Create output path if it doesn't exist
-Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
-Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 
-# Delete old files in output path
-for f in os.listdir(OUTPUT_PATH):
-    delete_me = f"{OUTPUT_PATH}/{f}"
-    os.remove(delete_me)
-
-# Get OpenAI API key
-with open("/home/ubuntu/repos/skite/openai.txt") as fh:
-    openai.api_key = fh.readline()
+def get_keywords(text):
+    """Get keywords from text using YAKE."""
+    keywords = yake.KeywordExtractor().extract_keywords(text)
+    return keywords
 
 
 def neutralize_html(string):
+    """Replace HTML entities with their unicode equivalents."""
     return html.escape(string)
 
 
@@ -110,9 +148,9 @@ def parse_journal(FULL_PATH):
 
 def write_post_to_file(post, index):
     """Write a post to a file. Returns a markdown link to the post."""
-    lines = post.strip().split("\n")
 
-    # Set up per-post variables
+    # Parse the post into lines
+    lines = post.strip().split("\n")
     date_str, slug = None, None
     top_matter = ["---"]
     content = []
@@ -123,6 +161,7 @@ def write_post_to_file(post, index):
             # First line is always the date stamp.
             filename_date = None
             try:
+                # Try to parse the date
                 adate = line[2:]
                 date_str = parser.parse(adate).date()
                 top_matter.append(f"date: {date_str}")
@@ -153,17 +192,21 @@ def write_post_to_file(post, index):
             else:
                 # Top matter
                 pass
+    # Create the file name from the date and index
     file_name = f"{date_str}-post-{index:04}.md"
     full_path = f"{OUTPUT_PATH}/{file_name}"
 
-    # Hit OpenAI to get summary and keywords
+    # Initialize per-post variables
     summary = None
     meta_description = None
     keywords = None
+    topic = None
+
+    # We use OpenAI to write a summary and meta description
     with sqldict(REPO_DATA + "summaries.db") as db:
         # Check if we've already summarized this post
         if slug not in db:
-            summary = summarize(post)
+            summary = summarize(post)  # Hits OpenAI API
             db[slug] = summary
             db.commit()
         else:
@@ -171,7 +214,7 @@ def write_post_to_file(post, index):
     with sqldict(REPO_DATA + "descriptions.db") as db:
         # Check if we've already written a meta description
         if slug not in db:
-            meta_description = write_meta(summary)
+            meta_description = write_meta(summary)  # Hits OpenAI API
             db[slug] = meta_description
             db.commit()
         else:
@@ -179,12 +222,13 @@ def write_post_to_file(post, index):
     with sqldict(REPO_DATA + "keywords.db") as db:
         # Check if we've already extracted keywords
         if slug not in db:
-            full_text = f"{title} {summary} {meta_description}"
-            keywords = yake.KeywordExtractor().extract_keywords(full_text)
+            fig("Extracting keywords")
+            full_text = f"{title} {meta_description}"
+            keywords = extract_keywords(full_text)
             db[slug] = keywords
-            db.commit()
         else:
             keywords = db[slug]
+        db.commit()
     with sqldict(REPO_DATA + "topics.db") as db:
         # Check if we've already assigned a topic (a.k.a, category)
         if slug not in db:
@@ -244,6 +288,7 @@ def scrub_excerpt(text):
 
 def trunc(text):
     """Truncate a string to a given length, but not in the middle of a word."""
+    # Currently unused
     if len(text) <= SUMMARY_LENGTH:
         return text
     else:
@@ -382,9 +427,8 @@ def dehyphen_and_dedupe(keywords):
     return keywords
 
 
-def cluster_topics(n, r):
-    """Cluster topics using k-means."""
-
+def extract_keywords():
+    """Extract keywords from descriptions and titles."""
     # Filter out keywords that would be bad in topic labels
     filter_us = [
         ".",
@@ -414,7 +458,32 @@ def cluster_topics(n, r):
         "reflects",
     ]
 
+    with sqldict(REPO_DATA + "keywords.db") as db:
+        with sqldict(REPO_DATA + "descriptions.db") as db2:
+            for i, (slug, description) in enumerate(db2.iteritems()):
+                if slug not in db:
+                    print(f"{i}. Extracting keywords for {slug}")
+                    slug_keywords = slug.replace("-", " ")
+                    full_text = slug_keywords + " " + description
+                    keywords = get_keywords(full_text)
+                    keywords = [
+                        x for x in keywords if not any([y in x[0] for y in filter_us])
+                    ]
+                    db[slug] = keywords
+                    db.commit()
+
+
+def cluster_topics(n, r):
+    """Cluster topics using k-means."""
+
+    # Delete the old keywords database
+    if RE_EXTRACT_KEYWORDS and os.path.exists(REPO_DATA + "keywords.db"):
+        fig("Reset Keywords")
+        os.remove(REPO_DATA + "keywords.db")
+        extract_keywords()
+
     # Load the keywords from the database
+    fig("Load Keywords")
     table = []
     with sqldict(REPO_DATA + "keywords.db") as db:
         for key, keywords in db.iteritems():
@@ -424,17 +493,31 @@ def cluster_topics(n, r):
 
     df = pd.DataFrame(table, columns=["slug", "keywords"])
 
-    # Extract the keywords and create a matrix
+    # Remove keywords that would be bad in topic labels
     vectorizer = TfidfVectorizer(stop_words="english")
-    X = vectorizer.fit_transform([", ".join(x) for x in df["keywords"]])
+    # Create a string of keywords for each article
+    keyword_string = [", ".join(x) for x in df["keywords"]]
+    # Create a matrix of keywords
+    X = vectorizer.fit_transform(keyword_string)
 
     # Apply KMeans clustering with n clusters
     kmeans = KMeans(n_clusters=n, n_init="auto", random_state=r)
+    # Fit the model
     kmeans.fit(X)
 
-    # Assign each article to its cluster
-    # kmeans.labels_ is a list of cluster ids
+    # Once the model is fit, it has an internal attribute called labels_
+    # that contains the cluster id for each article.
+
+    # Assign each article to its cluster.
+    # kmeans.labels_ is a list of cluster ids.
+    # The reason that it maps to the articles is that the articles are
+    # in the same order as the rows in the matrix X
     df["cluster_id"] = kmeans.labels_
+
+    # By this time, the project is technically accomplished from the clustering
+    # perspective. But we need to figure out the best keywords for each
+    # cluster. Ideally, we should get a 2 keyword label for each cluster that
+    # can be used as category labels in the blog.
 
     # Group the articles by cluster
     df_grouped = df.groupby("cluster_id")
@@ -456,11 +539,13 @@ def cluster_topics(n, r):
             .to_records()
         )
         # Filter out keywords that appear in only one article
-        top_pics = [x for x in top_picks if x[1] > 2]
-        # Filter out single-word keywords
+        top_pics = [x for x in top_picks if x[1] > 3]
+        # Filter out single-word keyword
         top_picks = [x for x in top_picks if len(x[0].split(" ")) > 1]
+        # Filter out excessively multi-word keywords
+        top_picks = [x for x in top_picks if len(x[0].split(" ")) < 3]
         # Filter out keywords that would be bad in topic labels
-        top_picks = [x for x in top_picks if not any([y in x[0] for y in filter_us])]
+        # top_picks = [x for x in top_picks if not any([y in x[0] for y in filter_us])]
         # Filter out keywords that are too long
         top_picks = get_winning_keywords(top_picks)
         # Get the longest common sequence of words
@@ -469,12 +554,11 @@ def cluster_topics(n, r):
         # Add the top picks to the cluster_dict
         cluster_dict[cluster_id] = top_picks
 
-
     # Add a column to df that contains the topic by feeding the cluster number into the topics dict
     df["topic"] = df["cluster_id"].apply(lambda x: cluster_dict[x])
     df = df[["slug", "topic"]]
-    for irec, record in enumerate(df.to_records(index=False)):
-        print(irec, record)
+    # for irec, record in enumerate(df.to_records(index=False)):
+    #     print(irec, record)
 
     # Delete the old topics database
     if os.path.exists(REPO_DATA + "topics.db"):
@@ -485,13 +569,56 @@ def cluster_topics(n, r):
         for key, value in list(df.to_records(index=False)):
             db[key] = value
         db.commit()
+    return cluster_dict, df
 
 
-# Process Topics From Last Go-Round
+#  ____       _                               _               _
+# / ___|  ___| |_   _   _ _ __     ___  _   _| |_ _ __  _   _| |_
+# \___ \ / _ \ __| | | | | '_ \   / _ \| | | | __| '_ \| | | | __|
+#  ___) |  __/ |_  | |_| | |_) | | (_) | |_| | |_| |_) | |_| | |_
+# |____/ \___|\__|  \__,_| .__/   \___/ \__,_|\__| .__/ \__,_|\__|
+#                        |_|                     |_|
+
+# Create output path if it doesn't exist
+Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
+Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
+
+with open("/home/ubuntu/repos/skite/openai.txt") as fh:
+    # Get OpenAI API key
+    openai.api_key = fh.readline()
+
+# Delete old files in output path
+for f in os.listdir(OUTPUT_PATH):
+    delete_me = f"{OUTPUT_PATH}/{f}"
+    os.remove(delete_me)
+
+#  _____           _
+# |_   _|__  _ __ (_) ___ ___
+#   | |/ _ \| '_ \| |/ __/ __|
+#   | | (_) | |_) | | (__\__ \
+#   |_|\___/| .__/|_|\___|___/
+#           |_|
 fig("Topics")
-cluster_topics(NUMBER_OF_CLUSTERS, RANDOM_SEED)
-print("Done Topics")
-raise SystemExit()
+# Process Topics, Catch Up With Last Go Round
+cluster_dict, df = cluster_topics(NUMBER_OF_CLUSTERS, RANDOM_SEED)
+table = Table(show_header=True, header_style="bold magenta")
+table.add_column("Topic", justify="left", style="dim", no_wrap=True)
+table.add_column("Count", justify="right", style="dim")
+df_grouped = df.groupby("topic")
+for topic, dfc in df_grouped:
+    table.add_row(topic, str(len(dfc)))
+console = Console()
+console.print(table)
+
+if INTERACTIVE:
+    input("Press Enter to continue...")
+
+#  ____  _ _                _                              _
+# / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
+# \___ \| | |/ __/ _ \  _  | |/ _ \| | | | '__| '_ \ / _` | |
+#  ___) | | | (_|  __/ | |_| | (_) | |_| | |  | | | | (_| | |
+# |____/|_|_|\___\___|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
+fig("Slice Journal")
 
 # Parse the journal file
 posts = parse_journal(FULL_PATH)
@@ -509,7 +636,7 @@ index_page = "\n".join(links)
 with open(f"{PATH}{REPO}_includes/post-index.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
 
-if not disable_git:
+if not DISABLE_GIT:
     # Git commands
     here = f"{PATH}{REPO}"
     git(here, "add _posts/*")
