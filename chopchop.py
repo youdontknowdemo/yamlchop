@@ -28,8 +28,8 @@ DISABLE_GIT = False
 RE_EXTRACT_KEYWORDS = False
 
 # Debug Mode
-INTERACTIVE = True
-DISABLE_GIT = True
+# INTERACTIVE = True
+# DISABLE_GIT = True
 # RE_EXTRACT_KEYWORDS = True
 
 #  ___                            _
@@ -612,6 +612,13 @@ console.print(table)
 
 if INTERACTIVE:
     input("Press Enter to continue...")
+    for topic, dfc in df_grouped:
+        fig(topic)
+        print(f"Topic: {topic} Number of articles: {len(dfc)}")
+        print()
+        for i, slug in enumerate(dfc["slug"]):
+            print(f"{i + 1}. {slug}")
+        input("Press Enter to continue...")
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
