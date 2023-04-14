@@ -147,6 +147,8 @@ def parse_journal(FULL_PATH):
         post_str = fh.read()
         pattern = r"-{78,82}\s*\n"
         posts = re.split(pattern, post_str)
+        numer_of_posts = len(posts)
+        fig(f"{numer_of_posts} posts")
         posts.reverse()  # Reverse so article indexes don't change.
         for post in posts:
             yield post
@@ -230,7 +232,7 @@ def write_post_to_file(post, index):
         if slug not in db:
             fig("Extracting keywords")
             full_text = f"{title} {meta_description}"
-            keywords = extract_keywords(full_text)
+            keywords = get_keywords(full_text)
             db[slug] = keywords
         else:
             keywords = db[slug]
@@ -637,7 +639,7 @@ fig("Slice Journal")
 posts = parse_journal(FULL_PATH)
 links = []
 for i, post in enumerate(posts):
-    link = write_post_to_file(post, i - 1)
+    link = write_post_to_file(post, i + 1)
     if link:
         links.insert(0, link)
 
@@ -646,14 +648,17 @@ links.insert(0, f'<ol start="{len(links)}" reversed>')
 links.append("</ol>")
 # Write index page
 index_page = "\n".join(links)
-with open(f"{PATH}{REPO}_includes/post-index.html", "w", encoding="utf-8") as fh:
+with open(f"{PATH}{REPO}_includes/post_list.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
 
 if not DISABLE_GIT:
     # Git commands
+    fig("Git Push")
     here = f"{PATH}{REPO}"
     git(here, "add _posts/*")
     git(here, "add _includes/*")
     git(here, "add assets/images/*")
     git(here, f'commit -am "Pushing {REPO} to Github..."')
     git(here, "push")
+
+fig("Done")
