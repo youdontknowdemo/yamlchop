@@ -62,6 +62,7 @@ def fig(text):
     print(f.renderText(text))
     sleep(0.5)
 
+
 fig("ChopChop")
 
 #  ____                          _
@@ -208,7 +209,7 @@ def write_post_to_file(post, index):
     summary = None
     meta_description = None
     keywords = None
-    topic = None
+    topics = None
 
     # We use OpenAI to write a summary and meta description
     with sqldict(SUMDB) as db:
@@ -227,6 +228,15 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             meta_description = db[slug]
+    with sqldict(TOPDB) as db:
+        # Check if we've already assigned a topic
+        if slug not in db:
+            full_text = f"{title} {meta_description} {summary}"
+            # topics = assign_topics(summary)  # Hits OpenAI API
+            # db[slug] = topics
+            # db.commit()
+        else:
+            topics = db[slug]
     keywords = None
     if CLUSTER_WITH_KMEANS:
         with sqldict(KWDB) as db:
@@ -251,7 +261,7 @@ def write_post_to_file(post, index):
         keywords = [x[0].lower() for x in keywords]
         keywords = dehyphen_and_dedupe(keywords)
         top_matter.append(f"keywords: {keywords}")
-    if topic:
+    if topics:
         top_matter.append(f"category: {topic}")
     meta_description = scrub_excerpt(meta_description)
     meta_description = neutralize_html(meta_description)
@@ -271,6 +281,32 @@ def write_post_to_file(post, index):
     us_date = date_str.strftime("%m/%d/%Y")
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
     return link
+
+
+def git(cwd, line_command):
+    """Run a Linux git command."""
+    cmd = [GIT_EXE] + shlex.split(line_command)
+    print(f"COMMAND: <<{shlex.join(cmd)}>>")
+    process = Popen(
+        args=cmd,
+        cwd=cwd,
+        stdout=PIPE,
+        stderr=PIPE,
+        shell=False,
+        bufsize=1,
+        universal_newlines=True,
+    )
+    flush(process.stdout)
+    flush(process.stderr)
+
+
+def flush(std):
+    """Flush a stream."""
+    for line in std:
+        line = line.strip()
+        if line:
+            print(line)
+            sys.stdout.flush()
 
 
 def get_keywords(text):
@@ -309,18 +345,12 @@ def scrub_excerpt(text):
     return text
 
 
-def chunk_text(text, chunk_size=4000):
-    """Split a text into chunks of a given size."""
-    chunks = []
-    start_idx = 0
-    while start_idx < len(text):
-        end_idx = start_idx + chunk_size
-        if end_idx >= len(text):
-            end_idx = len(text)
-        chunk = text[start_idx:end_idx]
-        chunks.append(chunk)
-        start_idx = end_idx
-    return chunks
+#   ___                      _    ___   _____
+#  / _ \ _ __   ___ _ __    / \  |_ _| |  ___|   _ _ __   ___ ___
+# | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_ | | | | '_ \ / __/ __|
+# | |_| | |_) |  __/ | | |/ ___ \ | |  |  _|| |_| | | | | (__\__ \
+#  \___/| .__/ \___|_| |_/_/   \_\___| |_|   \__,_|_| |_|\___|___/
+#       |_|
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
@@ -361,34 +391,22 @@ def summarize(text):
     return summarized_text.strip()
 
 
-def git(cwd, line_command):
-    """Run a Linux git command."""
-    cmd = [GIT_EXE] + shlex.split(line_command)
-    print(f"COMMAND: <<{shlex.join(cmd)}>>")
-    process = Popen(
-        args=cmd,
-        cwd=cwd,
-        stdout=PIPE,
-        stderr=PIPE,
-        shell=False,
-        bufsize=1,
-        universal_newlines=True,
-    )
-    flush(process.stdout)
-    flush(process.stderr)
+def chunk_text(text, chunk_size=4000):
+    """Split a text into chunks of a given size."""
+    chunks = []
+    start_idx = 0
+    while start_idx < len(text):
+        end_idx = start_idx + chunk_size
+        if end_idx >= len(text):
+            end_idx = len(text)
+        chunk = text[start_idx:end_idx]
+        chunks.append(chunk)
+        start_idx = end_idx
+    return chunks
 
 
-def flush(std):
-    """Flush a stream."""
-    for line in std:
-        line = line.strip()
-        if line:
-            print(line)
-            sys.stdout.flush()
-
-
-#  _  ____  __                        _____                     
-# | |/ /  \/  | ___  __ _ _ __  ___  |  ___|   _ _ __   ___ ___ 
+#  _  ____  __                        _____
+# | |/ /  \/  | ___  __ _ _ __  ___  |  ___|   _ _ __   ___ ___
 # | ' /| |\/| |/ _ \/ _` | '_ \/ __| | |_ | | | | '_ \ / __/ __|
 # | . \| |  | |  __/ (_| | | | \__ \ |  _|| |_| | | | | (__\__ \
 # |_|\_\_|  |_|\___|\__,_|_| |_|___/ |_|   \__,_|_| |_|\___|___/
@@ -441,7 +459,9 @@ def yake_and_kmeans(n, r):
                         full_text = slug_keywords + " " + description
                         keywords = get_keywords(full_text)
                         keywords = [
-                            x for x in keywords if not any([y in x[0] for y in filter_us])
+                            x
+                            for x in keywords
+                            if not any([y in x[0] for y in filter_us])
                         ]
                         db[slug] = keywords
                         db.commit()
@@ -586,9 +606,10 @@ def get_winning_keywords(keywords):
     )
     return winning_keywords[:5]
 
-#  __  __       _       
-# |  \/  | __ _(_)_ __  
-# | |\/| |/ _` | | '_ \ 
+
+#  __  __       _
+# |  \/  | __ _(_)_ __
+# | |\/| |/ _` | | '_ \
 # | |  | | (_| | | | | |
 # |_|  |_|\__,_|_|_| |_|
 
