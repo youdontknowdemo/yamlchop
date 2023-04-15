@@ -8,19 +8,11 @@
 #  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
 #                   |_|                     |_|
 
-# TODO: Add a way to add tags to posts
-
-#   ____                _              _
-#  / ___|___  _ __  ___| |_ __ _ _ __ | |_ ___
-# | |   / _ \| '_ \/ __| __/ _` | '_ \| __/ __|
-# | |__| (_) | | | \__ \ || (_| | | | | |_\__ \
-#  \____\___/|_| |_|___/\__\__,_|_| |_|\__|___/
+# TODO: Switch to OpenAI for keyword extraction & main topic selection
 
 # Define constants
 AUTHOR = "Mike Levin"
 SUMMARY_LENGTH = 500
-NUMBER_OF_CLUSTERS = 15
-RANDOM_SEED = 2
 
 # Default Mode
 INTERACTIVE = False
@@ -29,8 +21,14 @@ RE_EXTRACT_KEYWORDS = False
 
 # Debug Mode
 # INTERACTIVE = True
-# DISABLE_GIT = True
-# RE_EXTRACT_KEYWORDS = True
+DISABLE_GIT = True
+RE_EXTRACT_KEYWORDS = True
+
+# K-Means Clustering
+NUMBER_OF_CLUSTERS = 15
+RANDOM_SEED = 2
+CLUSTER_WITH_KMEANS = True
+# CLUSTER_WITH_KMEANS = False
 
 #  ___                            _
 # |_ _|_ __ ___  _ __   ___  _ __| |_ ___
@@ -65,14 +63,13 @@ from sqlitedict import SqliteDict as sqldict
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
-# We load this function early
+# Load function early so we can start showing figlets.
 def fig(text):
     """Print a figlet."""
     f = Figlet()
     print(f.renderText(text))
     sleep(0.5)
 
-# So we can do this
 fig("ChopChop")
 
 #  ____                          _
@@ -115,6 +112,12 @@ PATH = "/".join(parts[:-2]) + "/"
 GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
+
+# Databases
+KWDB = REPO_DATA + "keywords.db"
+SUMDB = REPO_DATA + "summaries.db"
+DESCDB = REPO_DATA + "descriptions.db"
+CATDB = REPO_DATA + "categories.db"
 
 # Print out constants
 print(f"REPO: {REPO}")
@@ -211,7 +214,7 @@ def write_post_to_file(post, index):
     topic = None
 
     # We use OpenAI to write a summary and meta description
-    with sqldict(REPO_DATA + "summaries.db") as db:
+    with sqldict(SUMDB) as db:
         # Check if we've already summarized this post
         if slug not in db:
             summary = summarize(post)  # Hits OpenAI API
@@ -219,7 +222,7 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             summary = db[slug]
-    with sqldict(REPO_DATA + "descriptions.db") as db:
+    with sqldict(DESCDB) as db:
         # Check if we've already written a meta description
         if slug not in db:
             meta_description = write_meta(summary)  # Hits OpenAI API
@@ -227,7 +230,7 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             meta_description = db[slug]
-    with sqldict(REPO_DATA + "keywords.db") as db:
+    with sqldict(KWDB) as db:
         # Check if we've already extracted keywords
         if slug not in db:
             fig("Extracting keywords")
@@ -237,7 +240,7 @@ def write_post_to_file(post, index):
         else:
             keywords = db[slug]
         db.commit()
-    with sqldict(REPO_DATA + "topics.db") as db:
+    with sqldict(CATDB) as db:
         # Check if we've already assigned a topic (a.k.a, category)
         if slug not in db:
             topic = None
@@ -435,60 +438,57 @@ def dehyphen_and_dedupe(keywords):
     return keywords
 
 
-def extract_keywords():
-    """Extract keywords from descriptions and titles."""
-    # Filter out keywords that would be bad in topic labels
-    filter_us = [
-        ".",
-        "encourages",
-        "readers",
-        "called",
-        "things",
-        "general",
-        "order",
-        "offer",
-        "has made",
-        "process",
-        "generated",
-        "including",
-        "blog",
-        "importance",
-        "important",
-        "person",
-        "people",
-        "discussing",
-        "discusses",
-        "describes",
-        "author",
-        "suggests",
-        "talks",
-        "argues",
-        "reflects",
-    ]
-
-    with sqldict(REPO_DATA + "keywords.db") as db:
-        with sqldict(REPO_DATA + "descriptions.db") as db2:
-            for i, (slug, description) in enumerate(db2.iteritems()):
-                if slug not in db:
-                    print(f"{i}. Extracting keywords for {slug}")
-                    slug_keywords = slug.replace("-", " ")
-                    full_text = slug_keywords + " " + description
-                    keywords = get_keywords(full_text)
-                    keywords = [
-                        x for x in keywords if not any([y in x[0] for y in filter_us])
-                    ]
-                    db[slug] = keywords
-                    db.commit()
-
-
-def cluster_topics(n, r):
+def yake_and_kmeans(n, r):
     """Cluster topics using k-means."""
+    fig("Yake&Kmeans")
 
     # Delete the old keywords database
     if RE_EXTRACT_KEYWORDS and os.path.exists(REPO_DATA + "keywords.db"):
         fig("Reset Keywords")
         os.remove(REPO_DATA + "keywords.db")
-        extract_keywords()
+
+        # Filter out keywords that would be bad in topic labels
+        filter_us = [
+            ".",
+            "encourages",
+            "readers",
+            "called",
+            "things",
+            "general",
+            "order",
+            "offer",
+            "has made",
+            "process",
+            "generated",
+            "including",
+            "blog",
+            "importance",
+            "important",
+            "person",
+            "people",
+            "discussing",
+            "discusses",
+            "describes",
+            "author",
+            "suggests",
+            "talks",
+            "argues",
+            "reflects",
+        ]
+
+        with sqldict(REPO_DATA + "keywords.db") as db:
+            with sqldict(REPO_DATA + "descriptions.db") as db2:
+                for i, (slug, description) in enumerate(db2.iteritems()):
+                    if slug not in db:
+                        print(f"{i}. Extracting keywords for {slug}")
+                        slug_keywords = slug.replace("-", " ")
+                        full_text = slug_keywords + " " + description
+                        keywords = get_keywords(full_text)
+                        keywords = [
+                            x for x in keywords if not any([y in x[0] for y in filter_us])
+                        ]
+                        db[slug] = keywords
+                        db.commit()
 
     # Load the keywords from the database
     fig("Load Keywords")
@@ -565,15 +565,13 @@ def cluster_topics(n, r):
     # Add a column to df that contains the topic by feeding the cluster number into the topics dict
     df["topic"] = df["cluster_id"].apply(lambda x: cluster_dict[x])
     df = df[["slug", "topic"]]
-    # for irec, record in enumerate(df.to_records(index=False)):
-    #     print(irec, record)
 
     # Delete the old topics database
-    if os.path.exists(REPO_DATA + "topics.db"):
-        os.remove(REPO_DATA + "topics.db")
+    if os.path.exists(CATDB):
+        os.remove(CATDB)
 
     # While keeping cluster_id in sync with the right slugs, map slugs to topics
-    with sqldict(REPO_DATA + "topics.db") as db:
+    with sqldict(CATDB) as db:
         for key, value in list(df.to_records(index=False)):
             db[key] = value
         db.commit()
@@ -608,25 +606,28 @@ for f in os.listdir(OUTPUT_PATH):
 #           |_|
 fig("Topics")
 # Process Topics, Catch Up With Last Go Round
-cluster_dict, df = cluster_topics(NUMBER_OF_CLUSTERS, RANDOM_SEED)
-table = Table(show_header=True, header_style="bold magenta")
-table.add_column("Topic", justify="left", style="dim", no_wrap=True)
-table.add_column("Count", justify="right", style="dim")
-df_grouped = df.groupby("topic")
-for topic, dfc in df_grouped:
-    table.add_row(topic, str(len(dfc)))
-console = Console()
-console.print(table)
 
-if INTERACTIVE:
-    input("Press Enter to continue...")
+if CLUSTER_WITH_KMEANS:
+    # Use the KMeans clustering algorithm to cluster the articles
+    fig("KMeans Clustering")
+    cluster_dict, df = yake_and_kmeans(NUMBER_OF_CLUSTERS, RANDOM_SEED)
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Topic", justify="left", style="dim", no_wrap=True)
+    table.add_column("Count", justify="right", style="dim")
+    df_grouped = df.groupby("topic")
     for topic, dfc in df_grouped:
-        fig(topic)
-        print(f"Topic: {topic} Number of articles: {len(dfc)}")
-        print()
-        for i, slug in enumerate(dfc["slug"]):
-            print(f"{i + 1}. {slug}")
+        table.add_row(topic, str(len(dfc)))
+    console = Console()
+    console.print(table)
+    if INTERACTIVE:
         input("Press Enter to continue...")
+        for topic, dfc in df_grouped:
+            fig(topic)
+            print(f"Topic: {topic} Number of articles: {len(dfc)}")
+            print()
+            for i, slug in enumerate(dfc["slug"]):
+                print(f"{i + 1}. {slug}")
+            input("Press Enter to continue...")
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
