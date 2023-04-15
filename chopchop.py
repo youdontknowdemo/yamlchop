@@ -1,5 +1,5 @@
 # Author: Mike Levin
-# Date: 2023-04-12
+# Date: 2023-04-15
 # Description: A script to convert a journal file into a blog.
 #   ____ _                  ____ _
 #  / ___| |__   ___  _ __  / ___| |__   ___  _ __
@@ -14,7 +14,6 @@ SUMMARY_LENGTH = 500
 DISABLE_GIT = True
 
 # Debugging
-INTERACTIVE = False
 CLUSTER_WITH_KMEANS = False
 RE_EXTRACT_KEYWORDS = False
 
@@ -232,9 +231,9 @@ def write_post_to_file(post, index):
         # Check if we've already assigned a topic
         if slug not in db:
             full_text = f"{title} {meta_description} {summary}"
-            # topics = assign_topics(summary)  # Hits OpenAI API
-            # db[slug] = topics
-            # db.commit()
+            topics = assign_topics(full_text)  # Hits OpenAI API
+            db[slug] = topics
+            db.commit()
         else:
             topics = db[slug]
     keywords = None
@@ -354,8 +353,29 @@ def scrub_excerpt(text):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
+def assign_topics(data):
+    """Returns top keywords and main category for text."""
+    print("Hitting OpenAI API for: topics")
+    response = openai.Completion.create(
+        engine="text-davinci-002",
+        ""
+        prompt=(
+            f"Extract the top keywords that best represent the article's content and main ideas. Additionally, please identify the main category to which the article belongs:\n{data}\n\n"
+            "Category followed by keywords:"
+        ),
+        temperature=0.5,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+    meta_description = response.choices[0].text.strip()
+    return meta_description
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_meta(data):
     """Write a meta description for a post."""
+    print("Hitting OpenAI API for: meta descriptions")
     response = openai.Completion.create(
         engine="text-davinci-002",
         prompt=(
@@ -626,15 +646,6 @@ if CLUSTER_WITH_KMEANS:
         table.add_row(topic, str(len(dfc)))
     console = Console()
     console.print(table)
-    if INTERACTIVE:
-        input("Press Enter to continue...")
-        for topic, dfc in df_grouped:
-            fig(topic)
-            print(f"Topic: {topic} Number of articles: {len(dfc)}")
-            print()
-            for i, slug in enumerate(dfc["slug"]):
-                print(f"{i + 1}. {slug}")
-            input("Press Enter to continue...")
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
