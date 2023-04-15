@@ -8,27 +8,19 @@
 #  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
 #                   |_|                     |_|
 
-# TODO: Switch to OpenAI for keyword extraction & main topic selection
-
 # Define constants
 AUTHOR = "Mike Levin"
 SUMMARY_LENGTH = 500
+DISABLE_GIT = True
 
-# Default Mode
+# Debugging
 INTERACTIVE = False
-DISABLE_GIT = False
+CLUSTER_WITH_KMEANS = False
 RE_EXTRACT_KEYWORDS = False
 
-# Debug Mode
-# INTERACTIVE = True
-DISABLE_GIT = True
-RE_EXTRACT_KEYWORDS = True
-
-# K-Means Clustering
+# KMeans values if activated
 NUMBER_OF_CLUSTERS = 15
 RANDOM_SEED = 2
-CLUSTER_WITH_KMEANS = True
-# CLUSTER_WITH_KMEANS = False
 
 #  ___                            _
 # |_ _|_ __ ___  _ __   ___  _ __| |_ ___
@@ -113,17 +105,33 @@ GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
 
-# Databases
+# YAKE Databases
 KWDB = REPO_DATA + "keywords.db"
+CATDB = REPO_DATA + "categories.db"
+
+# OpenAI Databases
 SUMDB = REPO_DATA + "summaries.db"
 DESCDB = REPO_DATA + "descriptions.db"
-CATDB = REPO_DATA + "categories.db"
+TOPDB = REPO_DATA + "topics.db"
 
 # Print out constants
 print(f"REPO: {REPO}")
 print(f"FULL_PATH: {FULL_PATH}")
 print(f"PATH: {PATH}")
 print(f"FILE: {FILE}")
+
+# Create output path if it doesn't exist
+Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
+Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
+
+with open("/home/ubuntu/repos/skite/openai.txt") as fh:
+    # Get OpenAI API key
+    openai.api_key = fh.readline()
+
+# Delete old files in output path
+for f in os.listdir(OUTPUT_PATH):
+    delete_me = f"{OUTPUT_PATH}/{f}"
+    os.remove(delete_me)
 
 #  ____        __ _              _____                 _   _
 # |  _ \  ___ / _(_)_ __   ___  |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
@@ -141,20 +149,6 @@ def get_keywords(text):
 def neutralize_html(string):
     """Replace HTML entities with their unicode equivalents."""
     return html.escape(string)
-
-
-def parse_journal(FULL_PATH):
-    """Parse a journal file into posts. Returns a generator of posts."""
-    with open(FULL_PATH, "r") as fh:
-        print(f"Reading {FULL_PATH}")
-        post_str = fh.read()
-        pattern = r"-{78,82}\s*\n"
-        posts = re.split(pattern, post_str)
-        numer_of_posts = len(posts)
-        fig(f"{numer_of_posts} posts")
-        posts.reverse()  # Reverse so article indexes don't change.
-        for post in posts:
-            yield post
 
 
 def write_post_to_file(post, index):
@@ -230,31 +224,35 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             meta_description = db[slug]
-    with sqldict(KWDB) as db:
-        # Check if we've already extracted keywords
-        if slug not in db:
-            fig("Extracting keywords")
-            full_text = f"{title} {meta_description}"
-            keywords = get_keywords(full_text)
-            db[slug] = keywords
-        else:
-            keywords = db[slug]
-        db.commit()
-    with sqldict(CATDB) as db:
-        # Check if we've already assigned a topic (a.k.a, category)
-        if slug not in db:
-            topic = None
-        else:
-            topic = db[slug]
+    keywords = None
+    if CLUSTER_WITH_KMEANS:
+        with sqldict(KWDB) as db:
+            # Check if we've already extracted keywords
+            if slug not in db:
+                fig("Extracting keywords")
+                full_text = f"{title} {meta_description}"
+                keywords = get_keywords(full_text)
+                db[slug] = keywords
+            else:
+                keywords = db[slug]
+            db.commit()
+        with sqldict(CATDB) as db:
+            # Check if we've already assigned a topic (a.k.a, category)
+            if slug not in db:
+                topic = None
+            else:
+                topic = db[slug]
 
     # Write top matter
-    keywords = [x[0].lower() for x in keywords]
-    keywords = dehyphen_and_dedupe(keywords)
+    if keywords:
+        keywords = [x[0].lower() for x in keywords]
+        keywords = dehyphen_and_dedupe(keywords)
+        top_matter.append(f"keywords: {keywords}")
+    if topic:
+        top_matter.append(f"category: {topic}")
     meta_description = scrub_excerpt(meta_description)
     meta_description = neutralize_html(meta_description)
     top_matter.append(f"description: {meta_description}")
-    top_matter.append(f"keywords: {keywords}")
-    top_matter.append(f"category: {topic}")
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
@@ -383,59 +381,6 @@ def flush(std):
         if line:
             print(line)
             sys.stdout.flush()
-
-
-def shortest(keywords):
-    """Return the shortest common keyword."""
-    # Split keywords into lists of words
-    keywords = [x.split(" ") for x in keywords]
-    # Get the shortest keyword
-    short = min(keywords, key=lambda x: len(x))
-    for i, word in enumerate(short):
-        # If any of the words in the shortest keyword are not in the other
-        if not all([word in x for x in keywords]):
-            # Return the keyword up to that word
-            rv = short[:i]
-    if len(short) > 1:
-        # Join the words into a string
-        rv = " ".join(short)
-    elif len(short) == 1:
-        # If there's only one word, return it
-        rv = short[0]
-    else:
-        # If there are no words, return the first keyword
-        rv = keywords[0]
-    return rv
-
-
-def get_winning_keywords(keywords):
-    """Return a list of the winning keywords. Winning keywords are those that
-    are longer and whose stem words have the highest frequency."""
-
-    keywords = sorted(keywords, key=lambda x: len(x[0]), reverse=True)
-    # Get the stem words
-    stems = [x[0].split(" ")[0] for x in keywords]
-    # Get the frequency of each stem word
-    stem_freq = {x: stems.count(x) for x in stems}
-    # Get the winning stem words
-    winning_stems = [x for x in stem_freq if stem_freq[x] == max(stem_freq.values())]
-    # Get the winning keywords
-    winning_keywords = [x for x in keywords if x[0].split(" ")[0] in winning_stems]
-    # Return those with the highest frequency but favor 2-word keywords
-    winning_keywords = sorted(
-        winning_keywords, key=lambda x: x[1] * (len(x[0].split(" ")) + 1), reverse=True
-    )
-    return winning_keywords[:5]
-
-
-def dehyphen_and_dedupe(keywords):
-    """Preserves order of keywords, but removes duplicates and hyphens"""
-    keywords = [x.replace("-", " ") for x in keywords]
-    seen = set()
-    # A fascinating way to add to a set within a list comprehension
-    seen_add = seen.add
-    keywords = [x.lower() for x in keywords if not (x in seen or seen_add(x))]
-    return keywords
 
 
 def yake_and_kmeans(n, r):
@@ -578,34 +523,59 @@ def yake_and_kmeans(n, r):
     return cluster_dict, df
 
 
-#  ____       _                               _               _
-# / ___|  ___| |_   _   _ _ __     ___  _   _| |_ _ __  _   _| |_
-# \___ \ / _ \ __| | | | | '_ \   / _ \| | | | __| '_ \| | | | __|
-#  ___) |  __/ |_  | |_| | |_) | | (_) | |_| | |_| |_) | |_| | |_
-# |____/ \___|\__|  \__,_| .__/   \___/ \__,_|\__| .__/ \__,_|\__|
-#                        |_|                     |_|
+def shortest(keywords):
+    """Return the shortest common keyword."""
+    # Split keywords into lists of words
+    keywords = [x.split(" ") for x in keywords]
+    # Get the shortest keyword
+    short = min(keywords, key=lambda x: len(x))
+    for i, word in enumerate(short):
+        # If any of the words in the shortest keyword are not in the other
+        if not all([word in x for x in keywords]):
+            # Return the keyword up to that word
+            rv = short[:i]
+    if len(short) > 1:
+        # Join the words into a string
+        rv = " ".join(short)
+    elif len(short) == 1:
+        # If there's only one word, return it
+        rv = short[0]
+    else:
+        # If there are no words, return the first keyword
+        rv = keywords[0]
+    return rv
 
-# Create output path if it doesn't exist
-Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
-Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 
-with open("/home/ubuntu/repos/skite/openai.txt") as fh:
-    # Get OpenAI API key
-    openai.api_key = fh.readline()
+def get_winning_keywords(keywords):
+    """Return a list of the winning keywords. Winning keywords are those that
+    are longer and whose stem words have the highest frequency."""
 
-# Delete old files in output path
-for f in os.listdir(OUTPUT_PATH):
-    delete_me = f"{OUTPUT_PATH}/{f}"
-    os.remove(delete_me)
+    keywords = sorted(keywords, key=lambda x: len(x[0]), reverse=True)
+    # Get the stem words
+    stems = [x[0].split(" ")[0] for x in keywords]
+    # Get the frequency of each stem word
+    stem_freq = {x: stems.count(x) for x in stems}
+    # Get the winning stem words
+    winning_stems = [x for x in stem_freq if stem_freq[x] == max(stem_freq.values())]
+    # Get the winning keywords
+    winning_keywords = [x for x in keywords if x[0].split(" ")[0] in winning_stems]
+    # Return those with the highest frequency but favor 2-word keywords
+    winning_keywords = sorted(
+        winning_keywords, key=lambda x: x[1] * (len(x[0].split(" ")) + 1), reverse=True
+    )
+    return winning_keywords[:5]
 
-#  _____           _
-# |_   _|__  _ __ (_) ___ ___
-#   | |/ _ \| '_ \| |/ __/ __|
-#   | | (_) | |_) | | (__\__ \
-#   |_|\___/| .__/|_|\___|___/
-#           |_|
-fig("Topics")
-# Process Topics, Catch Up With Last Go Round
+
+def dehyphen_and_dedupe(keywords):
+    """Preserves order of keywords, but removes duplicates and hyphens"""
+    keywords = [x.replace("-", " ") for x in keywords]
+    seen = set()
+    # A fascinating way to add to a set within a list comprehension
+    seen_add = seen.add
+    keywords = [x.lower() for x in keywords if not (x in seen or seen_add(x))]
+    return keywords
+
+
 
 if CLUSTER_WITH_KMEANS:
     # Use the KMeans clustering algorithm to cluster the articles
@@ -635,6 +605,21 @@ if CLUSTER_WITH_KMEANS:
 #  ___) | | | (_|  __/ | |_| | (_) | |_| | |  | | | | (_| | |
 # |____/|_|_|\___\___|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
 fig("Slice Journal")
+
+
+def parse_journal(FULL_PATH):
+    """Parse a journal file into posts. Returns a generator of posts."""
+    with open(FULL_PATH, "r") as fh:
+        print(f"Reading {FULL_PATH}")
+        post_str = fh.read()
+        pattern = r"-{78,82}\s*\n"
+        posts = re.split(pattern, post_str)
+        numer_of_posts = len(posts)
+        fig(f"{numer_of_posts} posts")
+        posts.reverse()  # Reverse so article indexes don't change.
+        for post in posts:
+            yield post
+
 
 # Parse the journal file
 posts = parse_journal(FULL_PATH)
