@@ -139,16 +139,25 @@ for f in os.listdir(OUTPUT_PATH):
 # | |_| |  __/  _| | | | |  __/ |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |____/ \___|_| |_|_| |_|\___| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
+#  __  __       _       
+# |  \/  | __ _(_)_ __  
+# | |\/| |/ _` | | '_ \ 
+# | |  | | (_| | | | | |
+# |_|  |_|\__,_|_|_| |_|
 
-def get_keywords(text):
-    """Get keywords from text using YAKE."""
-    keywords = yake.KeywordExtractor().extract_keywords(text)
-    return keywords
 
-
-def neutralize_html(string):
-    """Replace HTML entities with their unicode equivalents."""
-    return html.escape(string)
+def parse_journal(FULL_PATH):
+    """Parse a journal file into posts. Returns a generator of posts."""
+    with open(FULL_PATH, "r") as fh:
+        print(f"Reading {FULL_PATH}")
+        post_str = fh.read()
+        pattern = r"-{78,82}\s*\n"
+        posts = re.split(pattern, post_str)
+        numer_of_posts = len(posts)
+        fig(f"{numer_of_posts} posts")
+        posts.reverse()  # Reverse so article indexes don't change.
+        for post in posts:
+            yield post
 
 
 def write_post_to_file(post, index):
@@ -270,6 +279,17 @@ def write_post_to_file(post, index):
     return link
 
 
+def get_keywords(text):
+    """Get keywords from text using YAKE."""
+    keywords = yake.KeywordExtractor().extract_keywords(text)
+    return keywords
+
+
+def neutralize_html(string):
+    """Replace HTML entities with their unicode equivalents."""
+    return html.escape(string)
+
+
 def dehyphen_and_dedupe(keywords):
     """Preserves order of keywords, but removes duplicates and hyphens"""
     keywords = [x.replace("-", " ") for x in keywords]
@@ -292,16 +312,6 @@ def scrub_excerpt(text):
     text = " ".join(text.split("\n"))
     # If a period doesn't have a space after it, add one
     text = re.sub(r"\.(\w)", r". \1", text)
-    return text
-
-
-def trunc(text):
-    """Truncate a string to a given length, but not in the middle of a word."""
-    # Currently unused
-    if len(text) <= SUMMARY_LENGTH:
-        return text
-    else:
-        return text[: SUMMARY_LENGTH - 1].rsplit(" ", 1)[0] + "..."
     return text
 
 
@@ -381,6 +391,66 @@ def flush(std):
         if line:
             print(line)
             sys.stdout.flush()
+
+
+#  _  ____  __                        _____                     
+# | |/ /  \/  | ___  __ _ _ __  ___  |  ___|   _ _ __   ___ ___ 
+# | ' /| |\/| |/ _ \/ _` | '_ \/ __| | |_ | | | | '_ \ / __/ __|
+# | . \| |  | |  __/ (_| | | | \__ \ |  _|| |_| | | | | (__\__ \
+# |_|\_\_|  |_|\___|\__,_|_| |_|___/ |_|   \__,_|_| |_|\___|___/
+
+
+def dehyphen_and_dedupe(keywords):
+    """Preserves order of keywords, but removes duplicates and hyphens"""
+    keywords = [x.replace("-", " ") for x in keywords]
+    seen = set()
+    # A fascinating way to add to a set within a list comprehension
+    seen_add = seen.add
+    keywords = [x.lower() for x in keywords if not (x in seen or seen_add(x))]
+    return keywords
+
+
+def shortest(keywords):
+    """Return the shortest common keyword."""
+    # Split keywords into lists of words
+    keywords = [x.split(" ") for x in keywords]
+    # Get the shortest keyword
+    short = min(keywords, key=lambda x: len(x))
+    for i, word in enumerate(short):
+        # If any of the words in the shortest keyword are not in the other
+        if not all([word in x for x in keywords]):
+            # Return the keyword up to that word
+            rv = short[:i]
+    if len(short) > 1:
+        # Join the words into a string
+        rv = " ".join(short)
+    elif len(short) == 1:
+        # If there's only one word, return it
+        rv = short[0]
+    else:
+        # If there are no words, return the first keyword
+        rv = keywords[0]
+    return rv
+
+
+def get_winning_keywords(keywords):
+    """Return a list of the winning keywords. Winning keywords are those that
+    are longer and whose stem words have the highest frequency."""
+
+    keywords = sorted(keywords, key=lambda x: len(x[0]), reverse=True)
+    # Get the stem words
+    stems = [x[0].split(" ")[0] for x in keywords]
+    # Get the frequency of each stem word
+    stem_freq = {x: stems.count(x) for x in stems}
+    # Get the winning stem words
+    winning_stems = [x for x in stem_freq if stem_freq[x] == max(stem_freq.values())]
+    # Get the winning keywords
+    winning_keywords = [x for x in keywords if x[0].split(" ")[0] in winning_stems]
+    # Return those with the highest frequency but favor 2-word keywords
+    winning_keywords = sorted(
+        winning_keywords, key=lambda x: x[1] * (len(x[0].split(" ")) + 1), reverse=True
+    )
+    return winning_keywords[:5]
 
 
 def yake_and_kmeans(n, r):
@@ -523,60 +593,6 @@ def yake_and_kmeans(n, r):
     return cluster_dict, df
 
 
-def shortest(keywords):
-    """Return the shortest common keyword."""
-    # Split keywords into lists of words
-    keywords = [x.split(" ") for x in keywords]
-    # Get the shortest keyword
-    short = min(keywords, key=lambda x: len(x))
-    for i, word in enumerate(short):
-        # If any of the words in the shortest keyword are not in the other
-        if not all([word in x for x in keywords]):
-            # Return the keyword up to that word
-            rv = short[:i]
-    if len(short) > 1:
-        # Join the words into a string
-        rv = " ".join(short)
-    elif len(short) == 1:
-        # If there's only one word, return it
-        rv = short[0]
-    else:
-        # If there are no words, return the first keyword
-        rv = keywords[0]
-    return rv
-
-
-def get_winning_keywords(keywords):
-    """Return a list of the winning keywords. Winning keywords are those that
-    are longer and whose stem words have the highest frequency."""
-
-    keywords = sorted(keywords, key=lambda x: len(x[0]), reverse=True)
-    # Get the stem words
-    stems = [x[0].split(" ")[0] for x in keywords]
-    # Get the frequency of each stem word
-    stem_freq = {x: stems.count(x) for x in stems}
-    # Get the winning stem words
-    winning_stems = [x for x in stem_freq if stem_freq[x] == max(stem_freq.values())]
-    # Get the winning keywords
-    winning_keywords = [x for x in keywords if x[0].split(" ")[0] in winning_stems]
-    # Return those with the highest frequency but favor 2-word keywords
-    winning_keywords = sorted(
-        winning_keywords, key=lambda x: x[1] * (len(x[0].split(" ")) + 1), reverse=True
-    )
-    return winning_keywords[:5]
-
-
-def dehyphen_and_dedupe(keywords):
-    """Preserves order of keywords, but removes duplicates and hyphens"""
-    keywords = [x.replace("-", " ") for x in keywords]
-    seen = set()
-    # A fascinating way to add to a set within a list comprehension
-    seen_add = seen.add
-    keywords = [x.lower() for x in keywords if not (x in seen or seen_add(x))]
-    return keywords
-
-
-
 if CLUSTER_WITH_KMEANS:
     # Use the KMeans clustering algorithm to cluster the articles
     fig("KMeans Clustering")
@@ -605,20 +621,6 @@ if CLUSTER_WITH_KMEANS:
 #  ___) | | | (_|  __/ | |_| | (_) | |_| | |  | | | | (_| | |
 # |____/|_|_|\___\___|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
 fig("Slice Journal")
-
-
-def parse_journal(FULL_PATH):
-    """Parse a journal file into posts. Returns a generator of posts."""
-    with open(FULL_PATH, "r") as fh:
-        print(f"Reading {FULL_PATH}")
-        post_str = fh.read()
-        pattern = r"-{78,82}\s*\n"
-        posts = re.split(pattern, post_str)
-        numer_of_posts = len(posts)
-        fig(f"{numer_of_posts} posts")
-        posts.reverse()  # Reverse so article indexes don't change.
-        for post in posts:
-            yield post
 
 
 # Parse the journal file
