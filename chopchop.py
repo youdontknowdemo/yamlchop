@@ -164,6 +164,7 @@ def write_post_to_file(post, index):
     top_matter = ["---"]
     content = []
     in_content = False
+    api_hit = False
 
     for i, line in enumerate(lines):
         if i == 0:
@@ -216,6 +217,7 @@ def write_post_to_file(post, index):
         # Check if we've already summarized this post
         if slug not in db:
             summary = summarize(post)  # Hits OpenAI API
+            api_hit = True
             db[slug] = summary
             db.commit()
         else:
@@ -224,6 +226,7 @@ def write_post_to_file(post, index):
         # Check if we've already written a meta description
         if slug not in db:
             meta_description = write_meta(summary)  # Hits OpenAI API
+            api_hit = True
             db[slug] = meta_description
             db.commit()
         else:
@@ -233,6 +236,7 @@ def write_post_to_file(post, index):
         if slug not in db:
             full_text = f"{title} {meta_description} {summary}"
             topics = assign_topics(full_text)  # Hits OpenAI API
+            api_hit = True
             db[slug] = topics
             db.commit()
         else:
@@ -278,18 +282,19 @@ def write_post_to_file(post, index):
     top_matter.extend(content)
     content = top_matter
 
-    if POST_BY_POST:
-        print(f"Keywords: {topics}")
-        input("Press Enter to continue...")
-
     # Write to file
-    print(index, full_path)
     with open(full_path, "w") as f:
         # Flatten list of lines into a single string
         flat_content = "\n".join(content)
         f.writelines(flat_content)
     us_date = date_str.strftime("%m/%d/%Y")
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
+    print(index, full_path)
+    if POST_BY_POST and api_hit:
+        print(f"Keywords: {topics}")
+        input("Press Enter to continue...")
+        print()
+
     return link
 
 
@@ -403,13 +408,23 @@ def scrub_excerpt(text):
 #       |_|
 # OpenAI Functions
 
+
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def assign_topics(data):
     """Returns top keywords and main category for text."""
     print("Hitting OpenAI API for: topics")
     response = openai.Completion.create(
         engine="text-davinci-002",
-        prompt=f"Create a 1-line comma-separated list of keywords without numbering or line-breaks for the following text: {data}\nto categorize the blog post, with the most important category first. Just use 1 or 2 word combinations that would work well for website navigation and site-search purposes. Don't go as broad as \"Technology\" or as specific as describing what the author does.\nKeywords:\n\n",
+        prompt=(
+            f"Create a list of keywords for the following text: {data}\nto categorize the blog post. "
+            "Do not use the single excessively broad words: Data, Technology, Blog, Post or Author "
+            "Use only 1 or 2 word combinations appropriate for site navigation and search "
+            "Use between 4 and 20 more keywords. "
+            "Use the best keyword for a topic label as the first keyword in the list. "
+            "Format the keywords as 1-line, separated by quotes and commas. "
+            "Use Proper Case for all keywords. "
+            "\nKeywords:\n\n"
+        ),
         temperature=0.5,
         max_tokens=100,
         n=1,
