@@ -8,37 +8,30 @@
 #  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
 #                   |_|                     |_|
 
-from sqlitedict import SqliteDict as sqldict
-from subprocess import Popen, PIPE
-from dateutil import parser
-from pyfiglet import Figlet
-from slugify import slugify
-from pathlib import Path
-from retry import retry
-from time import sleep
-import pandas as pd
-import argparse
-import datetime
-import openai
-import shlex
-import html
-import sys
-import re
 import os
+import re
+import sys
+import html
+import shlex
+import openai
+import datetime
+import argparse
+import pandas as pd
+from time import sleep
+from retry import retry
+from pathlib import Path
+from slugify import slugify
+from pyfiglet import Figlet
+from dateutil import parser
+from subprocess import Popen, PIPE
+from sqlitedict import SqliteDict as sqldict
 
 
 AUTHOR = "Mike Levin"
 
 # Debugging
-DISABLE_GIT = True
+DISABLE_GIT = False
 POST_BY_POST = False
-
-#  ___                            _
-# |_ _|_ __ ___  _ __   ___  _ __| |_ ___
-#  | || '_ ` _ \| '_ \ / _ \| '__| __/ __|
-#  | || | | | | | |_) | (_) | |  | |_\__ \
-# |___|_| |_| |_| .__/ \___/|_|   \__|___/
-#               |_|
 
 
 # Load function early so we can start showing figlets.
@@ -91,10 +84,6 @@ PATH = "/".join(parts[:-2]) + "/"
 GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
-
-# YAKE Databases
-KWDB = REPO_DATA + "keywords.db"
-CATDB = REPO_DATA + "categories.db"
 
 # OpenAI Databases
 SUMDB = REPO_DATA + "summaries.db"
@@ -161,7 +150,7 @@ def write_post_to_file(post, index):
                 # Try to parse the date
                 adate = line[2:]
                 date_str = parser.parse(adate).date()
-                top_matter.append(f"date: {date_str}")
+                # top_matter.append(f"date: {date_str}")
             except:
                 # If we can't parse the date, skip the post
                 print(f"Skipping post {index} - no date")
@@ -171,6 +160,8 @@ def write_post_to_file(post, index):
             # Second line is always the title for headline & url
             if line and line[0] == "#" and " " in line:
                 title = " ".join(line.split(" ")[1:])
+                title = title.replace(": ", " - ")
+                title = f'"{title}"'
             else:
                 return
             # Turn title into slug for permalink
@@ -205,14 +196,15 @@ def write_post_to_file(post, index):
     topic_text = f"{title} {meta_description} {summary}"
     topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
     topics = fix_openai_mistakes(topics)
-    # headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
+    headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
 
     # Write top matter
     if topics:
         top_matter.append(f"keywords: {topics}")
-        top_matter.append(f"category: {topics.split(', ')[0]}")
+        top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
     meta_description = html.escape(meta_description)
     top_matter.append(f'description: "{meta_description}"')
+    top_matter.append(f'headline: "{headline}"')
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
@@ -229,27 +221,13 @@ def write_post_to_file(post, index):
     print(index, full_path)
     if POST_BY_POST and api_hit:
         print()
-        print(f"META DESCRIPTION: {meta_description}")
+        print(f"Title: {title}")
+        print(f"Headline: {headline}")
         print()
-        print(f"KEYWORDS: {topics}")
         input("Press Enter to continue...")
         print()
 
     return link
-
-
-def odb(DBNAME, afunc, slug, full_text):
-    """Record OpenAI API hits in a database."""
-    api_hit = False
-    with sqldict(DBNAME) as db:
-        if slug not in db:
-            result = afunc(full_text)  # Hits OpenAI API
-            db[slug] = result
-            db.commit()
-            api_hit = True
-        else:
-            result = db[slug]
-    return result, api_hit
 
 
 def git(cwd, line_command):
@@ -287,6 +265,20 @@ def flush(std):
 # OpenAI Functions
 
 
+def odb(DBNAME, afunc, slug, full_text):
+    """Record OpenAI API hits in a database."""
+    api_hit = False
+    with sqldict(DBNAME) as db:
+        if slug not in db:
+            result = afunc(full_text)  # Hits OpenAI API
+            db[slug] = result
+            db.commit()
+            api_hit = True
+        else:
+            result = db[slug]
+    return result, api_hit
+
+
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def find_topics(data):
     """Returns top keywords and main category for text."""
@@ -318,7 +310,7 @@ def write_meta(data):
         prompt=(
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
             "...that will entice readers to click through to the blog post. "
-            "Write from the perspective of the author. Never say 'The autor'. Say 'I am' or 'I wrote'"
+            "Write from the perspective of the author. Never say 'The author'. Say 'I am' or 'I wrote'"
             "Always finish sentences. Never chop off a sentence. End in a period."
             "\nSummary:\n\n"
         ),
@@ -329,6 +321,28 @@ def write_meta(data):
     )
     meta_description = response.choices[0].text.strip()
     return meta_description
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def write_headline(data):
+    """Write a better headlie for post."""
+    print("Hitting OpenAI API for: better headlines")
+    response = openai.Completion.create(
+        engine="text-davinci-002",
+        prompt=(
+            f"Write a short alternative headline for the following post:\n{data}\n\n"
+            "Don't be reduntant with the first line of the blog post. "
+            "Use only one sentence. "
+            "Write from the perspective of the author. Never say 'The author'. Say 'I am' or 'I wrote'"
+            "\nHeadline:\n\n"
+        ),
+        temperature=0.5,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+    headline = response.choices[0].text.strip()
+    return headline
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
@@ -373,6 +387,8 @@ def fix_openai_mistakes(keywords):
         keywords = [x.replace('"', "") for x in keywords]
         keywords = [f'"{x}"' for x in keywords]
         keywords = ", ".join(keywords)
+    if "\n" in keywords:
+        keywords = keywords.replace("\n", ", ")
     return keywords
 
 
