@@ -1,6 +1,6 @@
 # Author: Mike Levin
 # Date: 2023-04-15
-# Description: A script to convert a journal file into a blog.
+# Description: Chop a journal.md file into individual blog posts.
 #   ____ _                  ____ _
 #  / ___| |__   ___  _ __  / ___| |__   ___  _ __
 # | |   | '_ \ / _ \| '_ \| |   | '_ \ / _ \| '_ \
@@ -16,6 +16,7 @@ DISABLE_GIT = True
 # Debugging
 CLUSTER_WITH_KMEANS = False
 RE_EXTRACT_KEYWORDS = False
+POST_BY_POST = True
 
 # KMeans values if activated
 NUMBER_OF_CLUSTERS = 15
@@ -237,13 +238,15 @@ def write_post_to_file(post, index):
         else:
             topics = db[slug]
     keywords = None
+
     if CLUSTER_WITH_KMEANS:
+        # This block has been obsoleted by the OpenAI API
         with sqldict(KWDB) as db:
             # Check if we've already extracted keywords
             if slug not in db:
                 fig("Extracting keywords")
                 full_text = f"{title} {meta_description}"
-                keywords = get_keywords(full_text)
+                keywords = yake_keywords(full_text)
                 db[slug] = keywords
             else:
                 keywords = db[slug]
@@ -256,12 +259,16 @@ def write_post_to_file(post, index):
                 topic = db[slug]
 
     # Write top matter
-    if keywords:
-        keywords = [x[0].lower() for x in keywords]
-        keywords = dehyphen_and_dedupe(keywords)
-        top_matter.append(f"keywords: {keywords}")
+
+    # if keywords:
+    #     # This process obsoleted by OpenAI API
+    #     keywords = [x[0].lower() for x in keywords]
+    #     keywords = dehyphen_and_dedupe(keywords)
+    #     top_matter.append(f"keywords: {keywords}")
+
     if topics:
-        top_matter.append(f"category: {topic}")
+        top_matter.append(f"keywords: {topics}")
+        top_matter.append(f"category: {topics.split(', ')[0]}")
     meta_description = scrub_excerpt(meta_description)
     meta_description = neutralize_html(meta_description)
     top_matter.append(f"description: {meta_description}")
@@ -270,6 +277,10 @@ def write_post_to_file(post, index):
     top_matter.append("---")
     top_matter.extend(content)
     content = top_matter
+
+    if POST_BY_POST:
+        print(f"Keywords: {topics}")
+        input("Press Enter to continue...")
 
     # Write to file
     print(index, full_path)
@@ -308,9 +319,49 @@ def flush(std):
             sys.stdout.flush()
 
 
-def get_keywords(text):
+def yake_keywords(text):
     """Get keywords from text using YAKE."""
+    # Filter out keywords that would be bad in topic labels
+
+    filter_us = [
+        ".",
+        "their",
+        "encourages",
+        "readers",
+        "called",
+        "things",
+        "general",
+        "order",
+        "offer",
+        "has made",
+        "process",
+        "generated",
+        "including",
+        "blog",
+        "importance",
+        "important",
+        "person",
+        "people",
+        "discussing",
+        "discusses",
+        "describes",
+        "author",
+        "suggests",
+        "talks",
+        "argues",
+        "reflects",
+    ]
+
     keywords = yake.KeywordExtractor().extract_keywords(text)
+    keywords = [x for x in keywords if not any([y in x[0] for y in filter_us])]
+    # Reduce the float in the 2nd position of the tuple to 2 decimal places:
+    keywords = [(x[0], round(x[1], 2)) for x in keywords]
+    # Only include if 2nd position in the tuple is greater than 0.1:
+    keywords = [x for x in keywords if x[1] > 0.01]
+    # Sort descending by 2nd position in the tuple:
+    keywords = sorted(keywords, key=lambda x: x[1], reverse=True)
+    # Turn keywords into comma separated string without the float:
+    keywords = ", ".join([x[0] for x in keywords])
     return keywords
 
 
@@ -350,7 +401,7 @@ def scrub_excerpt(text):
 # | |_| | |_) |  __/ | | |/ ___ \ | |  |  _|| |_| | | | | (__\__ \
 #  \___/| .__/ \___|_| |_/_/   \_\___| |_|   \__,_|_| |_|\___|___/
 #       |_|
-
+# OpenAI Functions
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def assign_topics(data):
@@ -358,18 +409,14 @@ def assign_topics(data):
     print("Hitting OpenAI API for: topics")
     response = openai.Completion.create(
         engine="text-davinci-002",
-        ""
-        prompt=(
-            f"Extract the top keywords that best represent the article's content and main ideas. Additionally, please identify the main category to which the article belongs:\n{data}\n\n"
-            "Category followed by keywords:"
-        ),
+        prompt=f"Create a 1-line comma-separated list of keywords without numbering or line-breaks for the following text: {data}\nto categorize the blog post, with the most important category first. Just use 1 or 2 word combinations that would work well for website navigation and site-search purposes. Don't go as broad as \"Technology\" or as specific as describing what the author does.\nKeywords:\n\n",
         temperature=0.5,
         max_tokens=100,
         n=1,
         stop=None,
     )
-    meta_description = response.choices[0].text.strip()
-    return meta_description
+    topics = response.choices[0].text.strip()
+    return topics
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
@@ -432,7 +479,7 @@ def chunk_text(text, chunk_size=4000):
 # |_|\_\_|  |_|\___|\__,_|_| |_|___/ |_|   \__,_|_| |_|\___|___/
 
 
-def yake_and_kmeans(n, r):
+def full_yake_kmeans_process(n, r):
     """Cluster topics using k-means."""
     fig("Yake&Kmeans")
 
@@ -441,35 +488,6 @@ def yake_and_kmeans(n, r):
         fig("Reset Keywords")
         os.remove(REPO_DATA + "keywords.db")
 
-        # Filter out keywords that would be bad in topic labels
-        filter_us = [
-            ".",
-            "encourages",
-            "readers",
-            "called",
-            "things",
-            "general",
-            "order",
-            "offer",
-            "has made",
-            "process",
-            "generated",
-            "including",
-            "blog",
-            "importance",
-            "important",
-            "person",
-            "people",
-            "discussing",
-            "discusses",
-            "describes",
-            "author",
-            "suggests",
-            "talks",
-            "argues",
-            "reflects",
-        ]
-
         with sqldict(REPO_DATA + "keywords.db") as db:
             with sqldict(REPO_DATA + "descriptions.db") as db2:
                 for i, (slug, description) in enumerate(db2.iteritems()):
@@ -477,12 +495,7 @@ def yake_and_kmeans(n, r):
                         print(f"{i}. Extracting keywords for {slug}")
                         slug_keywords = slug.replace("-", " ")
                         full_text = slug_keywords + " " + description
-                        keywords = get_keywords(full_text)
-                        keywords = [
-                            x
-                            for x in keywords
-                            if not any([y in x[0] for y in filter_us])
-                        ]
+                        keywords = yake_keywords(full_text)
                         db[slug] = keywords
                         db.commit()
 
@@ -637,7 +650,7 @@ def get_winning_keywords(keywords):
 if CLUSTER_WITH_KMEANS:
     # Use the KMeans clustering algorithm to cluster the articles
     fig("KMeans Clustering")
-    cluster_dict, df = yake_and_kmeans(NUMBER_OF_CLUSTERS, RANDOM_SEED)
+    cluster_dict, df = full_yake_kmeans_process(NUMBER_OF_CLUSTERS, RANDOM_SEED)
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Topic", justify="left", style="dim", no_wrap=True)
     table.add_column("Count", justify="right", style="dim")
