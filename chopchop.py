@@ -291,6 +291,7 @@ def write_post_to_file(post, index):
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
     print(index, full_path)
     if POST_BY_POST and api_hit:
+        print(f"Meta Description: {meta_description}")
         print(f"Keywords: {topics}")
         input("Press Enter to continue...")
         print()
@@ -416,13 +417,10 @@ def assign_topics(data):
     response = openai.Completion.create(
         engine="text-davinci-002",
         prompt=(
-            f"Create a list of keywords for the following text: {data}\nto categorize the blog post. "
-            "Do not use the single excessively broad words: Data, Technology, Blog, Post or Author "
-            "Use only 1 or 2 word combinations appropriate for site navigation and search "
-            "Use between 4 and 20 more keywords. "
-            "Use the best keyword for a topic label as the first keyword in the list. "
-            "Format the keywords as 1-line, separated by quotes and commas. "
-            "Use Proper Case for all keywords. "
+            f"Create a list of keywords for the following text:\n\n{data}\n\n...in order to categorize the blog post. "
+            "Do not use extremely broad words like Data, Technology, Blog, Post or Author "
+            "Use the best keyword for a single-category topic-label as the first keyword in the list. "
+            "Format as 1-line with keywords in quotes and separated by commas. "
             "\nKeywords:\n\n"
         ),
         temperature=0.5,
@@ -441,8 +439,11 @@ def write_meta(data):
     response = openai.Completion.create(
         engine="text-davinci-002",
         prompt=(
-            f"Please write a meta description for the following text:\n{data}\n\n"
-            "Summary:"
+            f"Write a concise and informative meta description for the following text:\n{data}\n\n"
+            "...that will entice readers to click through to the blog post. "
+            "Write from the perspective of the author. Never say 'The autor'. Say 'I am' or 'I wrote'"
+            "Keep it under 160 characters. "
+            "\nSummary:\n\n"
         ),
         temperature=0.5,
         max_tokens=100,
