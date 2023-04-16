@@ -1,3 +1,8 @@
+# pylint: disable=C0301
+# pylint: disable=C0413
+# pylint: disable=C0411
+
+
 # Author: Mike Levin
 # Date: 2023-04-15
 # Description: Chop a journal.md file into individual blog posts.
@@ -13,13 +18,7 @@ AUTHOR = "Mike Levin"
 
 # Debugging
 DISABLE_GIT = True
-CLUSTER_WITH_KMEANS = False
-RE_EXTRACT_KEYWORDS = False
 POST_BY_POST = False
-
-# KMeans values if activated
-NUMBER_OF_CLUSTERS = 15
-RANDOM_SEED = 2
 
 #  ___                            _
 # |_ _|_ __ ___  _ __   ___  _ __| |_ ___
@@ -32,8 +31,6 @@ import os
 import re
 import sys
 import html
-import yake
-import rich
 import shlex
 import openai
 import slugify
@@ -46,12 +43,8 @@ from pathlib import Path
 from slugify import slugify
 from pyfiglet import Figlet
 from dateutil import parser
-from rich.table import Table
-from rich.console import Console
-from sklearn.cluster import KMeans
 from subprocess import Popen, PIPE
 from sqlitedict import SqliteDict as sqldict
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 # Load function early so we can start showing figlets.
@@ -130,8 +123,8 @@ with open("/home/ubuntu/repos/skite/openai.txt") as fh:
     openai.api_key = fh.readline()
 
 # Delete old files in output path
-for f in os.listdir(OUTPUT_PATH):
-    delete_me = f"{OUTPUT_PATH}/{f}"
+for fh in os.listdir(OUTPUT_PATH):
+    delete_me = f"{OUTPUT_PATH}/{fh}"
     os.remove(delete_me)
 
 #  ____        __ _              _____                 _   _
@@ -141,10 +134,10 @@ for f in os.listdir(OUTPUT_PATH):
 # |____/ \___|_| |_|_| |_|\___| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
 
-def parse_journal(FULL_PATH):
+def parse_journal(full_path):
     """Parse a journal file into posts. Returns a generator of posts."""
-    with open(FULL_PATH, "r") as fh:
-        print(f"Reading {FULL_PATH}")
+    with open(full_path, "r") as fh:
+        print(f"Reading {full_path}")
         post_str = fh.read()
         pattern = r"-{78,82}\s*\n"
         posts = re.split(pattern, post_str)
@@ -220,25 +213,6 @@ def write_post_to_file(post, index):
     topics = fix_openai_mistakes(topics)
     # headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
 
-    if CLUSTER_WITH_KMEANS:
-        # This block has been obsoleted by the OpenAI API
-        keywords = None
-        with sqldict(KWDB) as db:
-            # Check if we've already extracted keywords
-            if slug not in db:
-                fig("Extracting keywords")
-                full_text = f"{title} {meta_description}"
-                keywords = yake_keywords(full_text)
-                db[slug] = keywords
-            else:
-                keywords = db[slug]
-            db.commit()
-        with sqldict(CATDB) as db:
-            # Check if we've already assigned a topic (a.k.a, category)
-            if slug not in db:
-                topic = None
-            else:
-                topic = db[slug]
 
     # Write top matter
 
@@ -280,6 +254,7 @@ def write_post_to_file(post, index):
 
 
 def odb(DBNAME, afunc, slug, full_text):
+    """Record OpenAI API hits in a database."""
     api_hit = False
     with sqldict(DBNAME) as db:
         if slug not in db:
@@ -316,52 +291,6 @@ def flush(std):
         if line:
             print(line)
             sys.stdout.flush()
-
-
-def yake_keywords(text):
-    """Get keywords from text using YAKE."""
-    # Filter out keywords that would be bad in topic labels
-
-    filter_us = [
-        ".",
-        "their",
-        "encourages",
-        "readers",
-        "called",
-        "things",
-        "general",
-        "order",
-        "offer",
-        "has made",
-        "process",
-        "generated",
-        "including",
-        "blog",
-        "importance",
-        "important",
-        "person",
-        "people",
-        "discussing",
-        "discusses",
-        "describes",
-        "author",
-        "suggests",
-        "talks",
-        "argues",
-        "reflects",
-    ]
-
-    keywords = yake.KeywordExtractor().extract_keywords(text)
-    keywords = [x for x in keywords if not any([y in x[0] for y in filter_us])]
-    # Reduce the float in the 2nd position of the tuple to 2 decimal places:
-    keywords = [(x[0], round(x[1], 2)) for x in keywords]
-    # Only include if 2nd position in the tuple is greater than 0.1:
-    keywords = [x for x in keywords if x[1] > 0.01]
-    # Sort descending by 2nd position in the tuple:
-    keywords = sorted(keywords, key=lambda x: x[1], reverse=True)
-    # Turn keywords into comma separated string without the float:
-    keywords = ", ".join([x[0] for x in keywords])
-    return keywords
 
 
 def neutralize_html(string):
@@ -491,194 +420,6 @@ def fix_openai_mistakes(keywords):
         keywords = ", ".join(keywords)
     return keywords
 
-
-#  _  ____  __                        _____
-# | |/ /  \/  | ___  __ _ _ __  ___  |  ___|   _ _ __   ___ ___
-# | ' /| |\/| |/ _ \/ _` | '_ \/ __| | |_ | | | | '_ \ / __/ __|
-# | . \| |  | |  __/ (_| | | | \__ \ |  _|| |_| | | | | (__\__ \
-# |_|\_\_|  |_|\___|\__,_|_| |_|___/ |_|   \__,_|_| |_|\___|___/
-
-
-def full_yake_kmeans_process(n, r):
-    """Cluster topics using k-means."""
-    fig("Yake&Kmeans")
-
-    # Delete the old keywords database
-    if RE_EXTRACT_KEYWORDS and os.path.exists(REPO_DATA + "keywords.db"):
-        fig("Reset Keywords")
-        os.remove(REPO_DATA + "keywords.db")
-
-        with sqldict(REPO_DATA + "keywords.db") as db:
-            with sqldict(REPO_DATA + "descriptions.db") as db2:
-                for i, (slug, description) in enumerate(db2.iteritems()):
-                    if slug not in db:
-                        print(f"{i}. Extracting keywords for {slug}")
-                        slug_keywords = slug.replace("-", " ")
-                        full_text = slug_keywords + " " + description
-                        keywords = yake_keywords(full_text)
-                        db[slug] = keywords
-                        db.commit()
-
-    # Load the keywords from the database
-    fig("Load Keywords")
-    table = []
-    with sqldict(REPO_DATA + "keywords.db") as db:
-        for key, keywords in db.iteritems():
-            keywords = [x[0] for x in keywords]  # Remove weights
-            keywords = dehyphen_and_dedupe(keywords)
-            table.append((key, keywords))
-
-    df = pd.DataFrame(table, columns=["slug", "keywords"])
-
-    # Remove keywords that would be bad in topic labels
-    vectorizer = TfidfVectorizer(stop_words="english")
-    # Create a string of keywords for each article
-    keyword_string = [", ".join(x) for x in df["keywords"]]
-    # Create a matrix of keywords
-    X = vectorizer.fit_transform(keyword_string)
-
-    # Apply KMeans clustering with n clusters
-    kmeans = KMeans(n_clusters=n, n_init="auto", random_state=r)
-    # Fit the model
-    kmeans.fit(X)
-
-    # Once the model is fit, it has an internal attribute called labels_
-    # that contains the cluster id for each article.
-
-    # Assign each article to its cluster.
-    # kmeans.labels_ is a list of cluster ids.
-    # The reason that it maps to the articles is that the articles are
-    # in the same order as the rows in the matrix X
-    df["cluster_id"] = kmeans.labels_
-
-    # By this time, the project is technically accomplished from the clustering
-    # perspective. But we need to figure out the best keywords for each
-    # cluster. Ideally, we should get a 2 keyword label for each cluster that
-    # can be used as category labels in the blog.
-
-    # Group the articles by cluster
-    df_grouped = df.groupby("cluster_id")
-
-    # Get the top keywords for each cluster
-    cluster_dict = {}
-    # Iterate over the clusters
-    for i, dfc_tuple in enumerate(df_grouped):
-        # dfc_tuple is a tuple of (cluster_id, dfc)
-        cluster_id, dfc = dfc_tuple
-        # Explode the keywords into a new row for each keyword
-        dfx = dfc.explode("keywords")
-        # Get the top keywords
-        top_picks = list(
-            dfx[["keywords", "cluster_id"]]
-            .groupby("keywords")
-            .count()
-            .sort_values("cluster_id", ascending=False)
-            .to_records()
-        )
-        # Filter out keywords that appear in only one article
-        top_pics = [x for x in top_picks if x[1] > 3]
-        # Filter out single-word keyword
-        top_picks = [x for x in top_picks if len(x[0].split(" ")) > 1]
-        # Filter out excessively multi-word keywords
-        top_picks = [x for x in top_picks if len(x[0].split(" ")) < 3]
-        # Filter out keywords that would be bad in topic labels
-        # top_picks = [x for x in top_picks if not any([y in x[0] for y in filter_us])]
-        # Filter out keywords that are too long
-        top_picks = get_winning_keywords(top_picks)
-        # Get the longest common sequence of words
-        top_picks = [x[0] for x in top_picks]
-        top_picks = shortest(top_picks)
-        # Add the top picks to the cluster_dict
-        cluster_dict[cluster_id] = top_picks
-
-    # Add a column to df that contains the topic by feeding the cluster number into the topics dict
-    df["topic"] = df["cluster_id"].apply(lambda x: cluster_dict[x])
-    df = df[["slug", "topic"]]
-
-    # Delete the old topics database
-    if os.path.exists(CATDB):
-        os.remove(CATDB)
-
-    # While keeping cluster_id in sync with the right slugs, map slugs to topics
-    with sqldict(CATDB) as db:
-        for key, value in list(df.to_records(index=False)):
-            db[key] = value
-        db.commit()
-    return cluster_dict, df
-
-
-def dehyphen_and_dedupe(keywords):
-    """Preserves order of keywords, but removes duplicates and hyphens"""
-    keywords = [x.replace("-", " ") for x in keywords]
-    seen = set()
-    # A fascinating way to add to a set within a list comprehension
-    seen_add = seen.add
-    keywords = [x.lower() for x in keywords if not (x in seen or seen_add(x))]
-    return keywords
-
-
-def shortest(keywords):
-    """Return the shortest common keyword."""
-    # Split keywords into lists of words
-    keywords = [x.split(" ") for x in keywords]
-    # Get the shortest keyword
-    short = min(keywords, key=lambda x: len(x))
-    for i, word in enumerate(short):
-        # If any of the words in the shortest keyword are not in the other
-        if not all([word in x for x in keywords]):
-            # Return the keyword up to that word
-            rv = short[:i]
-    if len(short) > 1:
-        # Join the words into a string
-        rv = " ".join(short)
-    elif len(short) == 1:
-        # If there's only one word, return it
-        rv = short[0]
-    else:
-        # If there are no words, return the first keyword
-        rv = keywords[0]
-    return rv
-
-
-def get_winning_keywords(keywords):
-    """Return a list of the winning keywords. Winning keywords are those that
-    are longer and whose stem words have the highest frequency."""
-
-    keywords = sorted(keywords, key=lambda x: len(x[0]), reverse=True)
-    # Get the stem words
-    stems = [x[0].split(" ")[0] for x in keywords]
-    # Get the frequency of each stem word
-    stem_freq = {x: stems.count(x) for x in stems}
-    # Get the winning stem words
-    winning_stems = [x for x in stem_freq if stem_freq[x] == max(stem_freq.values())]
-    # Get the winning keywords
-    winning_keywords = [x for x in keywords if x[0].split(" ")[0] in winning_stems]
-    # Return those with the highest frequency but favor 2-word keywords
-    winning_keywords = sorted(
-        winning_keywords, key=lambda x: x[1] * (len(x[0].split(" ")) + 1), reverse=True
-    )
-    return winning_keywords[:5]
-
-
-#  __  __       _
-# |  \/  | __ _(_)_ __
-# | |\/| |/ _` | | '_ \
-# | |  | | (_| | | | | |
-# |_|  |_|\__,_|_|_| |_|
-
-
-if CLUSTER_WITH_KMEANS:
-    # Use the KMeans clustering algorithm to cluster the articles
-    fig("KMeans Clustering")
-    cluster_dict, df = full_yake_kmeans_process(NUMBER_OF_CLUSTERS, RANDOM_SEED)
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Topic", justify="left", style="dim", no_wrap=True)
-    table.add_column("Count", justify="right", style="dim")
-    df_grouped = df.groupby("topic")
-    for topic, dfc in df_grouped:
-        table.add_row(topic, str(len(dfc)))
-    console = Console()
-    console.print(table)
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
