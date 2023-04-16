@@ -1,8 +1,3 @@
-# pylint: disable=C0301
-# pylint: disable=C0413
-# pylint: disable=C0411
-
-
 # Author: Mike Levin
 # Date: 2023-04-15
 # Description: Chop a journal.md file into individual blog posts.
@@ -13,7 +8,25 @@
 #  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
 #                   |_|                     |_|
 
-# Define author
+from sqlitedict import SqliteDict as sqldict
+from subprocess import Popen, PIPE
+from dateutil import parser
+from pyfiglet import Figlet
+from slugify import slugify
+from pathlib import Path
+from retry import retry
+from time import sleep
+import pandas as pd
+import argparse
+import datetime
+import openai
+import shlex
+import html
+import sys
+import re
+import os
+
+
 AUTHOR = "Mike Levin"
 
 # Debugging
@@ -26,25 +39,6 @@ POST_BY_POST = False
 #  | || | | | | | |_) | (_) | |  | |_\__ \
 # |___|_| |_| |_| .__/ \___/|_|   \__|___/
 #               |_|
-
-import os
-import re
-import sys
-import html
-import shlex
-import openai
-import slugify
-import datetime
-import argparse
-import pandas as pd
-from time import sleep
-from retry import retry
-from pathlib import Path
-from slugify import slugify
-from pyfiglet import Figlet
-from dateutil import parser
-from subprocess import Popen, PIPE
-from sqlitedict import SqliteDict as sqldict
 
 
 # Load function early so we can start showing figlets.
@@ -213,20 +207,11 @@ def write_post_to_file(post, index):
     topics = fix_openai_mistakes(topics)
     # headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
 
-
     # Write top matter
-
-    # if keywords:
-    #     # This process obsoleted by OpenAI API
-    #     keywords = [x[0].lower() for x in keywords]
-    #     keywords = dehyphen_and_dedupe(keywords)
-    #     top_matter.append(f"keywords: {keywords}")
-
     if topics:
         top_matter.append(f"keywords: {topics}")
         top_matter.append(f"category: {topics.split(', ')[0]}")
-    meta_description = scrub_excerpt(meta_description)
-    meta_description = neutralize_html(meta_description)
+    meta_description = html.escape(meta_description)
     top_matter.append(f'description: "{meta_description}"')
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
@@ -291,36 +276,6 @@ def flush(std):
         if line:
             print(line)
             sys.stdout.flush()
-
-
-def neutralize_html(string):
-    """Replace HTML entities with their unicode equivalents."""
-    return html.escape(string)
-
-
-def dehyphen_and_dedupe(keywords):
-    """Preserves order of keywords, but removes duplicates and hyphens"""
-    keywords = [x.replace("-", " ") for x in keywords]
-    # A fascinating way to add to a set within a list comprehension
-    seen = set()
-    seen_add = seen.add
-    keywords = [x for x in keywords if not (x in seen or seen_add(x))]
-    return ", ".join(keywords)
-
-
-def scrub_excerpt(text):
-    """Clean up a text for use as an excerpt."""
-    # Strip numbered markdown lists from text
-    text = re.sub(r"\d+\.\s", "", text)
-    # Strip asterisk or hyphen markdown lists from text
-    text = re.sub(r"[\*\-]\s", "", text)
-    # Replace double quotes with single quotes
-    text.replace('"', "'")
-    # Flatten wrapped lines
-    text = " ".join(text.split("\n"))
-    # If a period doesn't have a space after it, add one
-    text = re.sub(r"\.(\w)", r". \1", text)
-    return text
 
 
 #   ___                      _    ___   _____
