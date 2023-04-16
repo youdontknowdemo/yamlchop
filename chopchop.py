@@ -12,7 +12,7 @@
 AUTHOR = "Mike Levin"
 
 # Debugging
-DISABLE_GIT = False
+DISABLE_GIT = True
 CLUSTER_WITH_KMEANS = False
 RE_EXTRACT_KEYWORDS = False
 POST_BY_POST = False
@@ -113,6 +113,7 @@ CATDB = REPO_DATA + "categories.db"
 SUMDB = REPO_DATA + "summaries.db"
 DESCDB = REPO_DATA + "descriptions.db"
 TOPDB = REPO_DATA + "topics.db"
+HEADS = REPO_DATA + "headlines.db"
 
 # Print out constants
 print(f"REPO: {REPO}")
@@ -211,36 +212,13 @@ def write_post_to_file(post, index):
     keywords = None
     topics = None
 
-    # We use OpenAI to write a summary and meta description
-    with sqldict(SUMDB) as db:
-        # Check if we've already summarized this post
-        if slug not in db:
-            summary = summarize(post)  # Hits OpenAI API
-            api_hit = True
-            db[slug] = summary
-            db.commit()
-        else:
-            summary = db[slug]
-    with sqldict(DESCDB) as db:
-        # Check if we've already written a meta description
-        if slug not in db:
-            meta_description = write_meta(summary)  # Hits OpenAI API
-            api_hit = True
-            db[slug] = meta_description
-            db.commit()
-        else:
-            meta_description = db[slug]
-    with sqldict(TOPDB) as db:
-        # Check if we've already assigned a topic
-        if slug not in db:
-            full_text = f"{title} {meta_description} {summary}"
-            topics = assign_topics(full_text)  # Hits OpenAI API
-            api_hit = True
-            db[slug] = topics
-            db.commit()
-        else:
-            topics = db[slug]
-        topics = fix_openai_mistakes(topics)
+    # The OpenAI work is done here
+    summary, api_hit = odb(SUMDB, write_summary, slug, post)
+    meta_description, api_hit = odb(DESCDB, write_meta, slug, summary)
+    topic_text = f"{title} {meta_description} {summary}"
+    topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
+    topics = fix_openai_mistakes(topics)
+    # headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
 
     if CLUSTER_WITH_KMEANS:
         # This block has been obsoleted by the OpenAI API
@@ -299,6 +277,19 @@ def write_post_to_file(post, index):
         print()
 
     return link
+
+
+def odb(DBNAME, afunc, slug, full_text):
+    api_hit = False
+    with sqldict(DBNAME) as db:
+        if slug not in db:
+            result = afunc(full_text)  # Hits OpenAI API
+            db[slug] = result
+            db.commit()
+            api_hit = True
+        else:
+            result = db[slug]
+    return result, api_hit
 
 
 def git(cwd, line_command):
@@ -413,7 +404,7 @@ def scrub_excerpt(text):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def assign_topics(data):
+def find_topics(data):
     """Returns top keywords and main category for text."""
     print("Hitting OpenAI API for: topics")
     response = openai.Completion.create(
@@ -457,7 +448,7 @@ def write_meta(data):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def summarize(text):
+def write_summary(text):
     """Summarize a text using OpenAI's API."""
     chunks = chunk_text(text, chunk_size=4000)
     summarized_text = ""
