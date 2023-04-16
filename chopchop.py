@@ -8,12 +8,11 @@
 #  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
 #                   |_|                     |_|
 
-# Define constants
+# Define author
 AUTHOR = "Mike Levin"
-SUMMARY_LENGTH = 500
-DISABLE_GIT = True
 
 # Debugging
+DISABLE_GIT = False
 CLUSTER_WITH_KMEANS = False
 RE_EXTRACT_KEYWORDS = False
 POST_BY_POST = False
@@ -241,10 +240,11 @@ def write_post_to_file(post, index):
             db.commit()
         else:
             topics = db[slug]
-    keywords = None
+        topics = fix_openai_mistakes(topics)
 
     if CLUSTER_WITH_KMEANS:
         # This block has been obsoleted by the OpenAI API
+        keywords = None
         with sqldict(KWDB) as db:
             # Check if we've already extracted keywords
             if slug not in db:
@@ -275,7 +275,7 @@ def write_post_to_file(post, index):
         top_matter.append(f"category: {topics.split(', ')[0]}")
     meta_description = scrub_excerpt(meta_description)
     meta_description = neutralize_html(meta_description)
-    top_matter.append(f"description: {meta_description}")
+    top_matter.append(f'description: "{meta_description}"')
     top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
@@ -488,6 +488,17 @@ def chunk_text(text, chunk_size=4000):
         chunks.append(chunk)
         start_idx = end_idx
     return chunks
+
+
+def fix_openai_mistakes(keywords):
+    """Fix some common mistakes OpenAI makes."""
+    # OpenAI might put keywords inside the quotes instead of outside.
+    if ',"' in keywords:
+        keywords = keywords.split('," "')
+        keywords = [x.replace('"', "") for x in keywords]
+        keywords = [f'"{x}"' for x in keywords]
+        keywords = ", ".join(keywords)
+    return keywords
 
 
 #  _  ____  __                        _____
