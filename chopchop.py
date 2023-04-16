@@ -16,7 +16,7 @@ DISABLE_GIT = True
 # Debugging
 CLUSTER_WITH_KMEANS = False
 RE_EXTRACT_KEYWORDS = False
-POST_BY_POST = True
+POST_BY_POST = False
 
 # KMeans values if activated
 NUMBER_OF_CLUSTERS = 15
@@ -291,8 +291,10 @@ def write_post_to_file(post, index):
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
     print(index, full_path)
     if POST_BY_POST and api_hit:
-        print(f"Meta Description: {meta_description}")
-        print(f"Keywords: {topics}")
+        print()
+        print(f"META DESCRIPTION: {meta_description}")
+        print()
+        print(f"KEYWORDS: {topics}")
         input("Press Enter to continue...")
         print()
 
@@ -442,7 +444,7 @@ def write_meta(data):
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
             "...that will entice readers to click through to the blog post. "
             "Write from the perspective of the author. Never say 'The autor'. Say 'I am' or 'I wrote'"
-            "Keep it under 160 characters. "
+            "Always finish sentences. Never chop off a sentence. End in a period."
             "\nSummary:\n\n"
         ),
         temperature=0.5,
