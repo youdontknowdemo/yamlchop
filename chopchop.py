@@ -150,7 +150,7 @@ def write_post_to_file(post, index):
                 # Try to parse the date
                 adate = line[2:]
                 date_str = parser.parse(adate).date()
-                # top_matter.append(f"date: {date_str}")
+                top_matter.append(f"date: {date_str}")
             except:
                 # If we can't parse the date, skip the post
                 print(f"Skipping post {index} - no date")
@@ -160,13 +160,12 @@ def write_post_to_file(post, index):
             # Second line is always the title for headline & url
             if line and line[0] == "#" and " " in line:
                 title = " ".join(line.split(" ")[1:])
-                title = title.replace(": ", " - ")
-                title = f'"{title}"'
+                title = title.replace(":", "")
             else:
                 return
             # Turn title into slug for permalink
             slug = slugify(title.replace("'", ""))
-            top_matter.append(f"title: {title}")
+            top_matter.append(f'title: "{title}"')
             top_matter.append(f"slug: {slug}")
             top_matter.append(f"permalink: /{BLOG}/{slug}/")
         else:
@@ -201,12 +200,12 @@ def write_post_to_file(post, index):
     # Write top matter
     if topics:
         top_matter.append(f"keywords: {topics}")
-        top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
+        #top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
     meta_description = html.escape(meta_description)
     top_matter.append(f'description: "{meta_description}"')
-    top_matter.append(f'headline: "{headline}"')
+    #top_matter.append(f'subhead: "{headline}"')
     top_matter.append(f"layout: post")
-    top_matter.append(f"author: {AUTHOR}")
+    #top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
     top_matter.extend(content)
     content = top_matter
@@ -379,17 +378,17 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
-def fix_openai_mistakes(keywords):
+def fix_openai_mistakes(kwds):
     """Fix some common mistakes OpenAI makes."""
-    # OpenAI might put keywords inside the quotes instead of outside.
-    if ',"' in keywords:
-        keywords = keywords.split('," "')
-        keywords = [x.replace('"', "") for x in keywords]
-        keywords = [f'"{x}"' for x in keywords]
-        keywords = ", ".join(keywords)
-    if "\n" in keywords:
-        keywords = keywords.replace("\n", ", ")
-    return keywords
+    # OpenAI might put kwds inside the quotes instead of outside.
+    if ',"' in kwds:
+        kwds = kwds.split('," "')
+        kwds = [x.replace('"', "") for x in kwds]
+        kwds = [f'"{x}"' for x in kwds]
+        kwds = ", ".join(kwds)
+    if "\n" in kwds:
+        kwds = kwds.replace("\n", ", ")
+    return kwds
 
 
 #  ____  _ _                _                              _
