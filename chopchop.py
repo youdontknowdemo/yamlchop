@@ -32,7 +32,7 @@ AUTHOR = "Mike Levin"
 # Debugging
 DISABLE_GIT = False
 POST_BY_POST = False
-DATE_FORMAT = "%Y-%m-%d"
+
 
 # Load function early so we can start showing figlets.
 def fig(text):
@@ -154,7 +154,7 @@ def write_post_to_file(post, index):
             # Parse the date into a datetime object
             adate = parser.parse(date_str).date()
             # Format the date into a string
-            date_str = adate.strftime(DATE_FORMAT)
+            date_str = adate.strftime("%Y-%m-%d")
             # Format the date into a filename
             top_matter.append(f"date: {date_str}")
         elif i == 1:
@@ -200,12 +200,12 @@ def write_post_to_file(post, index):
 
     # Write top matter
     #if topics:
-    #    top_matter.append(f"keywords: {topics}")
-    #    top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
-    #meta_description = html.escape(meta_description)
-    #top_matter.append(f'description: "{meta_description}"')
+    #   top_matter.append(f"keywords: {topics}")
+    #   top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
+    meta_description = html.escape(meta_description)
+    top_matter.append(f'description: "{meta_description}"')
     ##top_matter.append(f'subhead: "{headline}"')
-    #top_matter.append(f"layout: post")
+    # top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
     top_matter.extend(content)
