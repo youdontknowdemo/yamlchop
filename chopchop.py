@@ -197,6 +197,8 @@ def write_post_to_file(post, index):
     meta_description, api_hit = odb(DESCDB, write_meta, slug, summary)
     topic_text = f"{title} {meta_description} {summary}"
     headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
+    headline = prepare_for_front_matter(headline)
+    top_matter.append(f'subhead: "{headline}"')
     topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
     # Prepare to split a quoted keyword list by removing leading and trailing quotes
     topics = topics[1:-1]
@@ -211,7 +213,6 @@ def write_post_to_file(post, index):
     if DEBUG:
         if topics:
             top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
-            top_matter.append(f'subhead: "{headline}"')
             top_matter.append(f"layout: post")
     meta_description = html.escape(meta_description)
     top_matter.append(f'description: "{meta_description}"')
@@ -236,6 +237,15 @@ def write_post_to_file(post, index):
         print()
 
     return link
+
+
+def prepare_for_front_matter(text):
+    """Prepare text for front matter."""
+    text = text.replace('"', "")
+    text = text.replace("'", "")
+    text = text.replace("\n", "")
+    text = text.strip()
+    return text
 
 
 def git(cwd, line_command):
