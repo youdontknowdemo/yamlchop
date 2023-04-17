@@ -32,7 +32,7 @@ AUTHOR = "Mike Levin"
 # Debugging
 DISABLE_GIT = False
 POST_BY_POST = False
-
+DATE_FORMAT = "%Y-%m-%d"
 
 # Load function early so we can start showing figlets.
 def fig(text):
@@ -147,10 +147,16 @@ def write_post_to_file(post, index):
             # First line is always the date stamp.
             filename_date = None
             if "#" not in line:
+                # Even date-lines must get a markdown headline hash
                 return
-            adate = line[line.rfind("#") + 1 :].strip()
-            top_matter.append(f"date: {adate}")
-            date_str = parser.parse(adate).date()
+            # Parse the date from the line
+            date_str = line[line.rfind("#") + 1 :].strip()
+            # Parse the date into a datetime object
+            adate = parser.parse(date_str).date()
+            # Format the date into a string
+            date_str = adate.strftime(DATE_FORMAT)
+            # Format the date into a filename
+            top_matter.append(f"date: {date_str}")
         elif i == 1:
             # Second line is always the title for headline & url
             if line and line[0] == "#" and " " in line:
@@ -193,13 +199,13 @@ def write_post_to_file(post, index):
     headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
 
     # Write top matter
-    if topics:
-        top_matter.append(f"keywords: {topics}")
-        top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
-    meta_description = html.escape(meta_description)
-    top_matter.append(f'description: "{meta_description}"')
-    #top_matter.append(f'subhead: "{headline}"')
-    top_matter.append(f"layout: post")
+    #if topics:
+    #    top_matter.append(f"keywords: {topics}")
+    #    top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
+    #meta_description = html.escape(meta_description)
+    #top_matter.append(f'description: "{meta_description}"')
+    ##top_matter.append(f'subhead: "{headline}"')
+    #top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
     top_matter.extend(content)
@@ -210,8 +216,7 @@ def write_post_to_file(post, index):
         # Flatten list of lines into a single string
         flat_content = "\n".join(content)
         f.writelines(flat_content)
-    us_date = date_str.strftime("%m/%d/%Y")
-    link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
+    link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({date_str})<br />{meta_description}</li>'
     print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
         print()
