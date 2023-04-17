@@ -1,6 +1,7 @@
 # Author: Mike Levin
 # Date: 2023-04-15
 # Description: Chop a journal.md file into individual blog posts.
+# To-Do: Check resulting pages for broken links.
 #   ____ _                  ____ _
 #  / ___| |__   ___  _ __  / ___| |__   ___  _ __
 # | |   | '_ \ / _ \| '_ \| |   | '_ \ / _ \| '_ \
@@ -32,6 +33,7 @@ AUTHOR = "Mike Levin"
 # Debugging
 DISABLE_GIT = False
 POST_BY_POST = False
+DEBUG = False
 
 
 # Load function early so we can start showing figlets.
@@ -194,18 +196,25 @@ def write_post_to_file(post, index):
     summary, api_hit = odb(SUMDB, write_summary, slug, post)
     meta_description, api_hit = odb(DESCDB, write_meta, slug, summary)
     topic_text = f"{title} {meta_description} {summary}"
-    topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
-    topics = fix_openai_mistakes(topics)
     headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
-
+    topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
+    # Prepare to split a quoted keyword list by removing leading and trailing quotes
+    topics = topics[1:-1]
+    # Now when we split on ", " it will be a list of keywords
+    topics = topics.split('", "')
+    # If this resulted in a list with more than one element, we can re-assemble it
+    if len(topics) > 1:
+        # Re-assembling string-list of keywords, but without quotes
+        topics = ", ".join(topics)
+        top_matter.append(f"keywords: {topics}")
     # Write top matter
-    #if topics:
-    #   top_matter.append(f"keywords: {topics}")
-    #   top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
+    if DEBUG:
+        if topics:
+            top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
+            top_matter.append(f'subhead: "{headline}"')
+            top_matter.append(f"layout: post")
     meta_description = html.escape(meta_description)
     top_matter.append(f'description: "{meta_description}"')
-    ##top_matter.append(f'subhead: "{headline}"')
-    # top_matter.append(f"layout: post")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
     top_matter.extend(content)
@@ -376,19 +385,6 @@ def chunk_text(text, chunk_size=4000):
         chunks.append(chunk)
         start_idx = end_idx
     return chunks
-
-
-def fix_openai_mistakes(kwds):
-    """Fix some common mistakes OpenAI makes."""
-    # OpenAI might put kwds inside the quotes instead of outside.
-    if ',"' in kwds:
-        kwds = kwds.split('," "')
-        kwds = [x.replace('"', "") for x in kwds]
-        kwds = [f'"{x}"' for x in kwds]
-        kwds = ", ".join(kwds)
-    if "\n" in kwds:
-        kwds = kwds.replace("\n", ", ")
-    return kwds
 
 
 #  ____  _ _                _                              _
