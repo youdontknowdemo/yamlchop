@@ -242,8 +242,10 @@ def write_post_to_file(post, index):
 def prepare_for_front_matter(text):
     """Prepare text for front matter."""
     text = text.replace('"', "")
-    text = text.replace("'", "")
-    text = text.replace("\n", "")
+    text = text.replace("\n", " ")
+    # RegEx replace multiple spaces with a single space
+    text = re.sub(r"\s+", " ", text)
+    text = html.escape(text)
     text = text.strip()
     return text
 
