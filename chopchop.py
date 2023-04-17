@@ -146,16 +146,11 @@ def write_post_to_file(post, index):
         if i == 0:
             # First line is always the date stamp.
             filename_date = None
-            try:
-                # Try to parse the date
-                adate = line[2:]
-                date_str = parser.parse(adate).date()
-                top_matter.append(f"date: {date_str}")
-            except:
-                # If we can't parse the date, skip the post
-                print(f"Skipping post {index} - no date")
+            if "#" not in line:
                 return
-
+            adate = line[line.rfind("#") + 1 :].strip()
+            top_matter.append(f"date: {adate}")
+            date_str = parser.parse(adate).date()
         elif i == 1:
             # Second line is always the title for headline & url
             if line and line[0] == "#" and " " in line:
@@ -181,7 +176,7 @@ def write_post_to_file(post, index):
                 pass
     # Create the file name from the date and index
     file_name = f"{date_str}-post-{index:04}.md"
-    full_path = f"{OUTPUT_PATH}/{file_name}"
+    out_path = f"{OUTPUT_PATH}/{file_name}"
 
     # Initialize per-post variables
     summary = None
@@ -200,24 +195,24 @@ def write_post_to_file(post, index):
     # Write top matter
     if topics:
         top_matter.append(f"keywords: {topics}")
-        #top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
+        top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
     meta_description = html.escape(meta_description)
     top_matter.append(f'description: "{meta_description}"')
     #top_matter.append(f'subhead: "{headline}"')
     top_matter.append(f"layout: post")
-    #top_matter.append(f"author: {AUTHOR}")
+    top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
     top_matter.extend(content)
     content = top_matter
 
     # Write to file
-    with open(full_path, "w") as f:
+    with open(out_path, "w") as f:
         # Flatten list of lines into a single string
         flat_content = "\n".join(content)
         f.writelines(flat_content)
     us_date = date_str.strftime("%m/%d/%Y")
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({us_date})<br />{meta_description}</li>'
-    print(index, full_path)
+    print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
         print()
         print(f"Title: {title}")
