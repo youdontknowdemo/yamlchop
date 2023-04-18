@@ -50,6 +50,7 @@ AUTHOR = "Mike Levin"
 # Debugging
 DISABLE_GIT = False
 POST_BY_POST = True
+INTERACTIVE = False
 DEBUG = False
 
 
@@ -107,7 +108,7 @@ GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
 KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
-ENGINE = "text-davinci-002"
+ENGINE = "text-davinci-003"
 
 # OpenAI DatabaseTrue
 SUMDB = REPO_DATA + "summaries.db"
@@ -229,7 +230,7 @@ def write_post_to_file(post, index):
         if topics:
             top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
             top_matter.append(f"layout: post")
-    meta_description = html.escape(meta_description)
+    # meta_description = html.escape(meta_description)
     top_matter.append(f'description: "{meta_description}"')
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
@@ -245,17 +246,18 @@ def write_post_to_file(post, index):
     print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
         print(f"Slug: {slug}")
+        print()
         print(f"Title: {title}")
         print()
         print(f"Headline: {headline}")
         print()
-        print(f"Meta description: {description}")
+        print(f"Meta description: {meta_description}")
         print()
         print(f"Keywords: {topics}")
         print()
-        input("Press Enter to continue...")
-        print()
-        print()
+        if INTERACTIVE:
+            input("Press Enter to continue...")
+            print()
 
     return link
 
@@ -279,7 +281,7 @@ def prepare_for_front_matter(text):
     text = text.replace("\n", " ")
     # RegEx replace multiple spaces with a single space
     text = re.sub(r"\s+", " ", text)
-    text = html.escape(text)
+    # text = html.escape(text)
     text = text.strip()
     return text
 
@@ -338,7 +340,7 @@ def find_topics(data):
     """Returns top keywords and main category for text."""
     print("Hitting OpenAI API for: topics")
     response = openai.Completion.create(
-        engine="text-davinci-002",
+        engine=ENGINE,
         prompt=(
             f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
             "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
@@ -360,11 +362,11 @@ def write_meta(data):
     """Write a meta description for a post."""
     print("Hitting OpenAI API for: meta descriptions")
     response = openai.Completion.create(
-        engine="text-davinci-002",
+        engine=ENGINE,
         prompt=(
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
             "...that will entice readers to click through to the blog post. "
-            "Write from the perspective of the author. Never say 'The author'. Say 'I am' or 'I wrote'"
+            "You wrote this. Write from the first person perspective. Never say 'The author'. '"
             "Always finish sentences. Never chop off a sentence. End in a period."
             "\nSummary:\n\n"
         ),
@@ -379,15 +381,16 @@ def write_meta(data):
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_headline(data):
-    """Write a better headlie for post."""
+    """Write an alternate headline for the post."""
     print("Hitting OpenAI API for: subhead")
     response = openai.Completion.create(
-        engine="text-davinci-002",
+        engine=ENGINE,
         prompt=(
             f"Write a short alternative headline for the following post:\n{data}\n\n"
-            "Don't be reduntant with the first line of the blog post. "
+            "The first line of the post is the headline. "
+            "Don't be reduntant with the headline. Say something different or better. "
+            "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
             "Use only one sentence. "
-            "Write from the perspective of the author. Never say 'The author'. Say 'I am' or 'I wrote'"
             "\nHeadline:\n\n"
         ),
         temperature=0.5,
@@ -402,12 +405,13 @@ def write_headline(data):
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_summary(text):
     """Summarize a text using OpenAI's API."""
+    print("Hitting OpenAI API for: summary")
     chunks = chunk_text(text, chunk_size=4000)
     summarized_text = ""
     for chunk in chunks:
         response = openai.Completion.create(
-            engine="text-davinci-002",
-            prompt=(f"You are the author. Write from first person perspective. Please summarize the following text as the author:\n{chunk}\n\n" "Summary:"),
+            engine=ENGINE,
+            prompt=(f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n" "Summary:"),
             temperature=0.5,
             max_tokens=100,
             n=1,
