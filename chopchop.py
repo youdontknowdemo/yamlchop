@@ -11,9 +11,9 @@
 
 # import os
 # import yaml
-# 
+#
 # folder_path = "/home/ubuntu/repos/hide/MikeLev.in/_posts"
-# 
+#
 # for filename in os.listdir(folder_path):
 #     if filename.endswith(".md"):
 #         file_path = os.path.join(folder_path, filename)
@@ -135,11 +135,11 @@ for fh in os.listdir(OUTPUT_PATH):
     delete_me = f"{OUTPUT_PATH}/{fh}"
     os.remove(delete_me)
 
-#  ____        __ _              _____                 _   _
-# |  _ \  ___ / _(_)_ __   ___  |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
-# | | | |/ _ \ |_| | '_ \ / _ \ | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
-# | |_| |  __/  _| | | | |  __/ |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
-# |____/ \___|_| |_|_| |_|\___| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
+#  _____                 _   _
+# |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
+# | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
+# |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
+# |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
 
 def parse_journal(full_path):
@@ -218,6 +218,8 @@ def write_post_to_file(post, index):
     # The OpenAI work is done here
     summary, api_hit = odb(SUMDB, write_summary, slug, post)
     meta_description, api_hit = odb(DESCDB, write_meta, slug, summary)
+    meta_description = chop_last_sentence(meta_description)
+    meta_description = neutralize(meta_description)
     topic_text = f"{title} {meta_description} {summary}"
     headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
     headline = prepare_for_front_matter(headline)
@@ -230,7 +232,6 @@ def write_post_to_file(post, index):
         if topics:
             top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
             top_matter.append(f"layout: post")
-    # meta_description = html.escape(meta_description)
     top_matter.append(f'description: "{meta_description}"')
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append("---")
@@ -245,6 +246,7 @@ def write_post_to_file(post, index):
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({date_str})<br />{meta_description}</li>'
     print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
+        print()
         print(f"Slug: {slug}")
         print()
         print(f"Title: {title}")
@@ -262,15 +264,30 @@ def write_post_to_file(post, index):
     return link
 
 
-def check_pat(text):
-    """Checks for good quote-and-comma string format."""
+def chop_last_sentence(text):
+    """Chop off the last sentence of a string if it is not a sentence ending with punctuation."""
     if not text:
         return None
-    inside_comma = r'(^("[^"]+",\s*)+"[^"]+"$)|(^"[^",]*"$)'
-    if re.match(inside_comma, text, re.MULTILINE) and "\n" not in text:
+    if text[-1] in ".?!":
         return text
-    else:
-        return None
+    if "." in text:
+        return text[: text.rfind(".") + 1]
+    if "?" in text:
+        return text[: text.rfind("?") + 1]
+    if "!" in text:
+        return text[: text.rfind("!") + 1]
+    return text
+
+
+def neutralize(text):
+    """Replace harmful characters with harmless ones."""
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#39;")
+    )
 
 
 def prepare_for_front_matter(text):
@@ -281,7 +298,7 @@ def prepare_for_front_matter(text):
     text = text.replace("\n", " ")
     # RegEx replace multiple spaces with a single space
     text = re.sub(r"\s+", " ", text)
-    # text = html.escape(text)
+    text = neutralize(text)
     text = text.strip()
     return text
 
@@ -411,7 +428,10 @@ def write_summary(text):
     for chunk in chunks:
         response = openai.Completion.create(
             engine=ENGINE,
-            prompt=(f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n" "Summary:"),
+            prompt=(
+                f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n"
+                "Summary:"
+            ),
             temperature=0.5,
             max_tokens=100,
             n=1,
