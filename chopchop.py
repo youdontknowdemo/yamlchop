@@ -9,6 +9,23 @@
 #  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
 #                   |_|                     |_|
 
+# import os
+# import yaml
+# 
+# folder_path = "/home/ubuntu/repos/hide/MikeLev.in/_posts"
+# 
+# for filename in os.listdir(folder_path):
+#     if filename.endswith(".md"):
+#         file_path = os.path.join(folder_path, filename)
+#         with open(file_path, "r") as file:
+#             post_content = file.read()
+#             _, yaml_front_matter, _ = post_content.split("---", maxsplit=2)
+#             try:
+#                 yaml.safe_load(yaml_front_matter)
+#                 print(f"{file_path}: YAML front matter is valid.")
+#             except yaml.YAMLError as e:
+#                 print(f"{file_path}: Error in YAML front matter:", e)
+
 import os
 import re
 import sys
@@ -32,7 +49,7 @@ AUTHOR = "Mike Levin"
 
 # Debugging
 DISABLE_GIT = False
-POST_BY_POST = False
+POST_BY_POST = True
 DEBUG = False
 
 
@@ -90,6 +107,7 @@ GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
 KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
+ENGINE = "text-davinci-002"
 
 # OpenAI DatabaseTrue
 SUMDB = REPO_DATA + "summaries.db"
@@ -204,7 +222,6 @@ def write_post_to_file(post, index):
     headline = prepare_for_front_matter(headline)
     top_matter.append(f'subhead: "{headline}"')
     topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
-    topics = check_pat(topics)
     if topics:
         top_matter.append(f"keywords: {topics}")
     # Write top matter
@@ -227,11 +244,17 @@ def write_post_to_file(post, index):
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({date_str})<br />{meta_description}</li>'
     print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
-        print()
+        print(f"Slug: {slug}")
         print(f"Title: {title}")
+        print()
         print(f"Headline: {headline}")
         print()
+        print(f"Meta description: {description}")
+        print()
+        print(f"Keywords: {topics}")
+        print()
         input("Press Enter to continue...")
+        print()
         print()
 
     return link
@@ -250,6 +273,8 @@ def check_pat(text):
 
 def prepare_for_front_matter(text):
     """Prepare text for front matter."""
+    if not text:
+        return None
     text = text.replace('"', "")
     text = text.replace("\n", " ")
     # RegEx replace multiple spaces with a single space
@@ -315,10 +340,9 @@ def find_topics(data):
     response = openai.Completion.create(
         engine="text-davinci-002",
         prompt=(
-            f"Create a list of keywords for the following text:\n\n{data}\n\n...in order to categorize the blog post. "
-            "Do not use extremely broad words like Data, Technology, Blog, Post or Author "
-            "Use the best keyword for a single-category topic-label as the first keyword in the list. "
-            "Format as 1-line with keywords separated by commas. "
+            f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
+            "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
+            "Use words that will be good for site categories, tags and search. "
             "Do not use quotes around keywords. "
             "\nKeywords:\n\n"
         ),
@@ -383,7 +407,7 @@ def write_summary(text):
     for chunk in chunks:
         response = openai.Completion.create(
             engine="text-davinci-002",
-            prompt=(f"Please summarize the following text:\n{chunk}\n\n" "Summary:"),
+            prompt=(f"You are the author. Write from first person perspective. Please summarize the following text as the author:\n{chunk}\n\n" "Summary:"),
             temperature=0.5,
             max_tokens=100,
             n=1,
