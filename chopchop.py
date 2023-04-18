@@ -36,6 +36,9 @@ POST_BY_POST = False
 DEBUG = False
 
 
+# Globals
+
+
 # Load function early so we can start showing figlets.
 def fig(text):
     """Print a figlet."""
@@ -86,8 +89,9 @@ PATH = "/".join(parts[:-2]) + "/"
 GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
+KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 
-# OpenAI Databases
+# OpenAI DatabaseTrue
 SUMDB = REPO_DATA + "summaries.db"
 DESCDB = REPO_DATA + "descriptions.db"
 TOPDB = REPO_DATA + "topics.db"
@@ -200,14 +204,8 @@ def write_post_to_file(post, index):
     headline = prepare_for_front_matter(headline)
     top_matter.append(f'subhead: "{headline}"')
     topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
-    # Prepare to split a quoted keyword list by removing leading and trailing quotes
-    topics = topics[1:-1]
-    # Now when we split on ", " it will be a list of keywords
-    topics = topics.split('", "')
-    # If this resulted in a list with more than one element, we can re-assemble it
-    if len(topics) > 1:
-        # Re-assembling string-list of keywords, but without quotes
-        topics = ", ".join(topics)
+    topics = check_pat(topics)
+    if topics:
         top_matter.append(f"keywords: {topics}")
     # Write top matter
     if DEBUG:
@@ -237,6 +235,17 @@ def write_post_to_file(post, index):
         print()
 
     return link
+
+
+def check_pat(text):
+    """Checks for good quote-and-comma string format."""
+    if not text:
+        return None
+    inside_comma = r'(^("[^"]+",\s*)+"[^"]+"$)|(^"[^",]*"$)'
+    if re.match(inside_comma, text, re.MULTILINE) and "\n" not in text:
+        return text
+    else:
+        return None
 
 
 def prepare_for_front_matter(text):
@@ -309,7 +318,8 @@ def find_topics(data):
             f"Create a list of keywords for the following text:\n\n{data}\n\n...in order to categorize the blog post. "
             "Do not use extremely broad words like Data, Technology, Blog, Post or Author "
             "Use the best keyword for a single-category topic-label as the first keyword in the list. "
-            "Format as 1-line with keywords in quotes and separated by commas. "
+            "Format as 1-line with keywords separated by commas. "
+            "Do not use quotes around keywords. "
             "\nKeywords:\n\n"
         ),
         temperature=0.5,
@@ -346,7 +356,7 @@ def write_meta(data):
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_headline(data):
     """Write a better headlie for post."""
-    print("Hitting OpenAI API for: better headlines")
+    print("Hitting OpenAI API for: subhead")
     response = openai.Completion.create(
         engine="text-davinci-002",
         prompt=(
@@ -420,8 +430,10 @@ links.insert(0, f'<ol start="{len(links)}" reversed>')
 links.append("</ol>")
 # Write index page
 index_page = "\n".join(links)
+# Write out list of posts
 with open(f"{PATH}{REPO}_includes/post_list.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
+
 
 if not DISABLE_GIT:
     # Git commands
