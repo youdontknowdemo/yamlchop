@@ -60,7 +60,7 @@ from sqlitedict import SqliteDict as sqldict
 AUTHOR = "Mike Levin"
 
 # Debugging
-DISABLE_GIT = True
+DISABLE_GIT = False
 POST_BY_POST = True
 INTERACTIVE = False
 DEBUG = False
@@ -523,6 +523,8 @@ def q(text):
             # Use RegEx to remove any number of repeating double quotes with only one double quote.
             # This will allow us to use single quotes to wrap the string.
             text = re.sub(r'\"{2,}', '"', text)
+        if text[0] != '"' and text[-1] != '"':
+            text = f'"{text}"'
     return text
 
 #   ___                      _    ___   _____
