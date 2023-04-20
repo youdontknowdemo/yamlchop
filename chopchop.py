@@ -152,7 +152,7 @@ if not DEBUG:
 def parse_journal(full_path):
     """Parse a journal file into posts. Returns a generator of posts, reverse-order."""
     with open(full_path, "r") as fh:
-        print(f"Reading {full_path}")
+        print(f"Reading for publishing {full_path}")
         post_str = fh.read()
         pattern = r"-{78,82}\s*\n"
         posts = re.split(pattern, post_str)
@@ -166,7 +166,7 @@ def parse_journal(full_path):
 def rebuild_journal(full_path):
     """I am a forward-running journal parser for inserting front-matter on rebuild."""
     with open(full_path, "r") as fh:
-        print(f"Reading {full_path}")
+        print(f"Reading for rebuild {full_path}")
         post_str = fh.read()
         pattern = r"-{78,82}\s*\n"
         posts = re.split(pattern, post_str)
@@ -424,18 +424,8 @@ def front_matter_inserter(pre_post):
     new_post = []
     top_dict = {}
     for i, line in enumerate(lines):
-        # The 1-time conversion is done. Now we need to make this work more like write_post_to_file().
-
-        # This is what we used to do:
-
-        # parts = line.split()
-        # if i == 0 and line[0] == "#":
-        #     line = "date: " + " ".join(parts[1:])
-        # elif i == 1 and line[0] == "#":
-        #     line = "title: " + " ".join(parts[1:]) + "\n---"
-        # new_post.append(line)
+        # Who needs trailing white space anyway?
         line = line.rstrip()
-
         if i == 0:
             if line.startswith("date:"):
                 # This is the most common case and what we want to find.
@@ -495,21 +485,24 @@ def front_matter_inserter(pre_post):
                 # We'll use the slug as the key.
                 # The databases in the order we want to check them are: HEADS, DESCDB, TOPDB
                 # In time, I will clean this up probably into a function.
-                if "headline" in top_dict:
+                if "headline" not in top_dict:
                     with sqldict(HEADS) as db:
                         if top_dict["slug"] in db:
                             headline = q(db[top_dict['slug']])
                             top_matter.append(f"headline: {headline}")
-                if "description" in top_dict:
+                            top_dict["headline"] = headline
+                if "description" not in top_dict:
                     with sqldict(DESCDB) as db:
                         if top_dict["slug"] in db:
                             description = q(db[top_dict['slug']])
                             top_matter.append(f"description: {description}")
-                if "topics" in top_dict:
+                            top_dict["description"] = description
+                if "topics" not in top_dict:
                     with sqldict(TOPDB) as db:
                         if top_dict["slug"] in db:
                             topics = q(db[top_dict['slug']])
                             top_matter.append(f"topics: {topics}")
+                            top_dict["topics"] = topics
         else:
             new_post.append(line)
     top_matter.extend(new_post)
@@ -684,7 +677,9 @@ if out_file.exists():
 # Rebuild the journal in _data
 all_posts = rebuild_journal(FULL_PATH)
 with open(OUTPUT2_PATH, "a") as fh:
+    print("Rebuilding journal...")
     for i, apost in enumerate(all_posts):
+        print(i, end=" ", flush=True)
         if i:
             fh.write(CHOPPER)
         apost = front_matter_inserter(apost)
