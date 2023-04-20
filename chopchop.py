@@ -51,6 +51,7 @@ from retry import retry
 from pathlib import Path
 from slugify import slugify
 from pyfiglet import Figlet
+from datetime import datetime
 from dateutil import parser
 from subprocess import Popen, PIPE
 from sqlitedict import SqliteDict as sqldict
@@ -59,7 +60,7 @@ from sqlitedict import SqliteDict as sqldict
 AUTHOR = "Mike Levin"
 
 # Debugging
-DISABLE_GIT = False
+DISABLE_GIT = True
 POST_BY_POST = True
 INTERACTIVE = False
 DEBUG = False
@@ -198,7 +199,11 @@ def write_post_to_file(post, index):
             # Parse the date from the line
             date_str = line[len("date: ") :].strip()
             # Parse the date into a datetime object
-            adate = parser.parse(date_str).date()
+            # adate = parser.parse(date_str).date()
+            # adate = datetime.strptime(date_str, '%a %b %d, %Y').date()
+            # adate = datetime.strptime(date_str.strip('"'), '%a %b %d, %Y').date()
+            date_str = date_str.strip('"')  # remove quotes
+            adate = datetime.strptime(date_str, '%a %b %d, %Y').date()
             # Format the date into a string
             date_str = adate.strftime("%Y-%m-%d")
             # Format the date into a filename
@@ -509,17 +514,16 @@ def front_matter_inserter(pre_post):
 
 
 def q(text):
-    """Returns text with am embedded double-quote around it and html-escaped content
-    if it contains any of the following characters: " ' [ ] { } , :"""
-    if any(
-        c in text
-        for c in ['"', "[", "]", "{", "}", ",", ":"]
-    ):
-        # If so, html-escape them and quote the yaml value
-        text = html.escape(text)
-        text = f'"{text}"'
+    # Ensure that it is quoted if it needs it based on the use of colons
+    # while defending against double quotes. It's too easy to make strings
+    # that have accumulated nested quotes. Use some technique like Regex or
+    # something to make sure there's not patterns like "", """, """"", etc.
+    if ":" in text:
+        if '"' in text:
+            # Use RegEx to remove any number of repeating double quotes with only one double quote.
+            # This will allow us to use single quotes to wrap the string.
+            text = re.sub(r'\"{2,}', '"', text)
     return text
-
 
 #   ___                      _    ___   _____
 #  / _ \ _ __   ___ _ __    / \  |_ _| |  ___|   _ _ __   ___ ___
