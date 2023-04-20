@@ -212,19 +212,42 @@ def write_post_to_file(post, index):
             top_matter.append(f'title: "{title}"')
             top_matter.append(f"slug: {slug}")
             top_matter.append(f"permalink: /{BLOG}/{slug}/")
-        elif i == 2:
-            pass  # Third line is always a separator (currently)
         else:
-            # Subsequent lines are either top matter or content
-            if not line:
-                # Blank line means we're done with top matter
-                in_content = True
-                pass
+            # The duty past here is to continue parsing top matter
+            # until we hit the "---" front-matter end-parsing marker.
+            # If it's a blank line, it's ambiguous, but we want it to
+            # be able to end the top-matter if the "---" is missing.
+            # The first behavior split is whether we're in_content or not:
             if in_content:
+                # We're in the content, so just add the line
                 content.append(line)
             else:
-                # Top matter
-                pass
+                # We're in the top matter, so add the line
+                # and check for the end of the top matter.
+                # Each top-matter line is expected to be a yaml-like line.
+                # If it's not a yaml-like line, there's 2 possibilities:
+                # 1. It's a blank line, which means keep parsing top matter because a field might come next.
+                # 2. It's a line of content, which means we're done with top matter.
+                if line:
+                    # Check if it's a yaml-like line. ":" in line isn't good enough
+                    # because a sentence might use a colon. Instead, check for a colon at the end of the first word.
+                    if line.split(" ")[0].endswith(":"):
+                        # It's a yaml-like line, so add it to the top matter
+                        top_matter.append(line)
+                    elif line == "---":
+                        # It's the end of the top matter, so we're done with top matter
+                        in_content = True
+                    else:
+                        # It's not a yaml-like line, so we're done with top matter
+                        # Once we throw this toggle, it's the one time we write "---" to the file.
+                        top_matter.append("---")
+                        in_content = True
+                        content.append(line)
+                else:
+                    # Blank line, keep parsing top matter
+                    top_matter.append(line)
+
+
 
     # Create the file name from the date and index
     file_name = f"{date_str}-post-{index:04}.md"
@@ -554,8 +577,16 @@ with open(OUTPUT2_PATH, "a") as fh:
         apost = front_matter_inserter(apost)
         fh.write(apost)
 
+# Compare the input and output files. If same, there's been no changes. 
 fig("Compare files")
-print(compare_files(FULL_PATH, OUTPUT2_PATH))
+files_are_same = compare_files(FULL_PATH, OUTPUT2_PATH)
+print(f"Are the input and output files the same? {files_are_same}")
+if files_are_same:
+    print("Nothing to publish.")
+elif not files_are_same and DISABLE_GIT:
+    print("Something's getting published, but not to Github.")
+if not files_are_same and not DISABLE_GIT:
+    print("Something's getting published.")
 
 # Add countdown ordered list to index page
 links.insert(0, f'<ol start="{len(links)}" reversed>')
