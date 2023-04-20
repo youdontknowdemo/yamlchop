@@ -1,13 +1,23 @@
 # Author: Mike Levin
 # Date: 2023-04-15
 # Description: Chop a journal.md file into individual blog posts.
-# To-Do: Check resulting pages for broken links.
 #   ____ _                  ____ _
 #  / ___| |__   ___  _ __  / ___| |__   ___  _ __
 # | |   | '_ \ / _ \| '_ \| |   | '_ \ / _ \| '_ \
 # | |___| | | | (_) | |_) | |___| | | | (_) | |_) |
 #  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
 #                   |_|                     |_|
+# Example:
+# python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
+
+# TO-DO:
+# - Speed it up by not opening/closing databases for every page.
+# - A better date format on both the index page and articles
+# - Check if valid yaml top-matter before git commit.
+# - Check resulting pages for broken links.
+# - Add a "tags" field to the yaml front matter.
+# - Add a "category" field to the yaml front matter.
+# - Create category pages
 
 # import os
 # import yaml
@@ -54,9 +64,6 @@ INTERACTIVE = False
 DEBUG = False
 
 
-# Globals
-
-
 # Load function early so we can start showing figlets.
 def fig(text):
     """Print a figlet."""
@@ -77,9 +84,6 @@ fig("ChopChop")
 # Define command line arguments
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
-
-# Example:
-# python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
 
 # Use in a vim or NeoVim macro from .vimrc or init.vim like this:
 # let @p = ":execute '!python ~/repos/skite/chopchop.py -f ' . expand('%:p')"
@@ -107,10 +111,12 @@ PATH = "/".join(parts[:-2]) + "/"
 GIT_EXE = "/usr/bin/git"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
+OUTPUT2_PATH = f"{REPO_DATA}{FILE}"
 KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
-ENGINE = "text-davinci-003"
+CHOPPER = (80 * "-") + "\n"
 
-# OpenAI DatabaseTrue
+# OpenAI Databases
+ENGINE = "text-davinci-003"
 SUMDB = REPO_DATA + "summaries.db"
 DESCDB = REPO_DATA + "descriptions.db"
 TOPDB = REPO_DATA + "topics.db"
@@ -143,7 +149,7 @@ for fh in os.listdir(OUTPUT_PATH):
 
 
 def parse_journal(full_path):
-    """Parse a journal file into posts. Returns a generator of posts."""
+    """Parse a journal file into posts. Returns a generator of posts, reverse-order."""
     with open(full_path, "r") as fh:
         print(f"Reading {full_path}")
         post_str = fh.read()
@@ -152,6 +158,18 @@ def parse_journal(full_path):
         numer_of_posts = len(posts)
         fig(f"{numer_of_posts} posts")
         posts.reverse()  # Reverse so article indexes don't change.
+        for post in posts:
+            yield post
+
+
+def rebuild_journal(full_path):
+    """I am a forward-running journal parser for inserting front-matter on rebuild."""
+    with open(full_path, "r") as fh:
+        print(f"Reading {full_path}")
+        post_str = fh.read()
+        pattern = r"-{78,82}\s*\n"
+        posts = re.split(pattern, post_str)
+        numer_of_posts = len(posts)
         for post in posts:
             yield post
 
@@ -329,6 +347,51 @@ def flush(std):
             sys.stdout.flush()
 
 
+def compare_files(file1, file2):
+    """Compare two files. Return true of they are the same."""
+    with open(file1, "rb") as f1, open(file2, "rb") as f2:
+        while True:
+            byte1 = f1.read(1)
+            byte2 = f2.read(1)
+            if byte1 != byte2:
+                return False
+            if not byte1:
+                return True
+
+def front_matter_inserter(pre_post):
+    """Conditionally insert front matter based on whether and subfields are present."""
+    #Step though the text in pre_post line by line.
+    #It's a stuffed string, so we'll probably have to split it on newlines.
+    #The first line is always the date. If not, return full pre_post.
+    #The second line is always the tile. If not, return full pre_post.
+    #If the third line is an empty line, we know we need all the front matter, fetched from databases.
+    #In that case, we get headlines, descriptions and topics for the slug.
+    #We always know the slug because it's the title field put through a deterministic function.
+    #The slug is the database key to fetch the headline, description and topics.
+    #We also know the author, but that's just a configuration variable.
+    #We also know the layout, but that's just a configuration variable.
+    #The topics field is actually the keywords field, which we're going to use as tags as well.
+    #I'm blending together the concept of categories, tags and keywords.
+    #This may change later, but OpenAI chose my keywords, so I'll use the term topics as a catch-all for now.
+
+
+    # We are setting up a 1-time converson.
+    # After that, we'll change the behavior of this code.
+    lines = pre_post.split("\n")
+    new_post = []
+    for i, line in enumerate(lines):
+        # line = f"date: {parts}"
+        # line = f"title: {parts}"
+        parts = line.split()
+        if i == 0 and line[0] == "#":
+            line = "date: " + " ".join(parts[1:])
+        elif i == 1 and line[0] == "#":
+            line = "title: " + " ".join(parts[1:]) + "\n---"
+        new_post.append(line)
+    return "\n".join(new_post)
+    
+
+
 #   ___                      _    ___   _____
 #  / _ \ _ __   ___ _ __    / \  |_ _| |  ___|   _ _ __   ___ ___
 # | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_ | | | | '_ \ / __/ __|
@@ -464,14 +527,32 @@ def chunk_text(text, chunk_size=4000):
 # |____/|_|_|\___\___|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
 fig("Slice Journal")
 
-
 # Parse the journal file
-posts = parse_journal(FULL_PATH)
+all_posts = parse_journal(FULL_PATH)
 links = []
-for i, post in enumerate(posts):
-    link = write_post_to_file(post, i + 1)
+for i, apost in enumerate(all_posts):
+    link = write_post_to_file(apost, i + 1)
     if link:
         links.insert(0, link)
+
+# Rebuild the journal, inserting new front-matter (to-do)
+
+# Delete the old temporary journal from _data
+out_file = Path(OUTPUT2_PATH)
+if out_file.exists():
+    out_file.unlink()
+
+# Rebuild the journal in _data
+all_posts = rebuild_journal(FULL_PATH)
+with open(OUTPUT2_PATH, "a") as fh:
+    for i, apost in enumerate(all_posts):
+        if i:
+            fh.write(CHOPPER)
+        apost = front_matter_inserter(apost)
+        fh.write(apost)
+
+fig("Compare files")
+print(compare_files(FULL_PATH, OUTPUT2_PATH))
 
 # Add countdown ordered list to index page
 links.insert(0, f'<ol start="{len(links)}" reversed>')
@@ -481,7 +562,6 @@ index_page = "\n".join(links)
 # Write out list of posts
 with open(f"{PATH}{REPO}_includes/post_list.html", "w", encoding="utf-8") as fh:
     fh.writelines(index_page)
-
 
 if not DISABLE_GIT:
     # Git commands
