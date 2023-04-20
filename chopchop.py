@@ -206,14 +206,13 @@ def write_post_to_file(post, index):
             # Second line is always the title for headline & url
             if line and "title: " in line:
                 title = " ".join(line.split(" ")[1:])
-                title = title.replace(":", "")
             else:
                 return
             # Turn title into slug for permalink
             slug = slugify(title.replace("'", ""))
-            top_matter.append(f'title: "{title}"')
-            top_matter.append(f"slug: {slug}")
-            top_matter.append(f"permalink: /{BLOG}/{slug}/")
+            top_dict["title"] = title
+            top_dict["slug"] = slug
+            top_dict["permalink"] = f"/{BLOG}/{slug}/"
         else:
             # The duty past here is to continue parsing top matter
             # until we hit the "---" front-matter end-parsing marker.
