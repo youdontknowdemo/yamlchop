@@ -58,7 +58,7 @@ from sqlitedict import SqliteDict as sqldict
 AUTHOR = "Mike Levin"
 
 # Debugging
-DISABLE_GIT = False
+DISABLE_GIT = True
 POST_BY_POST = True
 INTERACTIVE = False
 DEBUG = False
@@ -189,11 +189,11 @@ def write_post_to_file(post, index):
         if i == 0:
             # First line is always the date stamp.
             filename_date = None
-            if "#" not in line:
+            if "date:" not in line:
                 # Even date-lines must get a markdown headline hash
                 return
             # Parse the date from the line
-            date_str = line[line.rfind("#") + 1 :].strip()
+            date_str = line[len("date: "):].strip()
             # Parse the date into a datetime object
             adate = parser.parse(date_str).date()
             # Format the date into a string
@@ -202,7 +202,7 @@ def write_post_to_file(post, index):
             top_matter.append(f"date: {date_str}")
         elif i == 1:
             # Second line is always the title for headline & url
-            if line and line[0] == "#" and " " in line:
+            if line and 'title: ' in line:
                 title = " ".join(line.split(" ")[1:])
                 title = title.replace(":", "")
             else:
@@ -212,6 +212,8 @@ def write_post_to_file(post, index):
             top_matter.append(f'title: "{title}"')
             top_matter.append(f"slug: {slug}")
             top_matter.append(f"permalink: /{BLOG}/{slug}/")
+        elif i == 2:
+            pass  # Third line is always a separator (currently)
         else:
             # Subsequent lines are either top matter or content
             if not line:
