@@ -456,7 +456,6 @@ def front_matter_inserter(pre_post):
                 raise SystemExit()
             elif first_word.endswith(":"):
                 # We're in the top-matter and we have a yaml-like line:
-                top_matter.append(line)
                 # Get the field-name:
                 field_name = first_word[:-1]
                 # Add the field-name and value to the top_dict:
@@ -466,7 +465,6 @@ def front_matter_inserter(pre_post):
                 # Probably the last post in the file, but with no date so not a post.
                 # This is a good place for to-do lists and unpublished notes, but it
                 # needs to allow the rest of the content to be written.
-                top_matter.append(line)
                 in_content = True
             elif line == "---":
                 # We're where we're trying to close the front-matter, but we may not have
@@ -475,10 +473,10 @@ def front_matter_inserter(pre_post):
                 # This whole process uses a slugified title as a primary key, so we have to have it.
                 # If we reached this point and have no title (in top_dict), close the front-matter
                 # and start the content.
-                top_matter.append("---")
                 in_content = True
             if "title" in top_dict:
-                top_dict["slug"] = slugify(top_dict["title"])
+                top_dict["slug"] = slugify(top_dict["title"].replace("'", ""))
+
                 # We DO have a title, so we slugify exactly the same way as in write_post_to_file()
                 # and use that as the slug.
                 # Now we can get the headline, description and topics from the databases.
@@ -489,22 +487,21 @@ def front_matter_inserter(pre_post):
                     with sqldict(HEADS) as db:
                         if top_dict["slug"] in db:
                             headline = q(db[top_dict['slug']])
-                            top_matter.append(f"headline: {headline}")
                             top_dict["headline"] = headline
                 if "description" not in top_dict:
                     with sqldict(DESCDB) as db:
                         if top_dict["slug"] in db:
                             description = q(db[top_dict['slug']])
-                            top_matter.append(f"description: {description}")
                             top_dict["description"] = description
                 if "topics" not in top_dict:
                     with sqldict(TOPDB) as db:
                         if top_dict["slug"] in db:
                             topics = q(db[top_dict['slug']])
-                            top_matter.append(f"topics: {topics}")
                             top_dict["topics"] = topics
         else:
             new_post.append(line)
+    for key, value in top_dict:
+        top_matter.append(f"{key}: {value}")
     top_matter.extend(new_post)
     content = top_matter
     return "\n".join(content)
