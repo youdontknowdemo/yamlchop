@@ -500,8 +500,10 @@ def front_matter_inserter(pre_post):
                             top_dict["topics"] = topics
         else:
             new_post.append(line)
-    for key, value in top_dict:
-        top_matter.append(f"{key}: {value}")
+    if top_dict:
+        # Loop through top_dict and add each key/value pair to top_matter.
+        for key, value in top_dict.items():
+            top_matter.append(f"{key}: {value}")
     top_matter.extend(new_post)
     content = top_matter
     return "\n".join(content)
@@ -674,13 +676,14 @@ if out_file.exists():
 # Rebuild the journal in _data
 all_posts = rebuild_journal(FULL_PATH)
 with open(OUTPUT2_PATH, "a") as fh:
-    print("Rebuilding journal...")
+    fig("Rebuilding")
     for i, apost in enumerate(all_posts):
         print(i, end=" ", flush=True)
         if i:
             fh.write(CHOPPER)
         apost = front_matter_inserter(apost)
         fh.write(apost)
+print()
 
 # Compare the input and output files. If same, there's been no changes.
 fig("Compare files")
