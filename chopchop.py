@@ -61,7 +61,7 @@ AUTHOR = "Mike Levin"
 DISABLE_GIT = True
 POST_BY_POST = True
 INTERACTIVE = False
-DEBUG = False
+DEBUG = True
 
 
 # Load function early so we can start showing figlets.
@@ -137,9 +137,10 @@ with open("/home/ubuntu/repos/skite/openai.txt") as fh:
     openai.api_key = fh.readline()
 
 # Delete old files in output path
-for fh in os.listdir(OUTPUT_PATH):
-    delete_me = f"{OUTPUT_PATH}/{fh}"
-    os.remove(delete_me)
+if not DEBUG:
+    for fh in os.listdir(OUTPUT_PATH):
+        delete_me = f"{OUTPUT_PATH}/{fh}"
+        os.remove(delete_me)
 
 #  _____                 _   _
 # |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
@@ -419,6 +420,7 @@ def front_matter_inserter(pre_post):
     # After that, we'll change the behavior of this code.
     lines = pre_post.split("\n")
     in_content = False
+    top_matter = []
     new_post = []
     top_dict = {}
     for i, line in enumerate(lines):
@@ -432,19 +434,35 @@ def front_matter_inserter(pre_post):
         # elif i == 1 and line[0] == "#":
         #     line = "title: " + " ".join(parts[1:]) + "\n---"
         # new_post.append(line)
+        line = line.rstrip()
 
         if i == 0:
-            # First line was well prepared and always "date", use as is:
-            top_matter.append(line)
+            if line.startswith("date:"):
+                # This is the most common case and what we want to find.
+                top_matter.append(line)
+                top_dict["date"] = " ".join(line.split(" ")[1:])
+            elif line == "---":
+                # We use this when we want to immediately close the front-matter
+                # indicating that it's a meta-post and should not be published.
+                top_matter.append("---")
+                in_content = True
+            else:
+                # Anything else in the first line, and we should skip it and keep
+                # the original post intact.
+                print("ERROR: First line of post is not a date.")
+                print(pre_post[:1000])
+                raise SystemExit()
         elif not in_content:
+            # Handles everything still in front-matter.
             first_word = line.split(" ")[0]
             if line == "":
-                # We're still in the top matter, but we hit a blank line, so skip it:
+                # Front-matter doesn't need blank lines, so pass.
                 pass
             elif line[0] == "#":
                 # This indicates the old system before yaml-like top-matter.
                 # Let them know this and raise SystemExit.
                 print("ERROR: Old-style top matter detected. Please convert to yaml-like top matter.")
+                print(line)
                 raise SystemExit()
             elif first_word.endswith(":"):
                 # We're in the top-matter and we have a yaml-like line:
@@ -452,7 +470,14 @@ def front_matter_inserter(pre_post):
                 # Get the field-name:
                 field_name = first_word[:-1]
                 # Add the field-name and value to the top_dict:
-                top_dict[field_name] = " ".join(line.split(" ")[1:])
+                value = " ".join(line.split(" ")[1:]).strip() 
+                top_dict[field_name] = value
+            elif i == 1 and "date: " not in line:
+                # Probably the last post in the file, but with no date so not a post.
+                # This is a good place for to-do lists and unpublished notes, but it
+                # needs to allow the rest of the content to be written.
+                top_matter.append(line)
+                in_content = True
             elif line == "---":
                 # We're where we're trying to close the front-matter, but we may not have
                 # all the yaml key/value pairs that we need: headline, description, topics.
@@ -460,43 +485,36 @@ def front_matter_inserter(pre_post):
                 # This whole process uses a slugified title as a primary key, so we have to have it.
                 # If we reached this point and have no title (in top_dict), close the front-matter
                 # and start the content.
-                if "title" not in top_dict:
-                    top_matter.append("---")
-                    in_content = True
-                else:
-                    # We DO have a title, so we slugify exactly the same way as in write_post_to_file()
-                    # and use that as the slug.
-                    top_dict["slug"] = slugify(top_dict["title"])
-                    # Now we can get the headline, description and topics from the databases.
-                    # We'll use the slug as the key.
-                    # The databases in the order we want to check them are: HEADS, DESCDB, TOPDB
-                    # In time, I will clean this up probably into a function.
-                    if "headline" in top_dict:
-                        with sqldict(HEADS) as db:
-                            if top_dict["slug"] in db:
-                                headline = q(db[top_dict['slug']])
-                                top_matter.append(f"headline: {headline}")
-                    elif "description" in top_dict:
-                        with sqldict(DESCDB) as db:
-                            if top_dict["slug"] in db:
-                                description = q(db[top_dict['slug']])
-                                top_matter.append(f"description: {description}")
-                    elif "topics" in top_dict:
-                        with sqldict(TOPDB) as db:
-                            if top_dict["slug"] in db:
-                                topics = q(db[top_dict['slug']])
-                                top_matter.append(f"topics: {topics}")
-                    else:
-                        with sqldict(TOPDB) as db:
-                            if top_dict["slug"] in db:
-                                top_matter.append(f"topics: {db[top_dict['slug']]}")
-                    # This part is the end of front-matter, so close it:
-                    top_matter.append("---")
-                    in_content = True
+                top_matter.append("---")
+                in_content = True
+            if "title" in top_dict:
+                top_dict["slug"] = slugify(top_dict["title"])
+                # We DO have a title, so we slugify exactly the same way as in write_post_to_file()
+                # and use that as the slug.
+                # Now we can get the headline, description and topics from the databases.
+                # We'll use the slug as the key.
+                # The databases in the order we want to check them are: HEADS, DESCDB, TOPDB
+                # In time, I will clean this up probably into a function.
+                if "headline" in top_dict:
+                    with sqldict(HEADS) as db:
+                        if top_dict["slug"] in db:
+                            headline = q(db[top_dict['slug']])
+                            top_matter.append(f"headline: {headline}")
+                if "description" in top_dict:
+                    with sqldict(DESCDB) as db:
+                        if top_dict["slug"] in db:
+                            description = q(db[top_dict['slug']])
+                            top_matter.append(f"description: {description}")
+                if "topics" in top_dict:
+                    with sqldict(TOPDB) as db:
+                        if top_dict["slug"] in db:
+                            topics = q(db[top_dict['slug']])
+                            top_matter.append(f"topics: {topics}")
         else:
-            content.append(line)
-
-    return "\n".join(new_post)
+            new_post.append(line)
+    top_matter.extend(new_post)
+    content = top_matter
+    return "\n".join(content)
 
 
 def q(text):
@@ -648,12 +666,13 @@ def chunk_text(text, chunk_size=4000):
 fig("Slice Journal")
 
 # Parse the journal file
-all_posts = parse_journal(FULL_PATH)
-links = []
-for i, apost in enumerate(all_posts):
-    link = write_post_to_file(apost, i + 1)
-    if link:
-        links.insert(0, link)
+if not DEBUG:
+    all_posts = parse_journal(FULL_PATH)
+    links = []
+    for i, apost in enumerate(all_posts):
+        link = write_post_to_file(apost, i + 1)
+        if link:
+            links.insert(0, link)
 
 # Rebuild the journal, inserting new front-matter (to-do)
 
@@ -682,14 +701,15 @@ elif not files_are_same and DISABLE_GIT:
 if not files_are_same and not DISABLE_GIT:
     print("Something's getting published.")
 
-# Add countdown ordered list to index page
-links.insert(0, f'<ol start="{len(links)}" reversed>')
-links.append("</ol>")
-# Write index page
-index_page = "\n".join(links)
-# Write out list of posts
-with open(f"{PATH}{REPO}_includes/post_list.html", "w", encoding="utf-8") as fh:
-    fh.writelines(index_page)
+if not DEBUG:
+    # Add countdown ordered list to index page
+    links.insert(0, f'<ol start="{len(links)}" reversed>')
+    links.append("</ol>")
+    # Write index page
+    index_page = "\n".join(links)
+    # Write out list of posts
+    with open(f"{PATH}{REPO}_includes/post_list.html", "w", encoding="utf-8") as fh:
+        fh.writelines(index_page)
 
 if not DISABLE_GIT:
     # Git commands
