@@ -181,6 +181,7 @@ def write_post_to_file(post, index):
     lines = post.strip().split("\n")
     date_str, slug = None, None
     top_matter = ["---"]
+    top_dict = {}
     content = []
     in_content = False
     api_hit = False
@@ -231,9 +232,20 @@ def write_post_to_file(post, index):
                 if line:
                     # Check if it's a yaml-like line. ":" in line isn't good enough
                     # because a sentence might use a colon. Instead, check for a colon at the end of the first word.
-                    if line.split(" ")[0].endswith(":"):
+                    first_word = line.split(" ")[0]
+                    if first_word.endswith(":"):
                         # It's a yaml-like line, so add it to the top matter
                         top_matter.append(line)
+                        ykey, yvalue = line.split(":")
+                        ykey = ykey.strip()
+                        yvalue = yvalue.strip()
+                        # Check if any of these offending characters are in yvalue: " ' [ ] { } , :
+                        if any(c in yvalue for c in ['"', "'", "[", "]", "{", "}", ",", ":"]):
+                            # If so, html-escape them and quote the yaml value
+                            yvalue = html.escape(yvalue)
+                            yvalue = f'"{yvalue}"'
+                        # Add the key/value pair to the top_dict
+                        top_dict[ykey] = yvalue
                     elif line == "---":
                         # It's the end of the top matter, so we're done with top matter
                         in_content = True
@@ -247,37 +259,43 @@ def write_post_to_file(post, index):
                     # Blank line, keep parsing top matter
                     top_matter.append(line)
 
-
-
     # Create the file name from the date and index
     file_name = f"{date_str}-post-{index:04}.md"
     out_path = f"{OUTPUT_PATH}/{file_name}"
 
     # Initialize per-post variables
     summary = None
-    meta_description = None
-    keywords = None
-    topics = None
+    if "description" in top_dict:
+        description = top_dict["description"]
+    else:
+        description = None
+    if "subhead" in top_dict:
+        headline = top_dict["subhead"]
+    else:
+        headline = None
+    if "topics" in top_dict:
+        topics = top_dict["keywords"]
+    else:
+        topics = None
 
     # The OpenAI work is done here
-    summary, api_hit = odb(SUMDB, write_summary, slug, post)
-    meta_description, api_hit = odb(DESCDB, write_meta, slug, summary)
-    meta_description = chop_last_sentence(meta_description)
-    meta_description = neutralize(meta_description)
-    topic_text = f"{title} {meta_description} {summary}"
-    headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
-    headline = prepare_for_front_matter(headline)
+    # If we already have a description, we don't need to look at the summary:
+    if not description:
+        summary, api_hit = odb(SUMDB, write_summary, slug, post)
+        description, api_hit = odb(DESCDB, write_meta, slug, summary)
+        description = chop_last_sentence(description)
+        description = neutralize(description)
+    if not headline:
+        topic_text = f"{title} {description} {summary}"
+        headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
+        headline = prepare_for_front_matter(headline)
+    if not topics:
+        topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
+    top_matter.append(f'description: "{description}"')
     top_matter.append(f'subhead: "{headline}"')
-    topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
-    if topics:
-        top_matter.append(f"keywords: {topics}")
-    # Write top matter
-    if DEBUG:
-        if topics:
-            top_matter.append(f"category: {topics.split(', ')[0][1:-1]}")
-            top_matter.append(f"layout: post")
-    top_matter.append(f'description: "{meta_description}"')
+    top_matter.append(f"keywords: {topics}")
     top_matter.append(f"author: {AUTHOR}")
+    top_matter.append(f"layout: post")
     top_matter.append("---")
     top_matter.extend(content)
     content = top_matter
@@ -287,7 +305,7 @@ def write_post_to_file(post, index):
         # Flatten list of lines into a single string
         flat_content = "\n".join(content)
         f.writelines(flat_content)
-    link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({date_str})<br />{meta_description}</li>'
+    link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({date_str})<br />{description}</li>'
     print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
         print()
@@ -297,7 +315,7 @@ def write_post_to_file(post, index):
         print()
         print(f"Headline: {headline}")
         print()
-        print(f"Meta description: {meta_description}")
+        print(f"Description: {description}")
         print()
         print(f"Keywords: {topics}")
         print()
