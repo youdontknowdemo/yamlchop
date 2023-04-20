@@ -225,6 +225,7 @@ def write_post_to_file(post, index):
             else:
                 # Top matter
                 pass
+
     # Create the file name from the date and index
     file_name = f"{date_str}-post-{index:04}.md"
     out_path = f"{OUTPUT_PATH}/{file_name}"
