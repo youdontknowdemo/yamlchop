@@ -479,7 +479,7 @@ def front_matter_inserter(pre_post):
             if "title" in top_dict:
                 slug = slugify(top_dict["title"].replace("'", ""))
                 # slug = slugify(top_dict["title"])
-                top_dict["slug"] = slug
+                # top_dict["slug"] = slug
                 # print(f"top_dict['slug']: {top_dict['slug']}")
                 # print(f"top_dict: {top_dict}")
 
@@ -490,24 +490,25 @@ def front_matter_inserter(pre_post):
                 # The databases in the order we want to check them are: HEADS, DESCDB, TOPDB
                 # In time, I will clean this up probably into a function.
                 # print(f"top_dict: {top_dict}")
-                # if "headline" not in top_dict.keys():
-                #     with sqldict(HEADS) as db:
-                #         # print("Getting headline from db")
-                #         if top_dict["slug"] in db:
-                #             headline = q(db[top_dict['slug']])
-                #             top_dict["headline"] = headline
-                # if "description" not in top_dict.keys():
-                #     with sqldict(DESCDB) as db:
-                #         # print("Getting description from db")
-                #         if top_dict["slug"] in db:
-                #             description = q(db[top_dict['slug']])
-                #             top_dict["description"] = description
-                # if "topics" not in top_dict.keys():
-                #     with sqldict(TOPDB) as db:
-                #         # print("Getting topics from db")
-                #         if top_dict["slug"] in db:
-                #             topics = q(db[top_dict['slug']])
-                #             top_dict["topics"] = topics
+                # print("headline" in top_dict.keys())
+                if "headline" not in top_dict:
+                    with sqldict(HEADS) as db:
+                        # print("Getting headline from db")
+                        if slug in db:
+                            headline = q(db[slug])
+                            top_dict["headline"] = headline
+                if "description" not in top_dict:
+                    with sqldict(DESCDB) as db:
+                        # print("Getting description from db")
+                        if slug in db:
+                            description = q(db[slug])
+                            top_dict["description"] = description
+                if "topics" not in top_dict:
+                    with sqldict(TOPDB) as db:
+                        # print("Getting topics from db")
+                        if slug in db:
+                            topics = q(db[slug])
+                            top_dict["topics"] = topics
         else:
             new_post.append(line)
     if top_dict:
