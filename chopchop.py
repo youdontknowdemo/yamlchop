@@ -194,7 +194,7 @@ def write_post_to_file(post, index):
                 # Even date-lines must get a markdown headline hash
                 return
             # Parse the date from the line
-            date_str = line[len("date: "):].strip()
+            date_str = line[len("date: ") :].strip()
             # Parse the date into a datetime object
             adate = parser.parse(date_str).date()
             # Format the date into a string
@@ -203,7 +203,7 @@ def write_post_to_file(post, index):
             top_matter.append(f"date: {date_str}")
         elif i == 1:
             # Second line is always the title for headline & url
-            if line and 'title: ' in line:
+            if line and "title: " in line:
                 title = " ".join(line.split(" ")[1:])
                 title = title.replace(":", "")
             else:
@@ -240,12 +240,8 @@ def write_post_to_file(post, index):
                         ykey = ykey.strip()
                         yvalue = yvalue.strip()
                         # Check if any of these offending characters are in yvalue: " ' [ ] { } , :
-                        if any(c in yvalue for c in ['"', "'", "[", "]", "{", "}", ",", ":"]):
-                            # If so, html-escape them and quote the yaml value
-                            yvalue = html.escape(yvalue)
-                            yvalue = f'"{yvalue}"'
                         # Add the key/value pair to the top_dict
-                        top_dict[ykey] = yvalue
+                        top_dict[ykey] = q(yvalue)
                     elif line == "---":
                         # It's the end of the top matter, so we're done with top matter
                         in_content = True
@@ -402,38 +398,167 @@ def compare_files(file1, file2):
             if not byte1:
                 return True
 
+
 def front_matter_inserter(pre_post):
     """Conditionally insert front matter based on whether and subfields are present."""
-    #Step though the text in pre_post line by line.
-    #It's a stuffed string, so we'll probably have to split it on newlines.
-    #The first line is always the date. If not, return full pre_post.
-    #The second line is always the tile. If not, return full pre_post.
-    #If the third line is an empty line, we know we need all the front matter, fetched from databases.
-    #In that case, we get headlines, descriptions and topics for the slug.
-    #We always know the slug because it's the title field put through a deterministic function.
-    #The slug is the database key to fetch the headline, description and topics.
-    #We also know the author, but that's just a configuration variable.
-    #We also know the layout, but that's just a configuration variable.
-    #The topics field is actually the keywords field, which we're going to use as tags as well.
-    #I'm blending together the concept of categories, tags and keywords.
-    #This may change later, but OpenAI chose my keywords, so I'll use the term topics as a catch-all for now.
-
+    # Step though the text in pre_post line by line.
+    # It's a stuffed string, so we'll probably have to split it on newlines.
+    # The first line is always the date. If not, return full pre_post.
+    # The second line is always the tile. If not, return full pre_post.
+    # If the third line is an empty line, we know we need all the front matter, fetched from databases.
+    # In that case, we get headlines, descriptions and topics for the slug.
+    # We always know the slug because it's the title field put through a deterministic function.
+    # The slug is the database key to fetch the headline, description and topics.
+    # We also know the author, but that's just a configuration variable.
+    # We also know the layout, but that's just a configuration variable.
+    # The topics field is actually the keywords field, which we're going to use as tags as well.
+    # I'm blending together the concept of categories, tags and keywords.
+    # This may change later, but OpenAI chose my keywords, so I'll use the term topics as a catch-all for now.
 
     # We are setting up a 1-time converson.
     # After that, we'll change the behavior of this code.
     lines = pre_post.split("\n")
+    in_content = False
     new_post = []
+    top_dict = {}
     for i, line in enumerate(lines):
-        # line = f"date: {parts}"
-        # line = f"title: {parts}"
-        parts = line.split()
-        if i == 0 and line[0] == "#":
-            line = "date: " + " ".join(parts[1:])
-        elif i == 1 and line[0] == "#":
-            line = "title: " + " ".join(parts[1:]) + "\n---"
-        new_post.append(line)
+        # The 1-time conversion is done. Now we need to make this work more like write_post_to_file().
+
+        # This is what we used to do:
+
+        # parts = line.split()
+        # if i == 0 and line[0] == "#":
+        #     line = "date: " + " ".join(parts[1:])
+        # elif i == 1 and line[0] == "#":
+        #     line = "title: " + " ".join(parts[1:]) + "\n---"
+        # new_post.append(line)
+
+        if i == 0:
+            # First line was well prepared and always "date", use as is:
+            top_matter.append(line)
+        elif not in_content:
+            first_word = line.split(" ")[0]
+            if line == "":
+                # We're still in the top matter, but we hit a blank line, so skip it:
+                pass
+            elif line[0] == "#":
+                # This indicates the old system before yaml-like top-matter.
+                # Let them know this and raise SystemExit.
+                print("ERROR: Old-style top matter detected. Please convert to yaml-like top matter.")
+                raise SystemExit()
+            elif first_word.endswith(":"):
+                # We're in the top-matter and we have a yaml-like line:
+                top_matter.append(line)
+                # Get the field-name:
+                field_name = first_word[:-1]
+                # Add the field-name and value to the top_dict:
+                top_dict[field_name] = " ".join(line.split(" ")[1:])
+            elif line == "---":
+                # We're where we're trying to close the front-matter, but we may not have
+                # all the yaml key/value pairs that we need: headline, description, topics.
+                # If they're not there, we retreive them from each one's database.
+                # This whole process uses a slugified title as a primary key, so we have to have it.
+                # If we reached this point and have no title (in top_dict), close the front-matter
+                # and start the content.
+                if "title" not in top_dict:
+                    top_matter.append("---")
+                    in_content = True
+                else:
+                    # We DO have a title, so we slugify exactly the same way as in write_post_to_file()
+                    # and use that as the slug.
+                    top_dict["slug"] = slugify(top_dict["title"])
+                    # Now we can get the headline, description and topics from the databases.
+                    # We'll use the slug as the key.
+                    # The databases in the order we want to check them are: HEADS, DESCDB, TOPDB
+                    # In time, I will clean this up probably into a function.
+                    if "headline" in top_dict:
+                        with sqldict(HEADS) as db:
+                            if top_dict["slug"] in db:
+                                headline = q(db[top_dict['slug']])
+                                top_matter.append(f"headline: {headline}")
+                    elif "description" in top_dict:
+                        with sqldict(DESCDB) as db:
+                            if top_dict["slug"] in db:
+                                description = q(db[top_dict['slug']])
+                                top_matter.append(f"description: {description}")
+                    elif "topics" in top_dict:
+                        with sqldict(TOPDB) as db:
+                            if top_dict["slug"] in db:
+                                topics = q(db[top_dict['slug']])
+                                top_matter.append(f"topics: {topics}")
+                    else:
+                        with sqldict(TOPDB) as db:
+                            if top_dict["slug"] in db:
+                                top_matter.append(f"topics: {db[top_dict['slug']]}")
+                    # This part is the end of front-matter, so close it:
+                    top_matter.append("---")
+                    in_content = True
+        else:
+            # We're in the content, so just add the line:
+
+        else:
+            # The duty past here is to continue parsing top matter
+            # until we hit the "---" front-matter end-parsing marker.
+            # If it's a blank line, it's ambiguous, but we want it to
+            # be able to end the top-matter if the "---" is missing.
+            # The first behavior split is whether we're in_content or not:
+            if in_content:
+                # We're in the content, so just add the line
+                content.append(line)
+            else:
+                # We're in the top matter, so add the line
+                # and check for the end of the top matter.
+                # Each top-matter line is expected to be a yaml-like line.
+                # If it's not a yaml-like line, there's 2 possibilities:
+                # 1. It's a blank line, which means keep parsing top matter because a field might come next.
+                # 2. It's a line of content, which means we're done with top matter.
+                if line:
+                    # Check if it's a yaml-like line. ":" in line isn't good enough
+                    # because a sentence might use a colon. Instead, check for a colon at the end of the first word.
+                    first_word = line.split(" ")[0]
+                    if first_word.endswith(":"):
+                        # It's a yaml-like line, so add it to the top matter
+                        top_matter.append(line)
+                        ykey, yvalue = line.split(":")
+                        ykey = ykey.strip()
+                        yvalue = yvalue.strip()
+                        # Check if any of these offending characters are in yvalue: " ' [ ] { } , :
+                        if any(
+                            c in yvalue
+                            for c in ['"', "'", "[", "]", "{", "}", ",", ":"]
+                        ):
+                            # If so, html-escape them and quote the yaml value
+                            yvalue = html.escape(yvalue)
+                            yvalue = f'"{yvalue}"'
+                        # Add the key/value pair to the top_dict
+                        top_dict[ykey] = yvalue
+                    elif line == "---":
+                        # It's the end of the top matter, so we're done with top matter
+                        in_content = True
+                    else:
+                        # It's not a yaml-like line, so we're done with top matter
+                        # Once we throw this toggle, it's the one time we write "---" to the file.
+                        top_matter.append("---")
+                        in_content = True
+                        content.append(line)
+                else:
+                    # Blank line, keep parsing top matter
+                    top_matter.append(line)
+
     return "\n".join(new_post)
-    
+
+
+def q(text):
+    """Returns text with am embedded double-quote around it and html-escaped content
+    if it contains any of the following characters: " ' [ ] { } , :"""
+    if any(
+        c in text
+        for c in ['"', "'", "[", "]", "{", "}", ",", ":"]
+    ):
+        # If so, html-escape them and quote the yaml value
+        text = html.escape(text)
+        text = f'"{text}"'
+    return text
 
 
 #   ___                      _    ___   _____
@@ -595,7 +720,7 @@ with open(OUTPUT2_PATH, "a") as fh:
         apost = front_matter_inserter(apost)
         fh.write(apost)
 
-# Compare the input and output files. If same, there's been no changes. 
+# Compare the input and output files. If same, there's been no changes.
 fig("Compare files")
 files_are_same = compare_files(FULL_PATH, OUTPUT2_PATH)
 print(f"Are the input and output files the same? {files_are_same}")
