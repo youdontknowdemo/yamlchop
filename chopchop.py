@@ -429,12 +429,10 @@ def front_matter_inserter(pre_post):
         if i == 0:
             if line.startswith("date:"):
                 # This is the most common case and what we want to find.
-                top_matter.append(line)
                 top_dict["date"] = " ".join(line.split(" ")[1:])
             elif line == "---":
                 # We use this when we want to immediately close the front-matter
                 # indicating that it's a meta-post and should not be published.
-                top_matter.append("---")
                 in_content = True
             else:
                 # Anything else in the first line, and we should skip it and keep
@@ -454,20 +452,6 @@ def front_matter_inserter(pre_post):
                 print("ERROR: Old-style top matter detected. Please convert to yaml-like top matter.")
                 print(line)
                 raise SystemExit()
-            elif first_word.endswith(":"):
-                # We're in the top-matter and we have a yaml-like line:
-                # Get the field-name:
-                # print(first_word)
-                field_name = first_word[:-2]
-                # Add the field-name and value to the top_dict:
-                value = " ".join(line.split(" ")[1:]).strip() 
-                # print(f"field_name: {field_name}, value: {value}")
-                top_dict[field_name] = value
-            elif i == 1 and "date: " not in line:
-                # Probably the last post in the file, but with no date so not a post.
-                # This is a good place for to-do lists and unpublished notes, but it
-                # needs to allow the rest of the content to be written.
-                in_content = True
             elif line == "---":
                 # We're where we're trying to close the front-matter, but we may not have
                 # all the yaml key/value pairs that we need: headline, description, topics.
@@ -476,6 +460,15 @@ def front_matter_inserter(pre_post):
                 # If we reached this point and have no title (in top_dict), close the front-matter
                 # and start the content.
                 in_content = True
+            elif first_word.endswith(":"):
+                # We're in the top-matter and we have a yaml-like line:
+                # Get the field-name:
+                # print(first_word)
+                field_name = first_word[:-1]
+                # Add the field-name and value to the top_dict:
+                value = " ".join(line.split(" ")[1:]).strip() 
+                # print(f"field_name: {field_name}, value: {value}")
+                top_dict[field_name] = value
             else:
                 # Anything else is an error.
                 print("ERROR: Unhandled case in front_matter_inserter()")
@@ -484,7 +477,11 @@ def front_matter_inserter(pre_post):
             # if top_dict: 
             #     print(f"top_dict: {top_dict}")
             if "title" in top_dict:
-                top_dict["slug"] = slugify(top_dict["title"].replace("'", ""))
+                slug = slugify(top_dict["title"].replace("'", ""))
+                # slug = slugify(top_dict["title"])
+                top_dict["slug"] = slug
+                # print(f"top_dict['slug']: {top_dict['slug']}")
+                # print(f"top_dict: {top_dict}")
 
                 # We DO have a title, so we slugify exactly the same way as in write_post_to_file()
                 # and use that as the slug.
@@ -492,30 +489,32 @@ def front_matter_inserter(pre_post):
                 # We'll use the slug as the key.
                 # The databases in the order we want to check them are: HEADS, DESCDB, TOPDB
                 # In time, I will clean this up probably into a function.
-                if "headline" not in top_dict:
-                    with sqldict(HEADS) as db:
-                        print("Getting headline from db")
-                        if top_dict["slug"] in db:
-                            headline = q(db[top_dict['slug']])
-                            top_dict["headline"] = headline
-                if "description" not in top_dict:
-                    with sqldict(DESCDB) as db:
-                        print("Getting description from db")
-                        if top_dict["slug"] in db:
-                            description = q(db[top_dict['slug']])
-                            top_dict["description"] = description
-                if "topics" not in top_dict:
-                    with sqldict(TOPDB) as db:
-                        print("Getting topics from db")
-                        if top_dict["slug"] in db:
-                            topics = q(db[top_dict['slug']])
-                            top_dict["topics"] = topics
+                # print(f"top_dict: {top_dict}")
+                # if "headline" not in top_dict.keys():
+                #     with sqldict(HEADS) as db:
+                #         # print("Getting headline from db")
+                #         if top_dict["slug"] in db:
+                #             headline = q(db[top_dict['slug']])
+                #             top_dict["headline"] = headline
+                # if "description" not in top_dict.keys():
+                #     with sqldict(DESCDB) as db:
+                #         # print("Getting description from db")
+                #         if top_dict["slug"] in db:
+                #             description = q(db[top_dict['slug']])
+                #             top_dict["description"] = description
+                # if "topics" not in top_dict.keys():
+                #     with sqldict(TOPDB) as db:
+                #         # print("Getting topics from db")
+                #         if top_dict["slug"] in db:
+                #             topics = q(db[top_dict['slug']])
+                #             top_dict["topics"] = topics
         else:
             new_post.append(line)
     if top_dict:
         # Loop through top_dict and add each key/value pair to top_matter.
         for key, value in top_dict.items():
             top_matter.append(f"{key}: {value}")
+        top_matter.append("---")
     top_matter.extend(new_post)
     content = top_matter
     return "\n".join(content)
