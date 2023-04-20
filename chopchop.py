@@ -214,6 +214,7 @@ def write_post_to_file(post, index):
             top_dict["slug"] = slug
             top_dict["permalink"] = f"/{BLOG}/{slug}/"
         else:
+            # We are past the first two lines.
             # The duty past here is to continue parsing top matter
             # until we hit the "---" front-matter end-parsing marker.
             # If it's a blank line, it's ambiguous, but we want it to
@@ -223,7 +224,7 @@ def write_post_to_file(post, index):
                 # We're in the content, so just add the line
                 content.append(line)
             else:
-                # We're in the top matter, so add the line
+                # We're still in the top matter, so add the line
                 # and check for the end of the top matter.
                 # Each top-matter line is expected to be a yaml-like line.
                 # If it's not a yaml-like line, there's 2 possibilities:
@@ -456,9 +457,11 @@ def front_matter_inserter(pre_post):
             elif first_word.endswith(":"):
                 # We're in the top-matter and we have a yaml-like line:
                 # Get the field-name:
-                field_name = first_word[:-1]
+                # print(first_word)
+                field_name = first_word[:-2]
                 # Add the field-name and value to the top_dict:
                 value = " ".join(line.split(" ")[1:]).strip() 
+                # print(f"field_name: {field_name}, value: {value}")
                 top_dict[field_name] = value
             elif i == 1 and "date: " not in line:
                 # Probably the last post in the file, but with no date so not a post.
@@ -473,6 +476,13 @@ def front_matter_inserter(pre_post):
                 # If we reached this point and have no title (in top_dict), close the front-matter
                 # and start the content.
                 in_content = True
+            else:
+                # Anything else is an error.
+                print("ERROR: Unhandled case in front_matter_inserter()")
+                print(line)
+                raise SystemExit()
+            # if top_dict: 
+            #     print(f"top_dict: {top_dict}")
             if "title" in top_dict:
                 top_dict["slug"] = slugify(top_dict["title"].replace("'", ""))
 
@@ -484,16 +494,19 @@ def front_matter_inserter(pre_post):
                 # In time, I will clean this up probably into a function.
                 if "headline" not in top_dict:
                     with sqldict(HEADS) as db:
+                        print("Getting headline from db")
                         if top_dict["slug"] in db:
                             headline = q(db[top_dict['slug']])
                             top_dict["headline"] = headline
                 if "description" not in top_dict:
                     with sqldict(DESCDB) as db:
+                        print("Getting description from db")
                         if top_dict["slug"] in db:
                             description = q(db[top_dict['slug']])
                             top_dict["description"] = description
                 if "topics" not in top_dict:
                     with sqldict(TOPDB) as db:
+                        print("Getting topics from db")
                         if top_dict["slug"] in db:
                             topics = q(db[top_dict['slug']])
                             top_dict["topics"] = topics
