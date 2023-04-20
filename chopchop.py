@@ -494,56 +494,7 @@ def front_matter_inserter(pre_post):
                     top_matter.append("---")
                     in_content = True
         else:
-            # We're in the content, so just add the line:
-
-        else:
-            # The duty past here is to continue parsing top matter
-            # until we hit the "---" front-matter end-parsing marker.
-            # If it's a blank line, it's ambiguous, but we want it to
-            # be able to end the top-matter if the "---" is missing.
-            # The first behavior split is whether we're in_content or not:
-            if in_content:
-                # We're in the content, so just add the line
-                content.append(line)
-            else:
-                # We're in the top matter, so add the line
-                # and check for the end of the top matter.
-                # Each top-matter line is expected to be a yaml-like line.
-                # If it's not a yaml-like line, there's 2 possibilities:
-                # 1. It's a blank line, which means keep parsing top matter because a field might come next.
-                # 2. It's a line of content, which means we're done with top matter.
-                if line:
-                    # Check if it's a yaml-like line. ":" in line isn't good enough
-                    # because a sentence might use a colon. Instead, check for a colon at the end of the first word.
-                    first_word = line.split(" ")[0]
-                    if first_word.endswith(":"):
-                        # It's a yaml-like line, so add it to the top matter
-                        top_matter.append(line)
-                        ykey, yvalue = line.split(":")
-                        ykey = ykey.strip()
-                        yvalue = yvalue.strip()
-                        # Check if any of these offending characters are in yvalue: " ' [ ] { } , :
-                        if any(
-                            c in yvalue
-                            for c in ['"', "'", "[", "]", "{", "}", ",", ":"]
-                        ):
-                            # If so, html-escape them and quote the yaml value
-                            yvalue = html.escape(yvalue)
-                            yvalue = f'"{yvalue}"'
-                        # Add the key/value pair to the top_dict
-                        top_dict[ykey] = yvalue
-                    elif line == "---":
-                        # It's the end of the top matter, so we're done with top matter
-                        in_content = True
-                    else:
-                        # It's not a yaml-like line, so we're done with top matter
-                        # Once we throw this toggle, it's the one time we write "---" to the file.
-                        top_matter.append("---")
-                        in_content = True
-                        content.append(line)
-                else:
-                    # Blank line, keep parsing top matter
-                    top_matter.append(line)
+            content.append(line)
 
     return "\n".join(new_post)
 
