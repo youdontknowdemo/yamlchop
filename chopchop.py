@@ -59,10 +59,10 @@ from sqlitedict import SqliteDict as sqldict
 AUTHOR = "Mike Levin"
 
 # Debugging
-DISABLE_GIT = True
+DISABLE_GIT = False
 POST_BY_POST = True
 INTERACTIVE = False
-DEBUG = True
+DEBUG = False
 
 
 # Load function early so we can start showing figlets.
@@ -238,12 +238,12 @@ def write_post_to_file(post, index):
                     if first_word.endswith(":"):
                         # It's a yaml-like line, so add it to the top matter
                         top_matter.append(line)
-                        ykey, yvalue = line.split(":")
-                        ykey = ykey.strip()
-                        yvalue = yvalue.strip()
+                        # Parse the yaml-like line into a key/value pair
+                        ykey = first_word[:-1]
+                        yvalue = " ".join(line.split(" ")[1:])
                         # Check if any of these offending characters are in yvalue: " ' [ ] { } , :
                         # Add the key/value pair to the top_dict
-                        top_dict[ykey] = q(yvalue)
+                        top_dict[ykey] = yvalue
                     elif line == "---":
                         # It's the end of the top matter, so we're done with top matter
                         in_content = True
@@ -272,7 +272,7 @@ def write_post_to_file(post, index):
     else:
         headline = None
     if "topics" in top_dict:
-        topics = top_dict["keywords"]
+        topics = top_dict["topics"]
     else:
         topics = None
 
@@ -282,7 +282,6 @@ def write_post_to_file(post, index):
         summary, api_hit = odb(SUMDB, write_summary, slug, post)
         description, api_hit = odb(DESCDB, write_meta, slug, summary)
         description = chop_last_sentence(description)
-        description = neutralize(description)
     if not headline:
         topic_text = f"{title} {description} {summary}"
         headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
@@ -339,17 +338,6 @@ def chop_last_sentence(text):
     return text
 
 
-def neutralize(text):
-    """Replace harmful characters with harmless ones."""
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&#39;")
-    )
-
-
 def prepare_for_front_matter(text):
     """Prepare text for front matter."""
     if not text:
@@ -358,7 +346,6 @@ def prepare_for_front_matter(text):
     text = text.replace("\n", " ")
     # RegEx replace multiple spaces with a single space
     text = re.sub(r"\s+", " ", text)
-    text = neutralize(text)
     text = text.strip()
     return text
 
@@ -495,26 +482,26 @@ def front_matter_inserter(pre_post):
                     with sqldict(HEADS) as db:
                         # print("Getting headline from db")
                         if slug in db:
-                            headline = q(db[slug])
+                            headline = db[slug]
                             top_dict["headline"] = headline
                 if "description" not in top_dict:
                     with sqldict(DESCDB) as db:
                         # print("Getting description from db")
                         if slug in db:
-                            description = q(db[slug])
+                            description = db[slug]
                             top_dict["description"] = description
                 if "topics" not in top_dict:
                     with sqldict(TOPDB) as db:
                         # print("Getting topics from db")
                         if slug in db:
-                            topics = q(db[slug])
+                            topics = db[slug]
                             top_dict["topics"] = topics
         else:
             new_post.append(line)
     if top_dict:
         # Loop through top_dict and add each key/value pair to top_matter.
         for key, value in top_dict.items():
-            top_matter.append(f"{key}: {value}")
+            top_matter.append(f"{key}: {q(value)}")
         top_matter.append("---")
     top_matter.extend(new_post)
     content = top_matter
@@ -526,7 +513,7 @@ def q(text):
     if it contains any of the following characters: " ' [ ] { } , :"""
     if any(
         c in text
-        for c in ['"', "'", "[", "]", "{", "}", ",", ":"]
+        for c in ['"', "[", "]", "{", "}", ",", ":"]
     ):
         # If so, html-escape them and quote the yaml value
         text = html.escape(text)
