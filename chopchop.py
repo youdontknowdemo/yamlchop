@@ -42,6 +42,7 @@ import sys
 import html
 import shlex
 import openai
+import shutil
 import datetime
 import argparse
 import pandas as pd
@@ -433,13 +434,12 @@ def front_matter_inserter(pre_post):
             elif line == "---":
                 # We use this when we want to immediately close the front-matter
                 # indicating that it's a meta-post and should not be published.
+                top_matter.append("---")
                 in_content = True
             else:
                 # Anything else in the first line, and we should skip it and keep
                 # the original post intact.
-                print("ERROR: First line of post is not a date.")
-                print(pre_post[:1000])
-                raise SystemExit()
+                return pre_post
         elif not in_content:
             # Handles everything still in front-matter.
             first_word = line.split(" ")[0]
@@ -703,8 +703,11 @@ files_are_same = compare_files(FULL_PATH, OUTPUT2_PATH)
 print(f"Are the input and output files the same? {files_are_same}")
 if files_are_same:
     print("Nothing to publish.")
-elif not files_are_same and DISABLE_GIT:
-    print("Something's getting published, but not to Github.")
+else:
+    print("Something's different. Updating source.")
+    # Copy output to input file using pathlib
+    shutil.copyfile(OUTPUT2_PATH, FULL_PATH)
+
 if not files_are_same and not DISABLE_GIT:
     print("Something's getting published.")
 
