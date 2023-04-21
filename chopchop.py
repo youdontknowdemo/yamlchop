@@ -51,10 +51,15 @@ from retry import retry
 from pathlib import Path
 from slugify import slugify
 from pyfiglet import Figlet
-from datetime import datetime
 from dateutil import parser
+from rich.table import Table
+from datetime import datetime
+from rich.console import Console
 from subprocess import Popen, PIPE
+from nltk.stem import WordNetLemmatizer
 from sqlitedict import SqliteDict as sqldict
+from collections import Counter, defaultdict
+
 
 
 AUTHOR = "Mike Levin"
@@ -115,6 +120,7 @@ OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 REPO_DATA = f"{PATH}{REPO}_data/"
 OUTPUT2_PATH = f"{REPO_DATA}{FILE}"
 KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
+INCLUDES = f"{PATH}{REPO}_includes/"
 CHOPPER = (80 * "-") + "\n"
 
 # OpenAI Databases
@@ -663,6 +669,70 @@ def chunk_text(text, chunk_size=4000):
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 #                                                                  
 
+#  _   _ _     _                                  
+# | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___  
+# | |_| | / __| __/ _ \ / _` | '__/ _` | '_ ` _ \ 
+# |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
+# |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
+#                       |___/                     
+
+# There is a 1-time dependenccy on running the following commands:
+# import nltk
+# from nltk.stem import WordNetLemmatizer
+# nltk.download('wordnet')
+
+def show_common(counter_obj, num_items):
+    console = Console()
+    most_common = counter_obj.most_common(num_items)
+    
+    # Create table and add header
+    table = Table(title="Most Common Items", show_header=True, header_style="bold magenta")
+    table.add_column("Item", justify="left", style="cyan")
+    table.add_column("Count", justify="right", style="green")
+    
+    # Add rows to the table
+    for item, count in most_common:
+        table.add_row(item, f"{count}")
+    
+    console.print(table)
+
+fig("Histogram")
+keywords = []
+cat_dict = defaultdict(list)
+lemmatizer = WordNetLemmatizer()
+with sqldict(TOPDB) as db:
+    for slug, more_words in db.iteritems():
+        keywords += more_words.split(", ")
+        for keyword in keywords:
+            cat_dict[keyword].append(slug)
+keywords = [x.strip() for x in keywords]
+keywords = [lemmatizer.lemmatize(x.lower()) for x in keywords if x]
+keywords = Counter(keywords)
+show_common(keywords, 100)
+
+#   ____      _                                ____                       
+#  / ___|__ _| |_ ___  __ _  ___  _ __ _   _  |  _ \ __ _  __ _  ___  ___ 
+# | |   / _` | __/ _ \/ _` |/ _ \| '__| | | | | |_) / _` |/ _` |/ _ \/ __|
+# | |__| (_| | ||  __/ (_| | (_) | |  | |_| | |  __/ (_| | (_| |  __/\__ \
+#  \____\__,_|\__\___|\__, |\___/|_|   \__, | |_|   \__,_|\__, |\___||___/
+#                     |___/            |___/              |___/           
+
+# Delete all previous category pages
+for p in Path(INCLUDES).glob("cat_*"):
+    p.unlink()
+
+for i, (keyword, freq) in enumerate(keywords.most_common()):
+    slugs = cat_dict[keyword]
+    full_name = slugify(keyword)
+    full_name = f"{INCLUDES}cat_{full_name}.md"
+    num_posts = len(slugs)
+    if num_posts > 2:
+        print(i + 1, len(slugs), full_name)
+        with open(full_name, "w") as fh:
+            for slug in slugs:
+                fh.write(f"{slug}\n")
+
+
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
 # \___ \| | |/ __/ _ \  _  | |/ _ \| | | | '__| '_ \ / _` | |
@@ -734,7 +804,7 @@ if not DEBUG:
     # Write index page
     index_page = "\n".join(links)
     # Write out list of posts
-    with open(f"{PATH}{REPO}_includes/post_list.html", "w", encoding="utf-8") as fh:
+    with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         fh.writelines(index_page)
 #   ____ _ _     ____            _     
 #  / ___(_) |_  |  _ \ _   _ ___| |__  
