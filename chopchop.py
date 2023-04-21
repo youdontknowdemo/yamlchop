@@ -61,11 +61,10 @@ from sqlitedict import SqliteDict as sqldict
 from collections import Counter, defaultdict
 
 
-
 AUTHOR = "Mike Levin"
 
 # Debugging
-DISABLE_GIT = False
+DISABLE_GIT = True
 POST_BY_POST = True
 INTERACTIVE = False
 DEBUG = False
@@ -150,10 +149,9 @@ with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
     openai.api_key = fh.readline()
 
 # Delete old files in output path
-if not DEBUG:
-    for fh in os.listdir(OUTPUT_PATH):
-        delete_me = f"{OUTPUT_PATH}/{fh}"
-        os.remove(delete_me)
+for fh in os.listdir(OUTPUT_PATH):
+    delete_me = f"{OUTPUT_PATH}/{fh}"
+    os.remove(delete_me)
 
 #  _____                 _   _
 # |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
@@ -214,7 +212,7 @@ def write_post_to_file(post, index):
             # adate = datetime.strptime(date_str, '%a %b %d, %Y').date()
             # adate = datetime.strptime(date_str.strip('"'), '%a %b %d, %Y').date()
             date_str = date_str.strip('"')  # remove quotes
-            adate = datetime.strptime(date_str, '%a %b %d, %Y').date()
+            adate = datetime.strptime(date_str, "%a %b %d, %Y").date()
             # Format the date into a string
             date_str = adate.strftime("%Y-%m-%d")
             # Format the date into a filename
@@ -254,7 +252,7 @@ def write_post_to_file(post, index):
                     first_word = line.split(" ")[0]
                     if first_word.endswith(":"):
                         # It's a yaml-like line, so add it to the top matter
-                        #top_matter.append(line)
+                        # top_matter.append(line)
                         # Parse the yaml-like line into a key/value pair
                         ykey = first_word[:-1]
                         yvalue = " ".join(line.split(" ")[1:])
@@ -267,7 +265,7 @@ def write_post_to_file(post, index):
                     else:
                         # It's not a yaml-like line, so we're done with top matter
                         # Once we throw this toggle, it's the one time we write "---" to the file.
-                        #top_matter.append("---")
+                        # top_matter.append("---")
                         in_content = True
 
     # Create the file name from the date and index
@@ -301,7 +299,7 @@ def write_post_to_file(post, index):
         headline = prepare_for_front_matter(headline)
     if not keywords:
         keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
-    
+
     for key, value in top_dict.items():
         top_matter.append(f"{key}: {q(value)}")
     top_matter.append(f"author: {AUTHOR}")
@@ -318,10 +316,11 @@ def write_post_to_file(post, index):
     except yaml.YAMLError as e:
         fig("YAML Error", "<< Figlet it out: >>\n")
         print(f"Error in YAML front matter:", e)
+        # Extract the line number from the error message
+
         lines = test_yaml.splitlines()
         for a, line in enumerate(lines):
             print(f"{a+1} {line}")
-        print(f"YAML front matter on post with title: {title}")
         raise SystemExit()
 
     # Write to file
@@ -350,22 +349,31 @@ def write_post_to_file(post, index):
     return link
 
 
+def neutralize_underscores(s):
+    # Check if the string starts with an underscore followed by a letter,
+    # but does not end with an underscore
+    if re.match(r"^_[a-zA-Z][^_]*[^_]$", s):
+        # Replace the underscore with a backslash and underscore
+        s = "\\" + s[1:]
+    return s
+
+
 def extract_front_matter(jekyll_doc):
     # Find the index of the closing `---` line
-    end_index = jekyll_doc.find('---', 3)
+    end_index = jekyll_doc.find("---", 3)
     if end_index == -1:
         # No closing `---` line found, so return empty string
-        return ''
+        return ""
 
     # Extract the front matter
     front_matter = jekyll_doc[3:end_index].strip()
 
     # Determine the number of `---` lines needed to make the front matter valid YAML
-    num_dashes = front_matter.count('---')
-    dashes = '-' * num_dashes
+    num_dashes = front_matter.count("---")
+    dashes = "-" * num_dashes
 
     # Prepend and append the appropriate number of `---` lines to the front matter
-    front_matter = dashes + '\n' + front_matter + '\n' + dashes
+    front_matter = dashes + "\n" + front_matter + "\n" + dashes
 
     return front_matter
 
@@ -488,7 +496,9 @@ def front_matter_inserter(pre_post):
             elif line[0] == "#":
                 # This indicates the old system before yaml-like top-matter.
                 # Let them know this and raise SystemExit.
-                print("ERROR: Old-style top matter detected. Please convert to yaml-like top matter.")
+                print(
+                    "ERROR: Old-style top matter detected. Please convert to yaml-like top matter."
+                )
                 print(line)
                 raise SystemExit()
             elif line == "---":
@@ -505,7 +515,7 @@ def front_matter_inserter(pre_post):
                 # print(first_word)
                 field_name = first_word[:-1]
                 # Add the field-name and value to the top_dict:
-                value = " ".join(line.split(" ")[1:]).strip() 
+                value = " ".join(line.split(" ")[1:]).strip()
                 # print(f"field_name: {field_name}, value: {value}")
                 top_dict[field_name] = value
             else:
@@ -513,7 +523,7 @@ def front_matter_inserter(pre_post):
                 print("ERROR: Unhandled case in front_matter_inserter()")
                 print(line)
                 raise SystemExit()
-            # if top_dict: 
+            # if top_dict:
             #     print(f"top_dict: {top_dict}")
             if "title" in top_dict:
                 slug = slugify(top_dict["title"].replace("'", ""))
@@ -549,7 +559,7 @@ def front_matter_inserter(pre_post):
                             keywords = db[slug]
                             top_dict["keywords"] = keywords
         else:
-            new_post.append(line)
+            new_post.append(neutralize_underscores(line))
     if top_dict:
         # Loop through top_dict and add each key/value pair to top_matter.
         for key, value in top_dict.items():
@@ -569,10 +579,11 @@ def q(text):
         if '"' in text:
             # Use RegEx to remove any number of repeating double quotes with only one double quote.
             # This will allow us to use single quotes to wrap the string.
-            text = re.sub(r'\"{2,}', '"', text)
+            text = re.sub(r"\"{2,}", '"', text)
         if text[0] != '"' and text[-1] != '"':
             text = f'"{text}"'
     return text
+
 
 #   ___                      _    ___   _____
 #  / _ \ _ __   ___ _ __    / \  |_ _| |  ___|   _ _ __   ___ ___
@@ -701,39 +712,44 @@ def chunk_text(text, chunk_size=4000):
         start_idx = end_idx
     return chunks
 
-#  _____           _   _____                 _   _                 
-# | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___ 
+
+#  _____           _   _____                 _   _
+# | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
 # |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-#                                                                  
+#
 
-#  _   _ _     _                                  
-# | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___  
-# | |_| | / __| __/ _ \ / _` | '__/ _` | '_ ` _ \ 
+#  _   _ _     _
+# | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___
+# | |_| | / __| __/ _ \ / _` | '__/ _` | '_ ` _ \
 # |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
 # |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
-#                       |___/                     
+#                       |___/
 
 # There is a 1-time dependenccy on running the following commands:
 # import nltk
 # from nltk.stem import WordNetLemmatizer
 # nltk.download('wordnet')
 
+
 def show_common(counter_obj, num_items):
     console = Console()
     most_common = counter_obj.most_common(num_items)
-    
+
     # Create table and add header
-    table = Table(title="Most Common Items", show_header=True, header_style="bold magenta")
+    table = Table(
+        title="Most Common Items", show_header=True, header_style="bold magenta"
+    )
     table.add_column("Item", justify="left", style="cyan")
     table.add_column("Count", justify="right", style="green")
-    
+
     # Add rows to the table
     for item, count in most_common:
         table.add_row(item, f"{count}")
-    
+
     console.print(table)
+
 
 fig("Histogram")
 keywords = []
@@ -743,17 +759,19 @@ with sqldict(KWDB) as db:
     for slug, more_words in db.iteritems():
         keywords += more_words.split(", ")
         for keyword in keywords:
+            keyword = lemma = lemmatizer.lemmatize(keyword.lower())  # Normalize
             cat_dict[keyword].append(slug)
-keywords = [x.strip() for x in keywords]
-keywords = [lemmatizer.lemmatize(x.lower()) for x in keywords if x]
+keywords = [x.strip() for x in keywords]  # Get rid of extra spaces
+keywords = [x for x in keywords if x]  # Get rid of empty strings
 keywords = Counter(keywords)
 show_common(keywords, 100)
 
-#   ____      _                                ____                       
-#  / ___|__ _| |_ ___  __ _  ___  _ __ _   _  |  _ \ __ _  __ _  ___  ___ 
-# | |   / _` | __/ _ \/ _` |/ _ \| '__| | | | | |_) / _` |/ _` |/ _ \/ __|
-# | |__| (_| | ||  __/ (_| | (_) | |  | |_| | |  __/ (_| | (_| |  __/\__ \ \____\__,_|\__\___|\__, |\___/|_|   \__, | |_|   \__,_|\__, |\___||___/
-#                     |___/            |___/              |___/           
+#   ____      _                        _
+#  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
+# | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
+# | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
+#  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
+#                     |___/
 
 # Delete all previous category pages
 for p in Path(INCLUDES).glob("cat_*"):
@@ -783,15 +801,14 @@ print()
 fig("Slice Journal")
 
 # Parse the journal file
-if not DEBUG:
-    all_posts = parse_journal(FULL_PATH)
-    links = []
-    for i, apost in enumerate(all_posts):
-        link = write_post_to_file(apost, i + 1)
-        if link:
-            links.insert(0, link)
+all_posts = parse_journal(FULL_PATH)
+links = []
+for i, apost in enumerate(all_posts):
+    link = write_post_to_file(apost, i + 1)
+    if link:
+        links.insert(0, link)
 
-#  ____      _           _ _     _       _                              _ 
+#  ____      _           _ _     _       _                              _
 # |  _ \ ___| |__  _   _(_) | __| |     | | ___  _   _ _ __ _ __   __ _| |
 # | |_) / _ \ '_ \| | | | | |/ _` |  _  | |/ _ \| | | | '__| '_ \ / _` | |
 # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_) | |_| | |  | | | | (_| | |
@@ -814,12 +831,12 @@ with open(OUTPUT2_PATH, "a") as fh:
         fh.write(apost)
 print()
 
-#  ___        _               _     ____    ___                   _   
-# / _ \ _   _| |_ _ __  _   _| |_  |___ \  |_ _|_ __  _ __  _   _| |_ 
-#| | | | | | | __| '_ \| | | | __|   __) |  | || '_ \| '_ \| | | | __|
-#| |_| | |_| | |_| |_) | |_| | |_   / __/   | || | | | |_) | |_| | |_ 
+#  ___        _               _     ____    ___                   _
+# / _ \ _   _| |_ _ __  _   _| |_  |___ \  |_ _|_ __  _ __  _   _| |_
+# | | | | | | | __| '_ \| | | | __|   __) |  | || '_ \| '_ \| | | | __|
+# | |_| | |_| | |_| |_) | |_| | |_   / __/   | || | | | |_) | |_| | |_
 # \___/ \__,_|\__| .__/ \__,_|\__| |_____| |___|_| |_| .__/ \__,_|\__|
-#                |_|                                 |_|              
+#                |_|                                 |_|
 
 # Compare the input and output files. If same, there's been no changes.
 fig("Compare files")
@@ -832,25 +849,24 @@ else:
     # Copy output to input file using pathlib
     shutil.copyfile(OUTPUT2_PATH, FULL_PATH)
 
-#  ___           _             ____                  
-# |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___ 
+#  ___           _             ____
+# |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___
 #  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
 #  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
 # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
-#                                         |___/      
+#                                         |___/
 
-if not DEBUG:
-    # Add countdown ordered list to index page
-    links.insert(0, f'<ol start="{len(links)}" reversed>')
-    links.append("</ol>")
-    # Write index page
-    index_page = "\n".join(links)
-    # Write out list of posts
-    with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
-        fh.writelines(index_page)
-#   ____ _ _     ____            _     
-#  / ___(_) |_  |  _ \ _   _ ___| |__  
-# | |  _| | __| | |_) | | | / __| '_ \ 
+# Add countdown ordered list to index page
+links.insert(0, f'<ol start="{len(links)}" reversed>')
+links.append("</ol>")
+# Write index page
+index_page = "\n".join(links)
+# Write out list of posts
+with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
+    fh.writelines(index_page)
+#   ____ _ _     ____            _
+#  / ___(_) |_  |  _ \ _   _ ___| |__
+# | |  _| | __| | |_) | | | / __| '_ \
 # | |_| | | |_  |  __/| |_| \__ \ | | |
 #  \____|_|\__| |_|    \__,_|___/_| |_|
 
