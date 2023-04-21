@@ -804,14 +804,13 @@ for category in categories:
 # Check if a category page exists in repo root:
 # Open a category file for writing
 
+# Create the top-level Category page
 with open(CATEGORY_PAGE, "w") as fh:
     fh.write("# Categories\n")
     for category in categories:
-        cat_file = slugify(category)
-        cat_file = f"{INCLUDES}cat_{cat_file}.md"
-        fh.write(f"## {category}\n")
-        fh.write(f"{{{{% include \"{cat_file}\" %}}}}\n")
+        fh.write(f"## {category} foo\n")
 
+# Create a category page for each category
 for category in categories:
     cat_file = slugify(category)
     cat_file = f"{PATH}{REPO}{cat_file}.md"
@@ -903,6 +902,7 @@ if not DISABLE_GIT:
     # Git commands
     fig("Git Push")
     here = f"{PATH}{REPO}"
+    git(here, f"add {here}*")
     git(here, "add _posts/*")
     git(here, "add _includes/*")
     git(here, "add assets/images/*")
