@@ -310,14 +310,17 @@ def write_post_to_file(post, index):
     top_matter.extend(content)
     content = top_matter
     flat_content = "\n".join(content)
+    test_yaml = extract_front_matter(flat_content)
 
     # Catch bad YAML format before it even becomes a file.
     try:
-        yaml.safe_load(flat_content)
+        yaml.safe_load(test_yaml)
     except yaml.YAMLError as e:
         fig("YAML Error", "<< Figlet it out: >>\n")
         print(f"Error in YAML front matter:", e)
-        print(flat_content)
+        lines = test_yaml.splitlines()
+        for a, line in enumerate(lines):
+            print(f"{a+1} {line}")
         print(f"YAML front matter on post with title: {title}")
         raise SystemExit()
 
@@ -345,6 +348,26 @@ def write_post_to_file(post, index):
             print()
 
     return link
+
+
+def extract_front_matter(jekyll_doc):
+    # Find the index of the closing `---` line
+    end_index = jekyll_doc.find('---', 3)
+    if end_index == -1:
+        # No closing `---` line found, so return empty string
+        return ''
+
+    # Extract the front matter
+    front_matter = jekyll_doc[3:end_index].strip()
+
+    # Determine the number of `---` lines needed to make the front matter valid YAML
+    num_dashes = front_matter.count('---')
+    dashes = '-' * num_dashes
+
+    # Prepend and append the appropriate number of `---` lines to the front matter
+    front_matter = dashes + '\n' + front_matter + '\n' + dashes
+
+    return front_matter
 
 
 def convert_date(date_str):
