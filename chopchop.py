@@ -734,8 +734,11 @@ def chunk_text(text, chunk_size=4000):
 
 
 def show_common(counter_obj, num_items):
+    """Show the most common items in a counter object and return a list of the items."""
+
     console = Console()
     most_common = counter_obj.most_common(num_items)
+    categories = [item[0] for item in most_common]
 
     # Create table and add header
     table = Table(
@@ -749,22 +752,29 @@ def show_common(counter_obj, num_items):
         table.add_row(item, f"{count}")
 
     console.print(table)
+    return categories
 
 
+#  _   _ _     _
+# | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___
+# | |_| | / __| __/ _ \ / _` | '__/ _` | '_ ` _ \
+# |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
+# |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
+#                       |___/
 fig("Histogram")
 keywords = []
+
 cat_dict = defaultdict(list)
 lemmatizer = WordNetLemmatizer()
 with sqldict(KWDB) as db:
     for slug, more_words in db.iteritems():
         keywords += more_words.split(", ")
         for keyword in keywords:
-            keyword = lemma = lemmatizer.lemmatize(keyword.lower())  # Normalize
+            keyword = lemmatizer.lemmatize(keyword.strip().lower())  # Normalize
             cat_dict[keyword].append(slug)
-keywords = [x.strip() for x in keywords]  # Get rid of extra spaces
 keywords = [x for x in keywords if x]  # Get rid of empty strings
 keywords = Counter(keywords)
-show_common(keywords, 100)
+categories = show_common(keywords, 100)
 
 #   ____      _                        _
 #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
@@ -778,19 +788,25 @@ for p in Path(INCLUDES).glob("cat_*"):
     p.unlink()
 
 fig("Category Pages")
-slugs = cat_dict[keyword]
-for i, (keyword, freq) in enumerate(keywords.most_common(100)):
-    cat_file = slugify(keyword)
-    cat_file = f"{INCLUDES}cat_{cat_file}.md"
-    # print(i + 1, len(slugs), cat_file)
-    print(f"{i}", end=" ", flush=True)
-    with open(cat_file, "w") as fh:
-        # We're going to iterate the items in the list for this keyword in the cat_dict
-        # and write them to the file
-        for slug in cat_dict[keyword]:
-            # print(f"  {slug}")
-            link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
-            fh.write(f"{link}\n")
+
+for i, category in enumerate(categories):
+    print(f"{i+1}. Category: {category}")
+#     print(f"  {len(cat_dict[category])}")
+raise SystemExit()
+
+# slugs = cat_dict[keyword]
+# for i, (keyword, freq) in enumerate(keywords.most_common(100)):
+#     cat_file = slugify(keyword)
+#     cat_file = f"{INCLUDES}cat_{cat_file}.md"
+#     # print(i + 1, len(slugs), cat_file)
+#     print(f"{i}", end=" ", flush=True)
+#     with open(cat_file, "w") as fh:
+#         # We're going to iterate the items in the list for this keyword in the cat_dict
+#         # and write them to the file
+#         for slug in cat_dict[keyword]:
+#             # print(f"  {slug}")
+#             link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
+#             fh.write(f"{link}\n")
 print()
 
 #  ____  _ _                _                              _
@@ -831,13 +847,12 @@ with open(OUTPUT2_PATH, "a") as fh:
         fh.write(apost)
 print()
 
-#  ___        _               _     ____    ___                   _
-# / _ \ _   _| |_ _ __  _   _| |_  |___ \  |_ _|_ __  _ __  _   _| |_
-# | | | | | | | __| '_ \| | | | __|   __) |  | || '_ \| '_ \| | | | __|
-# | |_| | |_| | |_| |_) | |_| | |_   / __/   | || | | | |_) | |_| | |_
-# \___/ \__,_|\__| .__/ \__,_|\__| |_____| |___|_| |_| .__/ \__,_|\__|
-#                |_|                                 |_|
-
+#  _   _                 ____
+# | \ | | _____      __ / ___|  ___  _   _ _ __ ___ ___
+# |  \| |/ _ \ \ /\ / / \___ \ / _ \| | | | '__/ __/ _ \
+# | |\  |  __/\ V  V /   ___) | (_) | |_| | | | (_|  __/
+# |_| \_|\___| \_/\_/   |____/ \___/ \__,_|_|  \___\___|
+#
 # Compare the input and output files. If same, there's been no changes.
 fig("Compare files")
 files_are_same = compare_files(FULL_PATH, OUTPUT2_PATH)
