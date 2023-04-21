@@ -122,6 +122,7 @@ OUTPUT2_PATH = f"{REPO_DATA}{FILE}"
 KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 INCLUDES = f"{PATH}{REPO}_includes/"
 CHOPPER = (80 * "-") + "\n"
+CATEGORY_PAGE = f"{REPO}category.md"
 
 # OpenAI Databases
 ENGINE = "text-davinci-003"
@@ -713,25 +714,28 @@ show_common(keywords, 100)
 #   ____      _                                ____                       
 #  / ___|__ _| |_ ___  __ _  ___  _ __ _   _  |  _ \ __ _  __ _  ___  ___ 
 # | |   / _` | __/ _ \/ _` |/ _ \| '__| | | | | |_) / _` |/ _` |/ _ \/ __|
-# | |__| (_| | ||  __/ (_| | (_) | |  | |_| | |  __/ (_| | (_| |  __/\__ \
-#  \____\__,_|\__\___|\__, |\___/|_|   \__, | |_|   \__,_|\__, |\___||___/
+# | |__| (_| | ||  __/ (_| | (_) | |  | |_| | |  __/ (_| | (_| |  __/\__ \ \____\__,_|\__\___|\__, |\___/|_|   \__, | |_|   \__,_|\__, |\___||___/
 #                     |___/            |___/              |___/           
 
 # Delete all previous category pages
 for p in Path(INCLUDES).glob("cat_*"):
     p.unlink()
 
-for i, (keyword, freq) in enumerate(keywords.most_common()):
-    slugs = cat_dict[keyword]
-    full_name = slugify(keyword)
-    full_name = f"{INCLUDES}cat_{full_name}.md"
-    num_posts = len(slugs)
-    if num_posts > 2:
-        print(i + 1, len(slugs), full_name)
-        with open(full_name, "w") as fh:
-            for slug in slugs:
-                fh.write(f"{slug}\n")
-
+fig("Category Pages")
+slugs = cat_dict[keyword]
+for i, (keyword, freq) in enumerate(keywords.most_common(100)):
+    cat_file = slugify(keyword)
+    cat_file = f"{INCLUDES}cat_{cat_file}.md"
+    # print(i + 1, len(slugs), cat_file)
+    print(f"{i}", end=" ", flush=True)
+    with open(cat_file, "w") as fh:
+        # We're going to iterate the items in the list for this keyword in the cat_dict
+        # and write them to the file
+        for slug in cat_dict[keyword]:
+            # print(f"  {slug}")
+            link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
+            fh.write(f"{link}\n")
+print()
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
