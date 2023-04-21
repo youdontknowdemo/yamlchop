@@ -12,7 +12,6 @@
 
 # TO-DO:
 # - Speed it up by not opening/closing databases for every page.
-# - A better date format on both the index page and articles
 # - Check if valid yaml top-matter before git commit.
 # - Check resulting pages for broken links.
 # - Add a "tags" field to the yaml front matter.
@@ -72,14 +71,18 @@ DEBUG = False
 
 
 # Load function early so we can start showing figlets.
-def fig(text):
-    """Print a figlet."""
+def fig(text, description=None):
+    """Print a figlet and optional description with momentary delay.
+    This is good to explain something qick before it scrolls across
+    console output."""
     f = Figlet()
     print(f.renderText(text))
+    if description:
+        print(description)
     sleep(0.5)
 
 
-fig("ChopChop")
+fig("ChopChop", "A radical new blogging system based on 1-file for life")
 
 #  ____                          _
 # |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___
@@ -128,7 +131,7 @@ CATEGORY_PAGE = f"{REPO}category.md"
 ENGINE = "text-davinci-003"
 SUMDB = REPO_DATA + "summaries.db"
 DESCDB = REPO_DATA + "descriptions.db"
-TOPDB = REPO_DATA + "topics.db"
+KWDB = REPO_DATA + "keywords.db"
 HEADS = REPO_DATA + "headlines.db"
 
 # Print out constants
@@ -280,10 +283,10 @@ def write_post_to_file(post, index):
         headline = top_dict["subhead"]
     else:
         headline = None
-    if "topics" in top_dict:
-        topics = top_dict["topics"]
+    if "keywords" in top_dict:
+        keywords = top_dict["keywords"]
     else:
-        topics = None
+        keywords = None
 
     # The OpenAI work is done here
     # If we already have a description, we don't need to look at the summary:
@@ -292,11 +295,11 @@ def write_post_to_file(post, index):
         description, api_hit = odb(DESCDB, write_meta, slug, summary)
         description = chop_last_sentence(description)
     if not headline:
-        topic_text = f"{title} {description} {summary}"
-        headline, api_hit = odb(HEADS, write_headline, slug, topic_text)
+        keyword_text = f"{title} {description} {summary}"
+        headline, api_hit = odb(HEADS, write_headline, slug, keyword_text)
         headline = prepare_for_front_matter(headline)
-    if not topics:
-        topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
+    if not keywords:
+        keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
     
     for key, value in top_dict.items():
         top_matter.append(f"{key}: {q(value)}")
@@ -323,7 +326,7 @@ def write_post_to_file(post, index):
         print()
         print(f"Description: {description}")
         print()
-        print(f"Keywords: {topics}")
+        print(f"Keywords: {keywords}")
         print()
         if INTERACTIVE:
             input("Press Enter to continue...")
@@ -409,14 +412,14 @@ def front_matter_inserter(pre_post):
     # The first line is always the date. If not, return full pre_post.
     # The second line is always the tile. If not, return full pre_post.
     # If the third line is an empty line, we know we need all the front matter, fetched from databases.
-    # In that case, we get headlines, descriptions and topics for the slug.
+    # In that case, we get headlines, descriptions and keywords for the slug.
     # We always know the slug because it's the title field put through a deterministic function.
-    # The slug is the database key to fetch the headline, description and topics.
+    # The slug is the database key to fetch the headline, description and keywords.
     # We also know the author, but that's just a configuration variable.
     # We also know the layout, but that's just a configuration variable.
-    # The topics field is actually the keywords field, which we're going to use as tags as well.
+    # The keywords field is actually the keywords field, which we're going to use as tags as well.
     # I'm blending together the concept of categories, tags and keywords.
-    # This may change later, but OpenAI chose my keywords, so I'll use the term topics as a catch-all for now.
+    # This may change later, but OpenAI chose my keywords, so I'll use the term keywords as a catch-all for now.
 
     # We are setting up a 1-time converson.
     # After that, we'll change the behavior of this code.
@@ -455,7 +458,7 @@ def front_matter_inserter(pre_post):
                 raise SystemExit()
             elif line == "---":
                 # We're where we're trying to close the front-matter, but we may not have
-                # all the yaml key/value pairs that we need: headline, description, topics.
+                # all the yaml key/value pairs that we need: headline, description, keywords.
                 # If they're not there, we retreive them from each one's database.
                 # This whole process uses a slugified title as a primary key, so we have to have it.
                 # If we reached this point and have no title (in top_dict), close the front-matter
@@ -486,9 +489,9 @@ def front_matter_inserter(pre_post):
 
                 # We DO have a title, so we slugify exactly the same way as in write_post_to_file()
                 # and use that as the slug.
-                # Now we can get the headline, description and topics from the databases.
+                # Now we can get the headline, description and keywords from the databases.
                 # We'll use the slug as the key.
-                # The databases in the order we want to check them are: HEADS, DESCDB, TOPDB
+                # The databases in the order we want to check them are: HEADS, DESCDB, KWDB
                 # In time, I will clean this up probably into a function.
                 # print(f"top_dict: {top_dict}")
                 # print("headline" in top_dict.keys())
@@ -504,12 +507,12 @@ def front_matter_inserter(pre_post):
                         if slug in db:
                             description = db[slug]
                             top_dict["description"] = description
-                if "topics" not in top_dict:
-                    with sqldict(TOPDB) as db:
-                        # print("Getting topics from db")
+                if "keywords" not in top_dict:
+                    with sqldict(KWDB) as db:
+                        # print("Getting keywords from db")
                         if slug in db:
-                            topics = db[slug]
-                            top_dict["topics"] = topics
+                            keywords = db[slug]
+                            top_dict["keywords"] = keywords
         else:
             new_post.append(line)
     if top_dict:
@@ -560,9 +563,9 @@ def odb(DBNAME, afunc, slug, full_text):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def find_topics(data):
+def find_keywords(data):
     """Returns top keywords and main category for text."""
-    print("Hitting OpenAI API for: topics")
+    print("Hitting OpenAI API for: keywords")
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
@@ -577,8 +580,8 @@ def find_topics(data):
         n=1,
         stop=None,
     )
-    topics = response.choices[0].text.strip()
-    return topics
+    keywords = response.choices[0].text.strip()
+    return keywords
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
@@ -701,7 +704,7 @@ fig("Histogram")
 keywords = []
 cat_dict = defaultdict(list)
 lemmatizer = WordNetLemmatizer()
-with sqldict(TOPDB) as db:
+with sqldict(KWDB) as db:
     for slug, more_words in db.iteritems():
         keywords += more_words.split(", ")
         for keyword in keywords:
