@@ -656,6 +656,12 @@ def chunk_text(text, chunk_size=4000):
         start_idx = end_idx
     return chunks
 
+#  _____           _   _____                 _   _                 
+# | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___ 
+# |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
+# | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
+# |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
+#                                                                  
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
@@ -673,7 +679,11 @@ if not DEBUG:
         if link:
             links.insert(0, link)
 
-# Rebuild the journal, inserting new front-matter (to-do)
+#  ____      _           _ _     _       _                              _ 
+# |  _ \ ___| |__  _   _(_) | __| |     | | ___  _   _ _ __ _ __   __ _| |
+# | |_) / _ \ '_ \| | | | | |/ _` |  _  | |/ _ \| | | | '__| '_ \ / _` | |
+# |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_) | |_| | |  | | | | (_| | |
+# |_| \_\___|_.__/ \__,_|_|_|\__,_|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
 
 # Delete the old temporary journal from _data
 out_file = Path(OUTPUT2_PATH)
@@ -692,19 +702,30 @@ with open(OUTPUT2_PATH, "a") as fh:
         fh.write(apost)
 print()
 
+#  ___        _               _     ____    ___                   _   
+# / _ \ _   _| |_ _ __  _   _| |_  |___ \  |_ _|_ __  _ __  _   _| |_ 
+#| | | | | | | __| '_ \| | | | __|   __) |  | || '_ \| '_ \| | | | __|
+#| |_| | |_| | |_| |_) | |_| | |_   / __/   | || | | | |_) | |_| | |_ 
+# \___/ \__,_|\__| .__/ \__,_|\__| |_____| |___|_| |_| .__/ \__,_|\__|
+#                |_|                                 |_|              
+
 # Compare the input and output files. If same, there's been no changes.
 fig("Compare files")
 files_are_same = compare_files(FULL_PATH, OUTPUT2_PATH)
 print(f"Are the input and output files the same? {files_are_same}")
 if files_are_same:
-    print("Nothing to publish.")
+    print("Nothing's changed. Nothing to publish.")
 else:
-    print("Something's different. Updating source.")
+    print("Something's changed. Copied output to input.")
     # Copy output to input file using pathlib
     shutil.copyfile(OUTPUT2_PATH, FULL_PATH)
 
-if not files_are_same and not DISABLE_GIT:
-    print("Something's getting published.")
+#  ___           _             ____                  
+# |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___ 
+#  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
+#  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
+# |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
+#                                         |___/      
 
 if not DEBUG:
     # Add countdown ordered list to index page
@@ -715,6 +736,11 @@ if not DEBUG:
     # Write out list of posts
     with open(f"{PATH}{REPO}_includes/post_list.html", "w", encoding="utf-8") as fh:
         fh.writelines(index_page)
+#   ____ _ _     ____            _     
+#  / ___(_) |_  |  _ \ _   _ ___| |__  
+# | |  _| | __| | |_) | | | / __| '_ \ 
+# | |_| | | |_  |  __/| |_| \__ \ | | |
+#  \____|_|\__| |_|    \__,_|___/_| |_|
 
 if not DISABLE_GIT:
     # Git commands
