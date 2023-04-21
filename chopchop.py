@@ -38,6 +38,7 @@
 import os
 import re
 import sys
+import yaml
 import html
 import shlex
 import openai
@@ -144,7 +145,7 @@ print(f"FILE: {FILE}")
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 
-with open("/home/ubuntu/repos/skite/openai.txt") as fh:
+with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
     # Get OpenAI API key
     openai.api_key = fh.readline()
 
@@ -308,12 +309,23 @@ def write_post_to_file(post, index):
     top_matter.append("---")
     top_matter.extend(content)
     content = top_matter
+    flat_content = "\n".join(content)
+
+    # Catch bad YAML format before it even becomes a file.
+    try:
+        yaml.safe_load(flat_content)
+    except yaml.YAMLError as e:
+        fig("YAML Error", "<< Figlet it out: >>\n")
+        print(f"Error in YAML front matter:", e)
+        print(flat_content)
+        print(f"YAML front matter on post with title: {title}")
+        raise SystemExit()
 
     # Write to file
     with open(out_path, "w") as f:
         # Flatten list of lines into a single string
-        flat_content = "\n".join(content)
         f.writelines(flat_content)
+
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
     print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
