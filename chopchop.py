@@ -771,10 +771,24 @@ with sqldict(KWDB) as db:
         keywords += more_words.split(", ")
         for keyword in keywords:
             keyword = lemmatizer.lemmatize(keyword.strip().lower())  # Normalize
-            cat_dict[keyword].append(slug)
-keywords = [x for x in keywords if x]  # Get rid of empty strings
+            if keyword:
+                cat_dict[keyword].append(slug)
 keywords = Counter(keywords)
 categories = show_common(keywords, 100)
+
+
+# cat_dict = defaultdict(list)
+# lemmatizer = WordNetLemmatizer()
+# with sqldict(KWDB) as db:
+#     for slug, more_words in db.iteritems():
+#         keywords += more_words.split(", ")
+#         for keyword in keywords:
+#             keyword = lemmatizer.lemmatize(keyword.strip().lower())  # Normalize
+#             cat_dict[keyword].append(slug)
+# keywords = [x for x in keywords if x]  # Get rid of empty strings
+# keywords = Counter(keywords)
+# categories = show_common(keywords, 100)
+
 
 #   ____      _                        _
 #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
@@ -785,14 +799,22 @@ categories = show_common(keywords, 100)
 
 # Delete all previous category pages
 for p in Path(INCLUDES).glob("cat_*"):
+    print(f"Deleting {p}")
     p.unlink()
 
 fig("Category Pages")
 
 for i, category in enumerate(categories):
-    print(f"{i+1}. Category: {category}")
-    print(f"  {len(cat_dict[category])}")
-#     print(f"  {len(cat_dict[category])}")
+    cat_file = slugify(category)
+    cat_file = f"{INCLUDES}cat_{cat_file}.md"
+    print(f"cat_file: {cat_file}")
+    # with open(cat_file, "w") as fh:
+    #     # We're going to iterate the items in the list for this keyword in the cat_dict
+    #     # and write them to the file
+    #     for slug in cat_dict[category]:
+    #         link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
+    #         fh.write(f"{link}\n")
+
 raise SystemExit()
 
 # slugs = cat_dict[keyword]
