@@ -212,6 +212,7 @@ def write_post_to_file(post, index):
             # Second line is always the title for headline & url
             if line and "title: " in line:
                 title = " ".join(line.split(" ")[1:])
+                title = title.strip('"')  # remove quotes
             else:
                 return
             # Turn title into slug for permalink
