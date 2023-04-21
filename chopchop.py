@@ -763,51 +763,43 @@ def show_common(counter_obj, num_items):
 #                       |___/
 fig("Histogram")
 keywords = []
-
-cat_dict = defaultdict(list)
 lemmatizer = WordNetLemmatizer()
+cat_dict = defaultdict(list)
 with sqldict(KWDB) as db:
-    for slug, more_words in db.iteritems():
-        keywords += more_words.split(", ")
+    for slug, kwstr in db.iteritems():
+        keywords = kwstr.split(", ")
         for keyword in keywords:
-            keyword = lemmatizer.lemmatize(keyword.strip().lower())  # Normalize
-            if keyword:
-                cat_dict[keyword].append(slug)
-keywords = Counter(keywords)
-categories = show_common(keywords, 100)
+            keyword = keyword.strip().lower()
+            keyword = lemmatizer.lemmatize(keyword)
+            cat_dict[keyword].append(slug)
 
-
-# cat_dict = defaultdict(list)
-# lemmatizer = WordNetLemmatizer()
-# with sqldict(KWDB) as db:
-#     for slug, more_words in db.iteritems():
-#         keywords += more_words.split(", ")
-#         for keyword in keywords:
-#             keyword = lemmatizer.lemmatize(keyword.strip().lower())  # Normalize
-#             cat_dict[keyword].append(slug)
-# keywords = [x for x in keywords if x]  # Get rid of empty strings
-# keywords = Counter(keywords)
-# categories = show_common(keywords, 100)
-
-
-#   ____      _                        _
-#  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
-# | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
-# | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
-#  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-#                     |___/
+# Create a counter on cat_dict:
+cat_counter = Counter()
+for cat, slugs in cat_dict.items():
+    cat_counter[cat] = len(slugs)
 
 # Delete all previous category pages
 for p in Path(INCLUDES).glob("cat_*"):
     print(f"Deleting {p}")
     p.unlink()
 
-fig("Category Pages")
+# Create a list of categories from the counter:
+categories = show_common(cat_counter, 100)
 
-for i, category in enumerate(categories):
+for category in categories:
+    # With each Catetory, we also open a file to write the links
+    # print(f"Category {category}: {cat_counter[category]}")
     cat_file = slugify(category)
     cat_file = f"{INCLUDES}cat_{cat_file}.md"
-    print(f"cat_file: {cat_file}")
+    with open(cat_file, "w") as fh:
+        for slug in cat_dict[category]:
+            link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
+            fh.write(f"{link}\n")
+
+# for i, category in enumerate(categories):
+#     cat_file = slugify(category)
+#     cat_file = f"{INCLUDES}cat_{cat_file}.md"
+#     print(f"cat_file: {cat_file}")
     # with open(cat_file, "w") as fh:
     #     # We're going to iterate the items in the list for this keyword in the cat_dict
     #     # and write them to the file
