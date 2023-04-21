@@ -207,7 +207,7 @@ def write_post_to_file(post, index):
             # Format the date into a string
             date_str = adate.strftime("%Y-%m-%d")
             # Format the date into a filename
-            top_matter.append(f"date: {date_str}")
+            top_dict["date"] = date_str
         elif i == 1:
             # Second line is always the title for headline & url
             if line and "title: " in line:
@@ -242,7 +242,7 @@ def write_post_to_file(post, index):
                     first_word = line.split(" ")[0]
                     if first_word.endswith(":"):
                         # It's a yaml-like line, so add it to the top matter
-                        top_matter.append(line)
+                        #top_matter.append(line)
                         # Parse the yaml-like line into a key/value pair
                         ykey = first_word[:-1]
                         yvalue = " ".join(line.split(" ")[1:])
@@ -255,12 +255,8 @@ def write_post_to_file(post, index):
                     else:
                         # It's not a yaml-like line, so we're done with top matter
                         # Once we throw this toggle, it's the one time we write "---" to the file.
-                        top_matter.append("---")
+                        #top_matter.append("---")
                         in_content = True
-                        content.append(line)
-                else:
-                    # Blank line, keep parsing top matter
-                    top_matter.append(line)
 
     # Create the file name from the date and index
     file_name = f"{date_str}-post-{index:04}.md"
@@ -269,7 +265,7 @@ def write_post_to_file(post, index):
     # Initialize per-post variables
     summary = None
     if "description" in top_dict:
-        description = top_dict["description"]
+        description = chop_last_sentence(top_dict["description"])
     else:
         description = None
     if "subhead" in top_dict:
@@ -293,9 +289,9 @@ def write_post_to_file(post, index):
         headline = prepare_for_front_matter(headline)
     if not topics:
         topics, api_hit = odb(TOPDB, find_topics, slug, topic_text)
-    top_matter.append(f'description: "{description}"')
-    top_matter.append(f'subhead: "{headline}"')
-    top_matter.append(f"keywords: {topics}")
+    
+    for key, value in top_dict.items():
+        top_matter.append(f"{key}: {q(value)}")
     top_matter.append(f"author: {AUTHOR}")
     top_matter.append(f"layout: post")
     top_matter.append("---")
@@ -590,8 +586,8 @@ def write_meta(data):
         n=1,
         stop=None,
     )
-    meta_description = response.choices[0].text.strip()
-    return meta_description
+    description = response.choices[0].text.strip()
+    return description
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
