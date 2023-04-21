@@ -791,6 +791,7 @@ fig("Category Pages")
 
 for i, category in enumerate(categories):
     print(f"{i+1}. Category: {category}")
+    print(f"  {len(cat_dict[category])}")
 #     print(f"  {len(cat_dict[category])}")
 raise SystemExit()
 
