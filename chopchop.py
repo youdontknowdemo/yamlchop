@@ -64,7 +64,7 @@ from collections import Counter, defaultdict
 AUTHOR = "Mike Levin"
 
 # Debugging
-DISABLE_GIT = True
+DISABLE_GIT = False
 POST_BY_POST = True
 INTERACTIVE = False
 DEBUG = False
@@ -125,7 +125,7 @@ OUTPUT2_PATH = f"{REPO_DATA}{FILE}"
 KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 INCLUDES = f"{PATH}{REPO}_includes/"
 CHOPPER = (80 * "-") + "\n"
-CATEGORY_PAGE = f"{REPO}category.md"
+CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 
 # OpenAI Databases
 ENGINE = "text-davinci-003"
@@ -778,6 +778,12 @@ cat_counter = Counter()
 for cat, slugs in cat_dict.items():
     cat_counter[cat] = len(slugs)
 
+#   ____      _                        _           
+#  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
+# | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
+# | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
+#  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
+#                     |___/                        
 # Delete all previous category pages
 for p in Path(INCLUDES).glob("cat_*"):
     print(f"Deleting {p}")
@@ -785,7 +791,6 @@ for p in Path(INCLUDES).glob("cat_*"):
 
 # Create a list of categories from the counter:
 categories = show_common(cat_counter, 100)
-
 for category in categories:
     # With each Catetory, we also open a file to write the links
     # print(f"Category {category}: {cat_counter[category]}")
@@ -796,33 +801,27 @@ for category in categories:
             link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
             fh.write(f"{link}\n")
 
-# for i, category in enumerate(categories):
-#     cat_file = slugify(category)
-#     cat_file = f"{INCLUDES}cat_{cat_file}.md"
-#     print(f"cat_file: {cat_file}")
-    # with open(cat_file, "w") as fh:
-    #     # We're going to iterate the items in the list for this keyword in the cat_dict
-    #     # and write them to the file
-    #     for slug in cat_dict[category]:
-    #         link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
-    #         fh.write(f"{link}\n")
+# Check if a category page exists in repo root:
+# Open a category file for writing
 
-raise SystemExit()
+with open(CATEGORY_PAGE, "w") as fh:
+    fh.write("# Categories\n")
+    for category in categories:
+        cat_file = slugify(category)
+        cat_file = f"{INCLUDES}cat_{cat_file}.md"
+        fh.write(f"## {category}\n")
+        fh.write(f"{{{{% include \"{cat_file}\" %}}}}\n")
 
-# slugs = cat_dict[keyword]
-# for i, (keyword, freq) in enumerate(keywords.most_common(100)):
-#     cat_file = slugify(keyword)
-#     cat_file = f"{INCLUDES}cat_{cat_file}.md"
-#     # print(i + 1, len(slugs), cat_file)
-#     print(f"{i}", end=" ", flush=True)
-#     with open(cat_file, "w") as fh:
-#         # We're going to iterate the items in the list for this keyword in the cat_dict
-#         # and write them to the file
-#         for slug in cat_dict[keyword]:
-#             # print(f"  {slug}")
-#             link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
-#             fh.write(f"{link}\n")
-print()
+for category in categories:
+    cat_file = slugify(category)
+    cat_file = f"{PATH}{REPO}{cat_file}.md"
+    print(cat_file)
+    if not Path(cat_file).exists():
+        print(f"Creating {cat_file}")
+        with open(cat_file, "w") as fh:
+            fh.write(f"# {category}\n")
+
+
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
