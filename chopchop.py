@@ -304,7 +304,7 @@ def write_post_to_file(post, index):
         # Flatten list of lines into a single string
         flat_content = "\n".join(content)
         f.writelines(flat_content)
-    link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({date_str})<br />{description}</li>'
+    link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
     print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
         print()
@@ -323,6 +323,11 @@ def write_post_to_file(post, index):
             print()
 
     return link
+
+
+def convert_date(date_str):
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    return date_obj.strftime("%a %b %d, %Y")
 
 
 def chop_last_sentence(text):
