@@ -1,5 +1,5 @@
 # Author: Mike Levin
-# Date: 2023-04-15
+# Date: 2023-04-22
 # Description: Chop a journal.md file into individual blog posts.
 #   ____ _                  ____ _
 #  / ___| |__   ___  _ __  / ___| |__   ___  _ __
@@ -7,16 +7,11 @@
 # | |___| | | | (_) | |_) | |___| | | | (_) | |_) |
 #  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
 #                   |_|                     |_|
-# Example:
 # python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
 
 # TO-DO:
 # - Speed it up by not opening/closing databases for every page.
-# - Check if valid yaml top-matter before git commit.
 # - Check resulting pages for broken links.
-# - Add a "tags" field to the yaml front matter.
-# - Add a "category" field to the yaml front matter.
-# - Create category pages
 
 import os
 import re
@@ -52,6 +47,10 @@ NUMBER_OF_CATEGORIES = 300
 DISABLE_GIT = False
 POST_BY_POST = True
 INTERACTIVE = False
+
+with open(f"/home/ubuntu/repos/skite/openai.txt", "r") as fh:
+    openai.api_key = fh.readline()
+
 
 # Load function early so we can start showing figlets.
 def fig(text, description=None):
@@ -109,6 +108,7 @@ KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 INCLUDES = f"{PATH}{REPO}_includes/"
 CHOPPER = (80 * "-") + "\n"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
+CATEGORY_INCLUDE = f"{INCLUDES}category.md"
 
 # Databases
 SUMDB = REPO_DATA + "summaries.db"
@@ -131,6 +131,125 @@ Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 # | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 # |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
+
+
+def odb(DBNAME, afunc, slug, full_text):
+    """Record OpenAI API hits in a database."""
+    api_hit = False
+    with sqldict(DBNAME) as db:
+        if slug not in db:
+            result = afunc(full_text)  # Hits OpenAI API
+            db[slug] = result
+            db.commit()
+            api_hit = True
+        else:
+            result = db[slug]
+    return result, api_hit
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def find_keywords(data):
+    """Returns top keywords and main category for text."""
+    print("Hitting OpenAI API for: keywords")
+    response = openai.Completion.create(
+        engine=ENGINE,
+        prompt=(
+            f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
+            "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
+            "Use words that will be good for site categories, tags and search. "
+            "Do not use quotes around keywords. "
+            "\nKeywords:\n\n"
+        ),
+        temperature=0.5,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+    keywords = response.choices[0].text.strip()
+    return keywords
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def write_meta(data):
+    """Write a meta description for a post."""
+    print("Hitting OpenAI API for: meta descriptions")
+    response = openai.Completion.create(
+        engine=ENGINE,
+        prompt=(
+            f"Write a concise and informative meta description for the following text:\n{data}\n\n"
+            "...that will entice readers to click through to the blog post. "
+            "You wrote this. Write from the first person perspective. Never say 'The author'. '"
+            "Always finish sentences. Never chop off a sentence. End in a period."
+            "\nSummary:\n\n"
+        ),
+        temperature=0.5,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+    description = response.choices[0].text.strip()
+    return description
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def write_headline(data):
+    """Write an alternate headline for the post."""
+    print("Hitting OpenAI API for: headline")
+    response = openai.Completion.create(
+        engine=ENGINE,
+        prompt=(
+            f"Write a short alternative headline for the following post:\n{data}\n\n"
+            "The first line of the post is the headline. "
+            "Don't be reduntant with the headline. Say something different or better. "
+            "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
+            "Use only one sentence. "
+            "\nHeadline:\n\n"
+        ),
+        temperature=0.5,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+    headline = response.choices[0].text.strip()
+    return headline
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def write_summary(text):
+    """Summarize a text using OpenAI's API."""
+    print("Hitting OpenAI API for: summary")
+    chunks = chunk_text(text, chunk_size=4000)
+    summarized_text = ""
+    for chunk in chunks:
+        response = openai.Completion.create(
+            engine=ENGINE,
+            prompt=(
+                f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n"
+                "Summary:"
+            ),
+            temperature=0.5,
+            max_tokens=100,
+            n=1,
+            stop=None,
+        )
+        summary = response.choices[0].text.strip()
+        summarized_text += summary
+        summarized_text = " ".join(summarized_text.splitlines())
+    return summarized_text.strip()
+
+
+def chunk_text(text, chunk_size=4000):
+    """Split a text into chunks of a given size."""
+    chunks = []
+    start_idx = 0
+    while start_idx < len(text):
+        end_idx = start_idx + chunk_size
+        if end_idx >= len(text):
+            end_idx = len(text)
+        chunk = text[start_idx:end_idx]
+        chunks.append(chunk)
+        start_idx = end_idx
+    return chunks
 
 
 def parse_journal(full_path):
@@ -179,10 +298,6 @@ def write_post_to_file(post, index):
                 return
             # Parse the date from the line
             date_str = line[len("date: ") :].strip()
-            # Parse the date into a datetime object
-            # adate = parser.parse(date_str).date()
-            # adate = datetime.strptime(date_str, '%a %b %d, %Y').date()
-            # adate = datetime.strptime(date_str.strip('"'), '%a %b %d, %Y').date()
             date_str = date_str.strip('"')  # remove quotes
             adate = datetime.strptime(date_str, "%a %b %d, %Y").date()
             # Format the date into a string
@@ -345,17 +460,13 @@ def extract_front_matter(jekyll_doc):
     if end_index == -1:
         # No closing `---` line found, so return empty string
         return ""
-
     # Extract the front matter
     front_matter = jekyll_doc[3:end_index].strip()
-
     # Determine the number of `---` lines needed to make the front matter valid YAML
     num_dashes = front_matter.count("---")
     dashes = "-" * num_dashes
-
     # Prepend and append the appropriate number of `---` lines to the front matter
     front_matter = dashes + "\n" + front_matter + "\n" + dashes
-
     return front_matter
 
 
@@ -432,21 +543,8 @@ def compare_files(file1, file2):
 def front_matter_inserter(pre_post):
     """Conditionally insert front matter based on whether and subfields are present."""
     # Step though the text in pre_post line by line.
-    # It's a stuffed string, so we'll probably have to split it on newlines.
     # The first line is always the date. If not, return full pre_post.
     # The second line is always the tile. If not, return full pre_post.
-    # If the third line is an empty line, we know we need all the front matter, fetched from databases.
-    # In that case, we get headlines, descriptions and keywords for the slug.
-    # We always know the slug because it's the title field put through a deterministic function.
-    # The slug is the database key to fetch the headline, description and keywords.
-    # We also know the author, but that's just a configuration variable.
-    # We also know the layout, but that's just a configuration variable.
-    # The keywords field is actually the keywords field, which we're going to use as tags as well.
-    # I'm blending together the concept of categories, tags and keywords.
-    # This may change later, but OpenAI chose my keywords, so I'll use the term keywords as a catch-all for now.
-
-    # We are setting up a 1-time converson.
-    # After that, we'll change the behavior of this code.
     lines = pre_post.split("\n")
     in_content = False
     top_matter = []
@@ -504,23 +602,13 @@ def front_matter_inserter(pre_post):
                 print("ERROR: Unhandled case in front_matter_inserter()")
                 print(line)
                 raise SystemExit()
-            # if top_dict:
-            #     print(f"top_dict: {top_dict}")
             if "title" in top_dict:
                 slug = slugify(top_dict["title"].replace("'", ""))
-                # slug = slugify(top_dict["title"])
-                # top_dict["slug"] = slug
-                # print(f"top_dict['slug']: {top_dict['slug']}")
-                # print(f"top_dict: {top_dict}")
-
                 # We DO have a title, so we slugify exactly the same way as in write_post_to_file()
                 # and use that as the slug.
                 # Now we can get the headline, description and keywords from the databases.
                 # We'll use the slug as the key.
                 # The databases in the order we want to check them are: HEADS, DESCDB, KWDB
-                # In time, I will clean this up probably into a function.
-                # print(f"top_dict: {top_dict}")
-                # print("headline" in top_dict.keys())
                 if "headline" not in top_dict:
                     with sqldict(HEADS) as db:
                         # print("Getting headline from db")
@@ -586,132 +674,21 @@ def show_common(counter_obj, num_items):
     return categories
 
 
-#   ___                      _    ___   _____
-#  / _ \ _ __   ___ _ __    / \  |_ _| |  ___|   _ _ __   ___ ___
-# | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_ | | | | '_ \ / __/ __|
-# | |_| | |_) |  __/ | | |/ ___ \ | |  |  _|| |_| | | | | (__\__ \
-#  \___/| .__/ \___|_| |_/_/   \_\___| |_|   \__,_|_| |_|\___|___/
-#       |_|
-# OpenAI Functions
-
-
-def odb(DBNAME, afunc, slug, full_text):
-    """Record OpenAI API hits in a database."""
-    api_hit = False
-    with sqldict(DBNAME) as db:
-        if slug not in db:
-            result = afunc(full_text)  # Hits OpenAI API
-            db[slug] = result
-            db.commit()
-            api_hit = True
-        else:
-            result = db[slug]
-    return result, api_hit
-
-
-@retry(Exception, delay=1, backoff=2, max_delay=60)
-def find_keywords(data):
-    """Returns top keywords and main category for text."""
-    print("Hitting OpenAI API for: keywords")
-    response = openai.Completion.create(
-        engine=ENGINE,
-        prompt=(
-            f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
-            "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
-            "Use words that will be good for site categories, tags and search. "
-            "Do not use quotes around keywords. "
-            "\nKeywords:\n\n"
-        ),
-        temperature=0.5,
-        max_tokens=100,
-        n=1,
-        stop=None,
-    )
-    keywords = response.choices[0].text.strip()
-    return keywords
-
-
-@retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_meta(data):
-    """Write a meta description for a post."""
-    print("Hitting OpenAI API for: meta descriptions")
-    response = openai.Completion.create(
-        engine=ENGINE,
-        prompt=(
-            f"Write a concise and informative meta description for the following text:\n{data}\n\n"
-            "...that will entice readers to click through to the blog post. "
-            "You wrote this. Write from the first person perspective. Never say 'The author'. '"
-            "Always finish sentences. Never chop off a sentence. End in a period."
-            "\nSummary:\n\n"
-        ),
-        temperature=0.5,
-        max_tokens=100,
-        n=1,
-        stop=None,
-    )
-    description = response.choices[0].text.strip()
-    return description
-
-
-@retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_headline(data):
-    """Write an alternate headline for the post."""
-    print("Hitting OpenAI API for: headline")
-    response = openai.Completion.create(
-        engine=ENGINE,
-        prompt=(
-            f"Write a short alternative headline for the following post:\n{data}\n\n"
-            "The first line of the post is the headline. "
-            "Don't be reduntant with the headline. Say something different or better. "
-            "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
-            "Use only one sentence. "
-            "\nHeadline:\n\n"
-        ),
-        temperature=0.5,
-        max_tokens=100,
-        n=1,
-        stop=None,
-    )
-    headline = response.choices[0].text.strip()
-    return headline
-
-
-@retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_summary(text):
-    """Summarize a text using OpenAI's API."""
-    print("Hitting OpenAI API for: summary")
-    chunks = chunk_text(text, chunk_size=4000)
-    summarized_text = ""
-    for chunk in chunks:
-        response = openai.Completion.create(
-            engine=ENGINE,
-            prompt=(
-                f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n"
-                "Summary:"
-            ),
-            temperature=0.5,
-            max_tokens=100,
-            n=1,
-            stop=None,
-        )
-        summary = response.choices[0].text.strip()
-        summarized_text += summary
-        summarized_text = " ".join(summarized_text.splitlines())
-    return summarized_text.strip()
-
-
-def chunk_text(text, chunk_size=4000):
-    """Split a text into chunks of a given size."""
-    chunks = []
-    start_idx = 0
-    while start_idx < len(text):
-        end_idx = start_idx + chunk_size
-        if end_idx >= len(text):
-            end_idx = len(text)
-        chunk = text[start_idx:end_idx]
-        chunks.append(chunk)
-        start_idx = end_idx
-    return chunks
+def histogram():
+    """Create a histogram of keywords."""
+    # There is a 1-time dependenccy on running the following commands:
+    # import nltk; nltk.download('wordnet')
+    keywords = []
+    lemmatizer = WordNetLemmatizer()
+    cat_dict = defaultdict(list)
+    with sqldict(KWDB) as db:
+        for slug, kwstr in db.iteritems():
+            keywords = kwstr.split(", ")
+            for keyword in keywords:
+                keyword = keyword.strip().lower()
+                keyword = lemmatizer.lemmatize(keyword)
+                cat_dict[keyword].append(slug)
+    return cat_dict
 
 
 #  _____           _   _____                 _   _
@@ -720,45 +697,30 @@ def chunk_text(text, chunk_size=4000):
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
-
-with open(f"/home/ubuntu/repos/skite/openai.txt", "r") as fh:
-    # Get OpenAI API key
-    openai.api_key = fh.readline()
+fig("Deleting", "old files in output path")
+# ____       _      _
+# |  _ \  ___| | ___| |_ ___  ___
+# | | | |/ _ \ |/ _ \ __/ _ \/ __|
+# | |_| |  __/ |  __/ ||  __/\__ \
+# |____/ \___|_|\___|\__\___||___/
+#
+# Get OpenAI API key
 
 # Delete old files in output path
 for fh in os.listdir(OUTPUT_PATH):
     delete_me = f"{OUTPUT_PATH}/{fh}"
     os.remove(delete_me)
 
-#  _   _ _     _
-# | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___
-# | |_| | / __| __/ _ \ / _` | '__/ _` | '_ ` _ \
-# |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
-# |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
-#                       |___/
-fig("Histogram", "Counting keyword frequency")
-# There is a 1-time dependenccy on running the following commands:
-# import nltk; nltk.download('wordnet')
-keywords = []
-lemmatizer = WordNetLemmatizer()
-cat_dict = defaultdict(list)
-with sqldict(KWDB) as db:
-    for slug, kwstr in db.iteritems():
-        keywords = kwstr.split(", ")
-        for keyword in keywords:
-            keyword = keyword.strip().lower()
-            keyword = lemmatizer.lemmatize(keyword)
-            cat_dict[keyword].append(slug)
+# Delete all cat_*.md files in root:
+for fh in os.listdir(f"{PATH}{REPO}"):
+    if fh.startswith("cat_"):
+        delete_me = f"{PATH}{REPO}/{fh}"
+        os.remove(delete_me)
 
-
-desc_dict = defaultdict(list)
-with sqldict(DESCDB) as db:
-    for slug, desc in db.iteritems():
-        desc_dict[slug] = desc
-heads_dict = defaultdict(list)
-with sqldict(HEADS) as db:
-    for slug, head in db.iteritems():
-        heads_dict[slug] = head
+# Delete the old temporary journal from _data
+out_file = Path(OUTPUT2_PATH)
+if out_file.exists():
+    out_file.unlink()
 
 #   ____      _                        _
 #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
@@ -766,20 +728,28 @@ with sqldict(HEADS) as db:
 # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
 #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
 #                     |___/
-# Get the most common keywords to use as categories
+# Get the most common keywords to use as categoriesj
+cat_dict = histogram()
 cat_counter = Counter()
 for cat, slugs in cat_dict.items():
     cat_counter[cat] = len(slugs)
 CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
+
 # Write out the main top-level Category Page
 print("Writing out Category Page & pages")
 with open(CATEGORY_PAGE, "w") as fh:
     fh.write("# Categories\n")
-    for category in CATEGORIES:
-        fh.write(f"- ## [{category}](/{slugify(category)}/)\n")
+    fh.write("{% include category.md %}\n")  # Reference to include
+    with open(CATEGORY_INCLUDE, "w") as fh2:
+        fh2.write(f"<ol start='{len(CATEGORIES)}' reversed>\n")
+        for category in CATEGORIES:
+            category = slugify(category)
+            fh2.write(f'<li><a href="/{category}/">{category}</a></li>\n')
+        fh2.write("</ol>\n")
+
 # Write out the individual category pages
 for i, category in enumerate(CATEGORIES):
-    if category not in ["journal", "blog", "index", "category"]:
+    if category not in ["blog"]:
         permalink = slugify(category)
         front_matter = f"""---
         title: {category}
@@ -789,8 +759,8 @@ for i, category in enumerate(CATEGORIES):
 
         """
         front_matter = "\n".join([x.strip() for x in front_matter.split("\n")])
-        cat_file = f"{PATH}{REPO}cat_{slugify(category)}.md"
-        include_file = f"{INCLUDES}cat_{slugify(category)}.md"
+        cat_file = f"{PATH}{REPO}cat_{permalink}.md"
+        include_file = f"{INCLUDES}cat_{permalink}.md"
         # print(f"Creating {cat_file}")
         with open(cat_file, "w") as fh:
             fh.write(front_matter)
@@ -798,12 +768,12 @@ for i, category in enumerate(CATEGORIES):
             # Number of posts:
             category_len = len(cat_dict[category])
             # Write reference to include file into category file:
-            fh.write(f"{{% include cat_{slugify(category)}.md %}}\n")
+            fh.write(f"{{% include cat_{permalink}.md %}}\n")  # Reference to include
             # Write include file include:
             with open(include_file, "w") as fh2:
                 fh2.write(f"<ol start='{category_len}' reversed>\n")
                 for slug in cat_dict[category]:
-                    fh2.write(f'<li><a href="{BLOG}{slug}/">{heads_dict[slug]}</a><br>\n{desc_dict[slug]}</li>\n')
+                    fh2.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
                 fh2.write("</ol>\n")
 print()
 #  ____  _ _                _                              _
@@ -828,11 +798,6 @@ print()
 # | |_) / _ \ '_ \| | | | | |/ _` |  _  | |/ _ \| | | | '__| '_ \ / _` | |
 # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_) | |_| | |  | | | | (_| | |
 # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
-
-# Delete the old temporary journal from _data
-out_file = Path(OUTPUT2_PATH)
-if out_file.exists():
-    out_file.unlink()
 
 # Rebuild the journal in _data
 all_posts = rebuild_journal(FULL_PATH)
