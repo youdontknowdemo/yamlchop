@@ -52,8 +52,6 @@ NUMBER_OF_CATEGORIES = 200
 DISABLE_GIT = False
 POST_BY_POST = True
 INTERACTIVE = False
-DEBUG = False
-
 
 # Load function early so we can start showing figlets.
 def fig(text, description=None):
@@ -127,15 +125,6 @@ print(f"FILE: {FILE}")
 # Create output path if it doesn't exist
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
-
-with open(f"/home/ubuntu/repos/skite/openai.txt", "r") as fh:
-    # Get OpenAI API key
-    openai.api_key = fh.readline()
-
-# Delete old files in output path
-for fh in os.listdir(OUTPUT_PATH):
-    delete_me = f"{OUTPUT_PATH}/{fh}"
-    os.remove(delete_me)
 
 #  _____                 _   _
 # |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
@@ -320,7 +309,7 @@ def write_post_to_file(post, index):
         # Flatten list of lines into a single string
         f.writelines(flat_content)
 
-    link = f'<li><a href="/{BLOG}{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
+    link = f'<li><a href="{BLOG}{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
     # print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
         print()
@@ -730,7 +719,16 @@ def chunk_text(text, chunk_size=4000):
 # |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-#
+
+
+with open(f"/home/ubuntu/repos/skite/openai.txt", "r") as fh:
+    # Get OpenAI API key
+    openai.api_key = fh.readline()
+
+# Delete old files in output path
+for fh in os.listdir(OUTPUT_PATH):
+    delete_me = f"{OUTPUT_PATH}/{fh}"
+    os.remove(delete_me)
 
 #  _   _ _     _
 # | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___
@@ -752,20 +750,15 @@ with sqldict(KWDB) as db:
             keyword = lemmatizer.lemmatize(keyword)
             cat_dict[keyword].append(slug)
 
-all_slugs = set()
-for alist in cat_dict:
-    all_slugs.update(cat_dict[alist])
-print(f"Total number of slugs: {len(all_slugs)}")
+
 desc_dict = defaultdict(list)
 with sqldict(DESCDB) as db:
     for slug, desc in db.iteritems():
-        if slug in all_slugs:
-            desc_dict[slug] = desc
+        desc_dict[slug] = desc
 heads_dict = defaultdict(list)
 with sqldict(HEADS) as db:
     for slug, head in db.iteritems():
-        if slug in all_slugs:
-            heads_dict[slug] = head
+        heads_dict[slug] = head
 
 #   ____      _                        _
 #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
@@ -796,21 +789,22 @@ for i, category in enumerate(CATEGORIES):
 
         """
         front_matter = "\n".join([x.strip() for x in front_matter.split("\n")])
-        cat_file = f"{PATH}{REPO}{slug}.md"
-        # print(cat_file)
+        cat_file = f"{PATH}{REPO}cat_{slugify(category)}.md"
+        include_file = f"{INCLUDES}cat_{slugify(category)}.md"
         # print(f"Creating {cat_file}")
         with open(cat_file, "w") as fh:
             fh.write(front_matter)
             fh.write(f"# {category}\n")
             # Number of posts:
             category_len = len(cat_dict[category])
-            # Use the Jekyll Liquid template method for steping through categories in posts:
-            # https://jekyllrb.com/docs/liquid/filters/
-            fh.write(f"<ol start='{category_len}' reversed>\n")
-            # for slug in cat_dict[category]:
-            for slug in reversed(cat_dict[category]):
-                fh.write(f"<li><a href='{BLOG}{slug}/'>{heads_dict[slug]}</a><br>\n{desc_dict[slug]}</li>\n")
-            fh.write("</ol>\n")
+            # Write reference to include file into category file:
+            fh.write(f"{{% include cat_{slugify(category)}.md %}}\n")
+            # Write include file include:
+            with open(include_file, "w") as fh2:
+                fh2.write(f"<ol start='{category_len}' reversed>\n")
+                for slug in cat_dict[category]:
+                    fh2.write(f'<li><a href="{BLOG}{slug}/">{heads_dict[slug]}</a><br>\n{desc_dict[slug]}</li>\n')
+                fh2.write("</ol>\n")
 print()
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
@@ -889,10 +883,9 @@ with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
 # | |  _| | __| | |_) | | | / __| '_ \
 # | |_| | | |_  |  __/| |_| \__ \ | | |
 #  \____|_|\__| |_|    \__,_|___/_| |_|
-fig("Git Push", "The actual release")
-
+# Git commands
 if not DISABLE_GIT:
-    # Git commands
+    fig("Git Push", "The actual release")
     here = f"{PATH}{REPO}"
     git(here, f"add {here}*")
     git(here, "add _posts/*")
