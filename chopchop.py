@@ -49,7 +49,7 @@ ENGINE = "text-davinci-003"
 NUMBER_OF_CATEGORIES = 200
 
 # Debugging
-DISABLE_GIT = True
+DISABLE_GIT = False
 POST_BY_POST = True
 INTERACTIVE = False
 DEBUG = False
@@ -92,7 +92,7 @@ add_arg("-o", "--output", default="_posts")
 
 # Parse command line args as CONSTANTS
 args = aparser.parse_args()
-BLOG = args.blog
+BLOG = f"/{args.blog}/" if not args.blog.startswith("/") else args.blog
 OUTPUT = args.output
 AUTHOR = args.author
 FULL_PATH = args.full_path
@@ -211,7 +211,7 @@ def write_post_to_file(post, index):
             slug = slugify(title.replace("'", ""))
             kw_dict["title"] = title
             kw_dict["slug"] = slug
-            kw_dict["permalink"] = f"/{BLOG}/{slug}/"
+            kw_dict["permalink"] = f"/{BLOG}{slug}/"
         else:
             # We are past the first two lines.
             # The duty past here is to continue parsing top matter
@@ -321,7 +321,7 @@ def write_post_to_file(post, index):
         # Flatten list of lines into a single string
         f.writelines(flat_content)
 
-    link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
+    link = f'<li><a href="/{BLOG}{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
     # print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
         print()
@@ -772,32 +772,33 @@ with open(CATEGORY_PAGE, "w") as fh:
         fh.write(f"- ## [{category}](/{category}/)\n")
 # Write out the individual category pages
 for i, category in enumerate(CATEGORIES):
-    slug = slugify(category)
-    category_front_matter = f"""
-    ---
-    title: {category}
-    permalink: /{slug}/
-    layout: default
-    ---
+    if category not in ['journal', 'blog', 'index', 'category']:
+        permalink = slugify(category)
+        category_front_matter = f"""---
+        title: {category}
+        permalink: /{permalink}/
+        layout: default
+        ---
 
-    """
-    category_front_matter = "\n".join([x.lstrip() for x in category_front_matter.split("\n")])
-    cat_file = f"{PATH}{REPO}{slug}.md"
-    print(cat_file)
-    print(f"Creating {cat_file}")
-    with open(cat_file, "w") as fh:
-        fh.write(f"# {category} foo\n")
-        # fh.write(category_front_matter)
-        # fh.write(f"# {category}\n")
-        # fh.write(f"## {len(cat_dict[category])} posts\n")
-        # # Use the Jekyll Liquid template method for steping through categories in posts:
-        # # https://jekyllrb.com/docs/liquid/filters/
-        # fh.write(f"{{% assign posts = site.posts | where: 'categories', '{category}' %}}\n")
-        # fh.write("{% for post in posts %}\n")
-        # fh.write(f"- [{{post.title}}]({{post.url}})\n")
-        # fh.write("{% endfor %}\n")
+        """
+        category_front_matter = "\n".join([x.strip() for x in category_front_matter.split("\n")])
+        cat_file = f"{PATH}{REPO}{slug}.md"
+        print(cat_file)
+        print(f"Creating {cat_file}")
+        with open(cat_file, "w") as fh:
+            fh.write(category_front_matter)
+            fh.write(f"# {category}\n")
+            # Number of posts:
+            category_len = len(cat_dict[category])
+            fh.write(f"Number of posts: {category_len}\n")
+            # Use the Jekyll Liquid template method for steping through categories in posts:
+            # https://jekyllrb.com/docs/liquid/filters/
+            fh.write(f"<ol start='{category_len}' reversed>\n")
+            # for slug in cat_dict[category]:
+            for slug in reversed(cat_dict[category]):
+                fh.write(f"<li><a href='{BLOG}{slug}/'>{slug}</a></li>\n")
+            fh.write("</ol>\n")
 print()
-
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
 # \___ \| | |/ __/ _ \  _  | |/ _ \| | | | '__| '_ \ / _` | |
