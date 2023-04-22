@@ -291,7 +291,6 @@ def write_post_to_file(post, index):
         headline = prepare_for_front_matter(headline)
     if not keywords:
         keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
-    
 
     for key, value in kw_dict.items():
         front_matter.append(f"{key}: {q(value)}")
@@ -753,6 +752,16 @@ with sqldict(KWDB) as db:
             keyword = lemmatizer.lemmatize(keyword)
             cat_dict[keyword].append(slug)
 
+all_slugs = set()
+for alist in cat_dict:
+    all_slugs.update(cat_dict[alist])
+print(f"Total number of slugs: {len(all_slugs)}")
+desc_dict = defaultdict(list)
+with sqldict(DESCDB) as db:
+    for slug, desc in db.iteritems():
+        if slug in all_slugs:
+            desc_dict[slug] = desc
+
 #   ____      _                        _
 #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
 # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
@@ -772,31 +781,30 @@ with open(CATEGORY_PAGE, "w") as fh:
         fh.write(f"- ## [{category}](/{category}/)\n")
 # Write out the individual category pages
 for i, category in enumerate(CATEGORIES):
-    if category not in ['journal', 'blog', 'index', 'category']:
+    if category not in ["journal", "blog", "index", "category"]:
         permalink = slugify(category)
-        category_front_matter = f"""---
+        front_matter = f"""---
         title: {category}
         permalink: /{permalink}/
         layout: default
         ---
 
         """
-        category_front_matter = "\n".join([x.strip() for x in category_front_matter.split("\n")])
+        front_matter = "\n".join([x.strip() for x in front_matter.split("\n")])
         cat_file = f"{PATH}{REPO}{slug}.md"
         print(cat_file)
         print(f"Creating {cat_file}")
         with open(cat_file, "w") as fh:
-            fh.write(category_front_matter)
+            fh.write(front_matter)
             fh.write(f"# {category}\n")
             # Number of posts:
             category_len = len(cat_dict[category])
-            fh.write(f"Number of posts: {category_len}\n")
             # Use the Jekyll Liquid template method for steping through categories in posts:
             # https://jekyllrb.com/docs/liquid/filters/
             fh.write(f"<ol start='{category_len}' reversed>\n")
             # for slug in cat_dict[category]:
             for slug in reversed(cat_dict[category]):
-                fh.write(f"<li><a href='{BLOG}{slug}/'>{slug}</a></li>\n")
+                fh.write(f"<li><a href='{BLOG}{slug}/'>{slug}</a><br>\n{desc_dict[slug]}</li>\n")
             fh.write("</ol>\n")
 print()
 #  ____  _ _                _                              _
