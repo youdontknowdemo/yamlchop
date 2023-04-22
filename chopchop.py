@@ -117,8 +117,6 @@ KWDB = REPO_DATA + "keywords.db"
 HEADS = REPO_DATA + "headlines.db"
 
 # Print out constants
-print(f"REPO: {REPO}")
-print(f"FULL_PATH: {FULL_PATH}")
 print(f"PATH: {PATH}")
 print(f"FILE: {FILE}")
 
@@ -252,28 +250,14 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
-def parse_journal(full_path):
+def parse_journal(full_path, reverse=False):
     """Parse a journal file into posts. Returns a generator of posts, reverse-order."""
     with open(full_path, "r") as fh:
-        print(f"Reading for publishing {full_path}")
         post_str = fh.read()
         pattern = r"-{78,82}\s*\n"
         posts = re.split(pattern, post_str)
-        numer_of_posts = len(posts)
-        fig(f"{numer_of_posts} posts")
-        posts.reverse()  # Reverse so article indexes don't change.
-        for post in posts:
-            yield post
-
-
-def rebuild_journal(full_path):
-    """I am a forward-running journal parser for inserting front-matter on rebuild."""
-    with open(full_path, "r") as fh:
-        print(f"Reading for rebuild {full_path}")
-        post_str = fh.read()
-        pattern = r"-{78,82}\s*\n"
-        posts = re.split(pattern, post_str)
-        numer_of_posts = len(posts)
+        if reverse:
+            posts.reverse()  # Reverse so article indexes don't change.
         for post in posts:
             yield post
 
@@ -743,7 +727,7 @@ CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
 
 # We need a dictionary of most common capitalization usage of Category words.
 words = defaultdict(list)
-with sqldict(DBFILE) as db:
+with sqldict(KWDB) as db:
     for slug, keywords in db.iteritems():
         keywords = keywords.split(", ")
         for keyword in keywords:
@@ -753,6 +737,9 @@ pwords = {}
 for key in words:
     alist = words[key]
     pwords[key] = Counter(alist).most_common(1)[0][0]
+for category in CATEGORIES:
+    if category not in pwords:
+        pwords[category] = category
 
 
 # We write out the top category page and an include file
@@ -766,6 +753,7 @@ with open(CATEGORY_PAGE, "w") as fh:
         for category in CATEGORIES:
             permalink = slugify(category)
             pcat = pwords[category.lower()]
+
             fh2.write(f'<li><a href="/{permalink}/">{pcat}</a></li>\n')
         fh2.write("</ol>\n")
 
@@ -817,16 +805,15 @@ for i, apost in enumerate(all_posts):
         links.insert(0, link)
 print()
 
+fig("Rebuilding", "Making new input from output")
 #  ____      _           _ _     _       _                              _
 # |  _ \ ___| |__  _   _(_) | __| |     | | ___  _   _ _ __ _ __   __ _| |
 # | |_) / _ \ '_ \| | | | | |/ _` |  _  | |/ _ \| | | | '__| '_ \ / _` | |
 # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_) | |_| | |  | | | | (_| | |
 # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
-
 # Rebuild the journal in _data
-all_posts = rebuild_journal(FULL_PATH)
+all_posts = parse_journal(FULL_PATH, reverse=False)
 with open(OUTPUT2_PATH, "a") as fh:
-    fig("Rebuilding")
     for i, apost in enumerate(all_posts):
         print(i, end=" ", flush=True)
         if i:
