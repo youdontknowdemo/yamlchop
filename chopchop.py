@@ -377,11 +377,14 @@ def write_post_to_file(post, index):
         categories = kw_dict["categories"]
     else:
         categories = []
-        for keyword in keywords.split(","):
-            keyword = keyword.strip().lower()
-            if keyword in CATEGORIES:
-                categories.append(keyword)
-        kw_dict["categories"] = ", ".join(categories)
+        try:
+            for keyword in keywords.split(","):
+                keyword = keyword.strip().lower()
+                if keyword in CATEGORIES:
+                    categories.append(keyword)
+            kw_dict["categories"] = ", ".join(categories)
+        except:
+            pass
 
     # The OpenAI work is done here
     # If we already have a description, we don't need to look at the summary:
@@ -697,8 +700,8 @@ def histogram():
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
-fig("Deleting", "old files in output path")
-# ____       _      _
+fig("Deleting", "Deleting auto-generated pages from site.")
+#  ____       _      _
 # |  _ \  ___| | ___| |_ ___  ___
 # | | | |/ _ \ |/ _ \ __/ _ \/ __|
 # | |_| |  __/ |  __/ ||  __/\__ \
@@ -722,20 +725,38 @@ out_file = Path(OUTPUT2_PATH)
 if out_file.exists():
     out_file.unlink()
 
+fig("Categories", "Creating category pages from keywords.")
 #   ____      _                        _
 #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
 # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
 # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
 #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
 #                     |___/
-# Get the most common keywords to use as categoriesj
+# Get the most common keywords to use as categories
+# by creating a histogram of keywords. The resulting
+# Counter object is used to retreive the top N items.
 cat_dict = histogram()
 cat_counter = Counter()
 for cat, slugs in cat_dict.items():
     cat_counter[cat] = len(slugs)
 CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
 
-# Write out the main top-level Category Page
+# We need a dictionary of most common capitalization usage of Category words.
+words = defaultdict(list)
+with sqldict(DBFILE) as db:
+    for slug, keywords in db.iteritems():
+        keywords = keywords.split(", ")
+        for keyword in keywords:
+            lower_word = keyword.strip().lower()
+            words[lower_word].append(keyword)
+pwords = {}
+for key in words:
+    alist = words[key]
+    pwords[key] = Counter(alist).most_common(1)[0][0]
+
+
+# We write out the top category page and an include file
+# of links that is referenced by the top category page.
 print("Writing out Category Page & pages")
 with open(CATEGORY_PAGE, "w") as fh:
     fh.write("# Categories\n")
@@ -743,16 +764,19 @@ with open(CATEGORY_PAGE, "w") as fh:
     with open(CATEGORY_INCLUDE, "w") as fh2:
         fh2.write(f"<ol start='{len(CATEGORIES)}' reversed>\n")
         for category in CATEGORIES:
-            category = slugify(category)
-            fh2.write(f'<li><a href="/{category}/">{category}</a></li>\n')
+            permalink = slugify(category)
+            pcat = pwords[category.lower()]
+            fh2.write(f'<li><a href="/{permalink}/">{pcat}</a></li>\n')
         fh2.write("</ol>\n")
 
-# Write out the individual category pages
+# Write out individual category pages that go in site root as cat_*.md
+# Also write out their individual 1-to-1 include files.
 for i, category in enumerate(CATEGORIES):
     if category not in ["blog"]:
         permalink = slugify(category)
+        pcat = pwords[category.lower()]
         front_matter = f"""---
-        title: {category}
+        title: {pcat}
         permalink: /{permalink}/
         layout: default
         ---
@@ -764,7 +788,7 @@ for i, category in enumerate(CATEGORIES):
         # print(f"Creating {cat_file}")
         with open(cat_file, "w") as fh:
             fh.write(front_matter)
-            fh.write(f"# {category}\n")
+            fh.write(f"# {pcat}\n")
             # Number of posts:
             category_len = len(cat_dict[category])
             # Write reference to include file into category file:
