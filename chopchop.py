@@ -434,8 +434,12 @@ def extract_front_matter(jekyll):
 
 
 def convert_date(date_str):
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-    return date_obj.strftime("%a %b %d, %Y")
+    # I want the date pattern Thu Aug 05, 2021
+    # Which is the same as %a %b %d, %Y
+    # Convert the input of this function which is a date string to that format
+    return date_str
+    # date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    # return date_obj.strftime("%a %b %d, %Y")
 
 
 def chop_last_sentence(text):
@@ -688,7 +692,7 @@ fig("YAML Check", "First things first")
 #  | |/ ___ \| |  | | |___  | |___| | | |  __/ (__|   < 
 #  |_/_/   \_\_|  |_|_____|  \____|_| |_|\___|\___|_|\_\
                                                        
-yaml_dict = defaultdict(dict)
+yaml_dict = defaultdict(dict)  # Here, we make a yaml_dict that will be used to store the YAML front matter.
 for i, post in enumerate(parse_journal(FULL_PATH)):
     if i:
         front_matter = extract_front_matter(post)
@@ -703,7 +707,7 @@ for i, post in enumerate(parse_journal(FULL_PATH)):
         yaml_data = yaml.load(front_matter, Loader=yaml.FullLoader)
         if yaml_data and "title" in yaml_data:
             slug = slugify(yaml_data["title"])
-            yaml_dict[slug] = yaml_data
+            yaml_dict[slug] = yaml_data  # Add the YAML front matter to the yaml_dict
 
 
 fig("Deleting", "Deleting auto-generated pages from site.")
@@ -760,7 +764,6 @@ with open(CATEGORY_PAGE, "w") as fh:
         for category in CATEGORIES:
             permalink = slugify(category)
             pcat = pwords[category.lower()]
-
             fh2.write(f'<li><a href="/{permalink}/">{pcat}</a></li>\n')
         fh2.write("</ol>\n")
 
@@ -792,7 +795,14 @@ for i, category in enumerate(CATEGORIES):
             with open(include_file, "w") as fh2:
                 fh2.write(f"<ol start='{category_len}' reversed>\n")
                 for slug in cat_dict[category]:
-                    fh2.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
+                    try:
+                        title = yaml_dict[slug]["title"]
+                        description = yaml_dict[slug]["description"]
+                        adate = yaml_dict[slug]["date"]
+                        fh2.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br/>{description}</li>\n')
+                    except:
+                        pass
+                    # fh2.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
                 fh2.write("</ol>\n")
 print()
 #  ____  _ _                _                              _
