@@ -18,23 +18,6 @@
 # - Add a "category" field to the yaml front matter.
 # - Create category pages
 
-# import os
-# import yaml
-#
-# folder_path = "/home/ubuntu/repos/hide/MikeLev.in/_posts"
-#
-# for filename in os.listdir(folder_path):
-#     if filename.endswith(".md"):
-#         file_path = os.path.join(folder_path, filename)
-#         with open(file_path, "r") as file:
-#             post_content = file.read()
-#             _, yaml_front_matter, _ = post_content.split("---", maxsplit=2)
-#             try:
-#                 yaml.safe_load(yaml_front_matter)
-#                 print(f"{file_path}: YAML front matter is valid.")
-#             except yaml.YAMLError as e:
-#                 print(f"{file_path}: Error in YAML front matter:", e)
-
 import os
 import re
 import sys
@@ -585,6 +568,28 @@ def q(text):
     return text
 
 
+def show_common(counter_obj, num_items):
+    """Show the most common items in a counter object and return a list of the items."""
+
+    console = Console()
+    most_common = counter_obj.most_common(num_items)
+    categories = [item[0] for item in most_common]
+
+    # Create table and add header
+    table = Table(
+        title="Most Common Items", show_header=True, header_style="bold magenta"
+    )
+    table.add_column("Item", justify="left", style="cyan")
+    table.add_column("Count", justify="right", style="green")
+
+    # Add rows to the table
+    for item, count in most_common:
+        table.add_row(item, f"{count}")
+
+    console.print(table)
+    return categories
+
+
 #   ___                      _    ___   _____
 #  / _ \ _ __   ___ _ __    / \  |_ _| |  ___|   _ _ __   ___ ___
 # | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_ | | | | '_ \ / __/ __|
@@ -726,42 +731,9 @@ def chunk_text(text, chunk_size=4000):
 # |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
 # |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
 #                       |___/
-
-# There is a 1-time dependenccy on running the following commands:
-# import nltk
-# from nltk.stem import WordNetLemmatizer
-# nltk.download('wordnet')
-
-
-def show_common(counter_obj, num_items):
-    """Show the most common items in a counter object and return a list of the items."""
-
-    console = Console()
-    most_common = counter_obj.most_common(num_items)
-    categories = [item[0] for item in most_common]
-
-    # Create table and add header
-    table = Table(
-        title="Most Common Items", show_header=True, header_style="bold magenta"
-    )
-    table.add_column("Item", justify="left", style="cyan")
-    table.add_column("Count", justify="right", style="green")
-
-    # Add rows to the table
-    for item, count in most_common:
-        table.add_row(item, f"{count}")
-
-    console.print(table)
-    return categories
-
-
-#  _   _ _     _
-# | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___
-# | |_| | / __| __/ _ \ / _` | '__/ _` | '_ ` _ \
-# |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
-# |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
-#                       |___/
 fig("Histogram")
+# There is a 1-time dependenccy on running the following commands:
+# import nltk; nltk.download('wordnet')
 keywords = []
 lemmatizer = WordNetLemmatizer()
 cat_dict = defaultdict(list)
@@ -773,42 +745,28 @@ with sqldict(KWDB) as db:
             keyword = lemmatizer.lemmatize(keyword)
             cat_dict[keyword].append(slug)
 
-# Create a counter on cat_dict:
-cat_counter = Counter()
-for cat, slugs in cat_dict.items():
-    cat_counter[cat] = len(slugs)
-
 #   ____      _                        _           
 #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
 # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
 # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
 #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
 #                     |___/                        
+# Get the most common keywords to use as categories
+cat_counter = Counter()
+for cat, slugs in cat_dict.items():
+    cat_counter[cat] = len(slugs)
+categories = show_common(cat_counter, 100)
+
 # Delete all previous category pages
 for p in Path(INCLUDES).glob("cat_*"):
     print(f"Deleting {p}")
     p.unlink()
 
-# Create a list of categories from the counter:
-categories = show_common(cat_counter, 100)
-for category in categories:
-    # With each Catetory, we also open a file to write the links
-    # print(f"Category {category}: {cat_counter[category]}")
-    cat_file = slugify(category)
-    cat_file = f"{INCLUDES}cat_{cat_file}.md"
-    with open(cat_file, "w") as fh:
-        for slug in cat_dict[category]:
-            link = f'<li><a href="/{BLOG}/{slug}/">{slug}</a></li>'
-            fh.write(f"{link}\n")
-
-# Check if a category page exists in repo root:
-# Open a category file for writing
-
 # Create the top-level Category page
 with open(CATEGORY_PAGE, "w") as fh:
     fh.write("# Categories\n")
     for category in categories:
-        fh.write(f"## {category} foo\n")
+        fh.write(f'- ## [{category}](/{category}/)\n')
 
 # Create a category page for each category
 for category in categories:
@@ -819,8 +777,6 @@ for category in categories:
         print(f"Creating {cat_file}")
         with open(cat_file, "w") as fh:
             fh.write(f"# {category}\n")
-
-
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
