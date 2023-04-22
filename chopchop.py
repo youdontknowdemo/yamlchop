@@ -761,6 +761,11 @@ with sqldict(DESCDB) as db:
     for slug, desc in db.iteritems():
         if slug in all_slugs:
             desc_dict[slug] = desc
+heads_dict = defaultdict(list)
+with sqldict(HEADS) as db:
+    for slug, head in db.iteritems():
+        if slug in all_slugs:
+            heads_dict[slug] = head
 
 #   ____      _                        _
 #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
@@ -792,8 +797,8 @@ for i, category in enumerate(CATEGORIES):
         """
         front_matter = "\n".join([x.strip() for x in front_matter.split("\n")])
         cat_file = f"{PATH}{REPO}{slug}.md"
-        print(cat_file)
-        print(f"Creating {cat_file}")
+        # print(cat_file)
+        # print(f"Creating {cat_file}")
         with open(cat_file, "w") as fh:
             fh.write(front_matter)
             fh.write(f"# {category}\n")
@@ -804,7 +809,7 @@ for i, category in enumerate(CATEGORIES):
             fh.write(f"<ol start='{category_len}' reversed>\n")
             # for slug in cat_dict[category]:
             for slug in reversed(cat_dict[category]):
-                fh.write(f"<li><a href='{BLOG}{slug}/'>{slug}</a><br>\n{desc_dict[slug]}</li>\n")
+                fh.write(f"<li><a href='{BLOG}{slug}/'>{heads_dict[slug]}</a><br>\n{desc_dict[slug]}</li>\n")
             fh.write("</ol>\n")
 print()
 #  ____  _ _                _                              _
