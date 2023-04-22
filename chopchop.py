@@ -46,7 +46,7 @@ from collections import Counter, defaultdict
 
 AUTHOR = "Mike Levin"
 ENGINE = "text-davinci-003"
-NUMBER_OF_CATEGORIES = 200
+NUMBER_OF_CATEGORIES = 300
 
 # Debugging
 DISABLE_GIT = False
@@ -776,7 +776,7 @@ print("Writing out Category Page & pages")
 with open(CATEGORY_PAGE, "w") as fh:
     fh.write("# Categories\n")
     for category in CATEGORIES:
-        fh.write(f"- ## [{category}](/{category}/)\n")
+        fh.write(f"- ## [{category}](/{slugify(category)}/)\n")
 # Write out the individual category pages
 for i, category in enumerate(CATEGORIES):
     if category not in ["journal", "blog", "index", "category"]:
