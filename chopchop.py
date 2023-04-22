@@ -46,6 +46,7 @@ from collections import Counter, defaultdict
 
 AUTHOR = "Mike Levin"
 ENGINE = "text-davinci-003"
+NUMBER_OF_CATEGORIES = 200
 
 # Debugging
 DISABLE_GIT = True
@@ -99,7 +100,7 @@ FULL_PATH = args.full_path
 # Parse full path into path, repo, and file
 parts = FULL_PATH.split("/")
 REPO = parts[-2] + "/"
-fig(REPO)  # Print the repo name
+fig(REPO, f"Processing repo: {REPO}")  # Print the repo name
 FILE = parts[-1]
 PATH = "/".join(parts[:-2]) + "/"
 GIT_EXE = "/usr/bin/git"
@@ -172,6 +173,7 @@ def rebuild_journal(full_path):
 def write_post_to_file(post, index):
     """Write a post to a file. Returns a markdown link to the post."""
     # Parse the post into lines
+    global CATEGORIES
     lines = post.strip().split("\n")
     date_str, slug = None, None
     front_matter = ["---"]
@@ -267,6 +269,15 @@ def write_post_to_file(post, index):
         keywords = kw_dict["keywords"]
     else:
         keywords = None
+    if "categories" in kw_dict:
+        categories = kw_dict["categories"]
+    else:
+        categories = []
+        for keyword in keywords.split(","):
+            keyword = keyword.strip().lower()
+            if keyword in CATEGORIES:
+                categories.append(keyword)
+        kw_dict["categories"] = ", ".join(categories)
 
     # The OpenAI work is done here
     # If we already have a description, we don't need to look at the summary:
@@ -311,7 +322,7 @@ def write_post_to_file(post, index):
         f.writelines(flat_content)
 
     link = f'<li><a href="/{BLOG}/{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
-    print(f"Chop {index} {out_path}")
+    # print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
         print()
         print(f"Slug: {slug}")
@@ -569,22 +580,20 @@ def q(text):
 
 def show_common(counter_obj, num_items):
     """Show the most common items in a counter object and return a list of the items."""
-
     console = Console()
     most_common = counter_obj.most_common(num_items)
     categories = [item[0] for item in most_common]
-
     # Create table and add header
     table = Table(
         title="Most Common Items", show_header=True, header_style="bold magenta"
     )
     table.add_column("Item", justify="left", style="cyan")
     table.add_column("Count", justify="right", style="green")
-
     # Add rows to the table
-    for item, count in most_common:
+    for i, (item, count) in enumerate(most_common):
         table.add_row(item, f"{count}")
-
+        if i > 20:
+            break
     console.print(table)
     return categories
 
@@ -730,7 +739,7 @@ def chunk_text(text, chunk_size=4000):
 # |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
 # |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
 #                       |___/
-fig("Histogram")
+fig("Histogram", "Counting keyword frequency")
 # There is a 1-time dependenccy on running the following commands:
 # import nltk; nltk.download('wordnet')
 keywords = []
@@ -754,22 +763,16 @@ with sqldict(KWDB) as db:
 cat_counter = Counter()
 for cat, slugs in cat_dict.items():
     cat_counter[cat] = len(slugs)
-categories = show_common(cat_counter, 100)
-
-# Delete all previous category pages
-for p in Path(INCLUDES).glob("cat_*"):
-    print(f"Deleting {p}")
-    p.unlink()
-
-# Create the top-level Category page
+CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
+# Write out the main top-level Category Page
+print("Writing out Category Page & pages")
 with open(CATEGORY_PAGE, "w") as fh:
     fh.write("# Categories\n")
-    for category in categories:
+    for category in CATEGORIES:
         fh.write(f"- ## [{category}](/{category}/)\n")
-
-
-# Create a category page for each category
-for category in categories:
+# Write out the individual category pages
+for i, category in enumerate(CATEGORIES):
+    slug = slugify(category)
     category_front_matter = f"""
     ---
     title: {category}
@@ -778,36 +781,39 @@ for category in categories:
     ---
 
     """
-    cat_file = slugify(category)
-    cat_file = f"{PATH}{REPO}{cat_file}.md"
+    category_front_matter = "\n".join([x.lstrip() for x in category_front_matter.split("\n")])
+    cat_file = f"{PATH}{REPO}{slug}.md"
     print(cat_file)
-    if not Path(cat_file).exists():
-        print(f"Creating {cat_file}")
-        with open(cat_file, "w") as fh:
-            fh.write(category_front_matter)
-            fh.write(f"# {category}\n")
-            fh.write(f"## {len(cat_dict[category])} posts\n")
-            # Use the Jekyll Liquid template method for steping through categories in posts:
-            # https://jekyllrb.com/docs/liquid/filters/
-            fh.write(f"{{% assign posts = site.posts | where: 'categories', '{category}' %}}\n")
-            fh.write("{% for post in posts %}\n")
-            fh.write(f"- [{post.title}]({post.url})\n")
-            fh.write("{% endfor %}\n")
+    print(f"Creating {cat_file}")
+    with open(cat_file, "w") as fh:
+        fh.write(f"# {category} foo\n")
+        # fh.write(category_front_matter)
+        # fh.write(f"# {category}\n")
+        # fh.write(f"## {len(cat_dict[category])} posts\n")
+        # # Use the Jekyll Liquid template method for steping through categories in posts:
+        # # https://jekyllrb.com/docs/liquid/filters/
+        # fh.write(f"{{% assign posts = site.posts | where: 'categories', '{category}' %}}\n")
+        # fh.write("{% for post in posts %}\n")
+        # fh.write(f"- [{{post.title}}]({{post.url}})\n")
+        # fh.write("{% endfor %}\n")
+print()
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
 # \___ \| | |/ __/ _ \  _  | |/ _ \| | | | '__| '_ \ / _` | |
 #  ___) | | | (_|  __/ | |_| | (_) | |_| | |  | | | | (_| | |
 # |____/|_|_|\___\___|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
-fig("Slice Journal")
+fig("Slice Journal", "Chopping long file into many small ones.")
 
 # Parse the journal file
 all_posts = parse_journal(FULL_PATH)
 links = []
 for i, apost in enumerate(all_posts):
+    print(f"{i+1} ", end="", flush=True)
     link = write_post_to_file(apost, i + 1)
     if link:
         links.insert(0, link)
+print()
 
 #  ____      _           _ _     _       _                              _
 # |  _ \ ___| |__  _   _(_) | __| |     | | ___  _   _ _ __ _ __   __ _| |
@@ -869,10 +875,10 @@ with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
 # | |  _| | __| | |_) | | | / __| '_ \
 # | |_| | | |_  |  __/| |_| \__ \ | | |
 #  \____|_|\__| |_|    \__,_|___/_| |_|
+fig("Git Push", "The actual release")
 
 if not DISABLE_GIT:
     # Git commands
-    fig("Git Push")
     here = f"{PATH}{REPO}"
     git(here, f"add {here}*")
     git(here, "add _posts/*")
