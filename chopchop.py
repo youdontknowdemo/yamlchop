@@ -45,9 +45,10 @@ from collections import Counter, defaultdict
 
 
 AUTHOR = "Mike Levin"
+ENGINE = "text-davinci-003"
 
 # Debugging
-DISABLE_GIT = False
+DISABLE_GIT = True
 POST_BY_POST = True
 INTERACTIVE = False
 DEBUG = False
@@ -110,8 +111,7 @@ INCLUDES = f"{PATH}{REPO}_includes/"
 CHOPPER = (80 * "-") + "\n"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 
-# OpenAI Databases
-ENGINE = "text-davinci-003"
+# Databases
 SUMDB = REPO_DATA + "summaries.db"
 DESCDB = REPO_DATA + "descriptions.db"
 KWDB = REPO_DATA + "keywords.db"
@@ -127,7 +127,7 @@ print(f"FILE: {FILE}")
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 
-with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
+with open(f"/home/ubuntu/repos/skite/openai.txt", "r") as fh:
     # Get OpenAI API key
     openai.api_key = fh.readline()
 
@@ -171,16 +171,14 @@ def rebuild_journal(full_path):
 
 def write_post_to_file(post, index):
     """Write a post to a file. Returns a markdown link to the post."""
-
     # Parse the post into lines
     lines = post.strip().split("\n")
     date_str, slug = None, None
-    top_matter = ["---"]
-    top_dict = {}
+    front_matter = ["---"]
+    kw_dict = {}
     content = []
     in_content = False
     api_hit = False
-
     for i, line in enumerate(lines):
         if i == 0:
             # First line is always the date stamp.
@@ -199,7 +197,7 @@ def write_post_to_file(post, index):
             # Format the date into a string
             date_str = adate.strftime("%Y-%m-%d")
             # Format the date into a filename
-            top_dict["date"] = date_str
+            kw_dict["date"] = date_str
         elif i == 1:
             # Second line is always the title for headline & url
             if line and "title: " in line:
@@ -209,9 +207,9 @@ def write_post_to_file(post, index):
                 return
             # Turn title into slug for permalink
             slug = slugify(title.replace("'", ""))
-            top_dict["title"] = title
-            top_dict["slug"] = slug
-            top_dict["permalink"] = f"/{BLOG}/{slug}/"
+            kw_dict["title"] = title
+            kw_dict["slug"] = slug
+            kw_dict["permalink"] = f"/{BLOG}/{slug}/"
         else:
             # We are past the first two lines.
             # The duty past here is to continue parsing top matter
@@ -235,20 +233,20 @@ def write_post_to_file(post, index):
                     first_word = line.split(" ")[0]
                     if first_word.endswith(":"):
                         # It's a yaml-like line, so add it to the top matter
-                        # top_matter.append(line)
+                        # front_matter.append(line)
                         # Parse the yaml-like line into a key/value pair
                         ykey = first_word[:-1]
                         yvalue = " ".join(line.split(" ")[1:])
                         # Check if any of these offending characters are in yvalue: " ' [ ] { } , :
-                        # Add the key/value pair to the top_dict
-                        top_dict[ykey] = yvalue
+                        # Add the key/value pair to the kw_dict
+                        kw_dict[ykey] = yvalue
                     elif line == "---":
                         # It's the end of the top matter, so we're done with top matter
                         in_content = True
                     else:
                         # It's not a yaml-like line, so we're done with top matter
                         # Once we throw this toggle, it's the one time we write "---" to the file.
-                        # top_matter.append("---")
+                        # front_matter.append("---")
                         in_content = True
 
     # Create the file name from the date and index
@@ -257,16 +255,16 @@ def write_post_to_file(post, index):
 
     # Initialize per-post variables
     summary = None
-    if "description" in top_dict:
-        description = chop_last_sentence(top_dict["description"])
+    if "description" in kw_dict:
+        description = chop_last_sentence(kw_dict["description"])
     else:
         description = None
-    if "subhead" in top_dict:
-        headline = top_dict["subhead"]
+    if "headline" in kw_dict:
+        headline = kw_dict["headline"]
     else:
         headline = None
-    if "keywords" in top_dict:
-        keywords = top_dict["keywords"]
+    if "keywords" in kw_dict:
+        keywords = kw_dict["keywords"]
     else:
         keywords = None
 
@@ -282,14 +280,15 @@ def write_post_to_file(post, index):
         headline = prepare_for_front_matter(headline)
     if not keywords:
         keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
+    
 
-    for key, value in top_dict.items():
-        top_matter.append(f"{key}: {q(value)}")
-    top_matter.append(f"author: {AUTHOR}")
-    top_matter.append(f"layout: post")
-    top_matter.append("---")
-    top_matter.extend(content)
-    content = top_matter
+    for key, value in kw_dict.items():
+        front_matter.append(f"{key}: {q(value)}")
+    front_matter.append(f"author: {AUTHOR}")
+    front_matter.append(f"layout: post")
+    front_matter.append("---")
+    front_matter.extend(content)
+    content = front_matter
     flat_content = "\n".join(content)
     test_yaml = extract_front_matter(flat_content)
 
@@ -660,7 +659,7 @@ def write_meta(data):
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_headline(data):
     """Write an alternate headline for the post."""
-    print("Hitting OpenAI API for: subhead")
+    print("Hitting OpenAI API for: headline")
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
@@ -745,12 +744,12 @@ with sqldict(KWDB) as db:
             keyword = lemmatizer.lemmatize(keyword)
             cat_dict[keyword].append(slug)
 
-#   ____      _                        _           
-#  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
+#   ____      _                        _
+#  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
 # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
 # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
 #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-#                     |___/                        
+#                     |___/
 # Get the most common keywords to use as categories
 cat_counter = Counter()
 for cat, slugs in cat_dict.items():
@@ -766,17 +765,34 @@ for p in Path(INCLUDES).glob("cat_*"):
 with open(CATEGORY_PAGE, "w") as fh:
     fh.write("# Categories\n")
     for category in categories:
-        fh.write(f'- ## [{category}](/{category}/)\n')
+        fh.write(f"- ## [{category}](/{category}/)\n")
+
 
 # Create a category page for each category
 for category in categories:
+    category_front_matter = f"""
+    ---
+    title: {category}
+    permalink: /{slug}/
+    layout: default
+    ---
+
+    """
     cat_file = slugify(category)
     cat_file = f"{PATH}{REPO}{cat_file}.md"
     print(cat_file)
     if not Path(cat_file).exists():
         print(f"Creating {cat_file}")
         with open(cat_file, "w") as fh:
+            fh.write(category_front_matter)
             fh.write(f"# {category}\n")
+            fh.write(f"## {len(cat_dict[category])} posts\n")
+            # Use the Jekyll Liquid template method for steping through categories in posts:
+            # https://jekyllrb.com/docs/liquid/filters/
+            fh.write(f"{{% assign posts = site.posts | where: 'categories', '{category}' %}}\n")
+            fh.write("{% for post in posts %}\n")
+            fh.write(f"- [{post.title}]({post.url})\n")
+            fh.write("{% endfor %}\n")
 
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
@@ -830,7 +846,7 @@ if files_are_same:
     print("Nothing's changed. Nothing to publish.")
 else:
     print("Something's changed. Copied output to input.")
-    # Copy output to input file using pathlib
+    # Replaces old journal.md with the new journal.md (AI content filled-in)
     shutil.copyfile(OUTPUT2_PATH, FULL_PATH)
 
 #  ___           _             ____
