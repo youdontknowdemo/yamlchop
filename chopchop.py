@@ -10,6 +10,8 @@
 # python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
 
 # TO-DO:
+# - Clean up journal parsing based on better YAML parsing
+# - Make rebuilding the journal dependent on it being needed
 # - Speed it up by not opening/closing databases for every page.
 # - Check resulting pages for broken links.
 
@@ -390,27 +392,11 @@ def write_post_to_file(post, index):
     front_matter.append("---")
     front_matter.extend(content)
     content = front_matter
-    flat_content = "\n".join(content)
-    test_yaml = extract_front_matter(flat_content)
-
-    # Catch bad YAML format before it even becomes a file.
-    try:
-        yaml.safe_load(test_yaml)
-    except yaml.YAMLError as e:
-        fig("YAML Error", "<< Figlet it out: >>\n")
-        print(f"Error in YAML front matter:", e)
-        # Extract the line number from the error message
-
-        lines = test_yaml.splitlines()
-        for a, line in enumerate(lines):
-            print(f"{a+1} {line}")
-        raise SystemExit()
-
     # Write to file
     with open(out_path, "w") as f:
         # Flatten list of lines into a single string
+        flat_content = "\n".join(content)
         f.writelines(flat_content)
-
     link = f'<li><a href="{BLOG}{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
     # print(f"Chop {index} {out_path}")
     if POST_BY_POST and api_hit:
@@ -441,20 +427,10 @@ def neutralize_underscores(s):
     return s
 
 
-def extract_front_matter(jekyll_doc):
-    # Find the index of the closing `---` line
-    end_index = jekyll_doc.find("---", 3)
-    if end_index == -1:
-        # No closing `---` line found, so return empty string
-        return ""
-    # Extract the front matter
-    front_matter = jekyll_doc[3:end_index].strip()
-    # Determine the number of `---` lines needed to make the front matter valid YAML
-    num_dashes = front_matter.count("---")
-    dashes = "-" * num_dashes
-    # Prepend and append the appropriate number of `---` lines to the front matter
-    front_matter = dashes + "\n" + front_matter + "\n" + dashes
-    return front_matter
+def extract_front_matter(jekyll):
+    parts = jekyll.split("---")
+    myaml = f"{parts[0]}"
+    return myaml
 
 
 def convert_date(date_str):
@@ -643,6 +619,7 @@ def q(text):
 
 def show_common(counter_obj, num_items):
     """Show the most common items in a counter object and return a list of the items."""
+    global pwords
     console = Console()
     most_common = counter_obj.most_common(num_items)
     categories = [item[0] for item in most_common]
@@ -654,8 +631,8 @@ def show_common(counter_obj, num_items):
     table.add_column("Count", justify="right", style="green")
     # Add rows to the table
     for i, (item, count) in enumerate(most_common):
-        table.add_row(item, f"{count}")
-        if i > 20:
+        table.add_row(pwords[item], f"{count}")
+        if i > 10:
             break
     console.print(table)
     return categories
@@ -675,7 +652,27 @@ def histogram():
                 keyword = keyword.strip().lower()
                 keyword = lemmatizer.lemmatize(keyword)
                 cat_dict[keyword].append(slug)
+    # Reverse each list of slugs so that the most recent is first.
+    for key in cat_dict:
+        cat_dict[key].reverse()
     return cat_dict
+
+
+def get_capitization_dict():
+    # We need a dictionary of most common capitalization usage of Category words.
+    words = defaultdict(list)
+    with sqldict(KWDB) as db:
+        for slug, keywords in db.iteritems():
+            keywords = keywords.split(", ")
+            for keyword in keywords:
+                lower_word = keyword.strip().lower()
+                words[lower_word].append(keyword)
+    pwords = defaultdict(lambda x=None: x)
+    for key in words:
+        alist = words[key]
+        pwords[key] = Counter(alist).most_common(1)[0][0]
+    pwords["window"] = "Windows"
+    return pwords
 
 
 #  _____           _   _____                 _   _
@@ -683,6 +680,31 @@ def histogram():
 # |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
+
+fig("YAML Check", "First things first")
+#__   __ _    __  __ _        ____ _               _    
+#\ \ / // \  |  \/  | |      / ___| |__   ___  ___| | __
+# \ V // _ \ | |\/| | |     | |   | '_ \ / _ \/ __| |/ /
+#  | |/ ___ \| |  | | |___  | |___| | | |  __/ (__|   < 
+#  |_/_/   \_\_|  |_|_____|  \____|_| |_|\___|\___|_|\_\
+                                                       
+yaml_dict = defaultdict(dict)
+for i, post in enumerate(parse_journal(FULL_PATH)):
+    if i:
+        front_matter = extract_front_matter(post)
+        try:
+            yaml.safe_load(front_matter)
+        except yaml.YAMLError as exc:
+            print("Error in YAML front matter:")
+            # Print the error message:
+            print(exc)
+            print(front_matter)
+            raise SystemExit()
+        yaml_data = yaml.load(front_matter, Loader=yaml.FullLoader)
+        if yaml_data and "title" in yaml_data:
+            slug = slugify(yaml_data["title"])
+            yaml_dict[slug] = yaml_data
+
 
 fig("Deleting", "Deleting auto-generated pages from site.")
 #  ____       _      _
@@ -719,27 +741,12 @@ fig("Categories", "Creating category pages from keywords.")
 # Get the most common keywords to use as categories
 # by creating a histogram of keywords. The resulting
 # Counter object is used to retreive the top N items.
+pwords = get_capitization_dict()
 cat_dict = histogram()
 cat_counter = Counter()
 for cat, slugs in cat_dict.items():
     cat_counter[cat] = len(slugs)
 CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
-
-# We need a dictionary of most common capitalization usage of Category words.
-words = defaultdict(list)
-with sqldict(KWDB) as db:
-    for slug, keywords in db.iteritems():
-        keywords = keywords.split(", ")
-        for keyword in keywords:
-            lower_word = keyword.strip().lower()
-            words[lower_word].append(keyword)
-pwords = {}
-for key in words:
-    alist = words[key]
-    pwords[key] = Counter(alist).most_common(1)[0][0]
-for category in CATEGORIES:
-    if category not in pwords:
-        pwords[category] = category
 
 
 # We write out the top category page and an include file
