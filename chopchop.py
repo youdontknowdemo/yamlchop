@@ -123,6 +123,7 @@ print(f"FILE: {FILE}")
 
 # Globals
 ydict = defaultdict(dict)
+pwords = defaultdict(lambda x=None: x)
 
 # Create output path if it doesn't exist
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
@@ -262,6 +263,7 @@ def chop_chop(full_path, reverse=False):
         for i, post in enumerate(posts):
             parts = post.split("---")
             yaml_str = parts[0]
+            myaml = {}
             try:
                 myaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
             except yaml.YAMLError as exc:
@@ -279,14 +281,7 @@ def chop_chop(full_path, reverse=False):
 
                 raise SystemExit()
             remainder = "---".join(parts[1:])
-            if myaml and "title" in myaml:
-                slug = slugify(myaml["title"])
-                if slug:
-                    ydict[slug] = myaml
-                rv = (myaml, remainder)
-            else:
-                rv = ({}, entry)
-            yield rv
+            yield (myaml, remainder)
 
 
 # def parse_journal(full_path, reverse=False):
@@ -667,7 +662,9 @@ def show_common(counter_obj, num_items):
     categories = [item[0] for item in most_common]
     # Create table and add header
     table = Table(
-        title=f"Most Common {stop_at} Items", show_header=True, header_style="bold magenta"
+        title=f"Most Common {stop_at} Items",
+        show_header=True,
+        header_style="bold magenta",
     )
     table.add_column("Item", justify="left", style="cyan")
     table.add_column("Count", justify="right", style="green")
@@ -709,7 +706,6 @@ def get_capitization_dict():
             for keyword in keywords:
                 lower_word = keyword.strip().lower()
                 words[lower_word].append(keyword)
-    pwords = defaultdict(lambda x=None: x)
     for key in words:
         alist = words[key]
         pwords[key] = Counter(alist).most_common(1)[0][0]
@@ -717,197 +713,202 @@ def get_capitization_dict():
     return pwords
 
 
+def rebuild_ydict():
+    """Rebuilds ydict from _data/*.db's"""
+    global ydict
+    for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
+        pass
+    with open(OUTPUT2_PATH, "a") as fh:
+        for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
+            if i:
+                try:
+                    slug = slugify(yfm["title"])
+                    fh.write((80 * "-") + "\n")
+                    apost = f"{ydict[slug]}\n---\n{apost}"
+                except:
+                    pass
+            fh.write(apost)
+
+
+def deletes():
+    fig("Deleting", "Deleting auto-generated pages from site.")
+    #  ____       _      _
+    # |  _ \  ___| | ___| |_ ___  ___
+    # | | | |/ _ \ |/ _ \ __/ _ \/ __|
+    # | |_| |  __/ |  __/ ||  __/\__ \
+    # |____/ \___|_|\___|\__\___||___/
+    # None of this is worth doing if ydict didn't come back with values.
+    if ydict:
+        # Delete old files in output path
+        for fh in os.listdir(OUTPUT_PATH):
+            delete_me = f"{OUTPUT_PATH}/{fh}"
+            os.remove(delete_me)
+        # Delete all cat_*.md files in root:
+        for fh in os.listdir(f"{PATH}{REPO}"):
+            if fh.startswith("cat_"):
+                delete_me = f"{PATH}{REPO}/{fh}"
+                os.remove(delete_me)
+        # Delete the old temporary journal from _data
+        out_file = Path(OUTPUT2_PATH)
+        if out_file.exists():
+            out_file.unlink()
+    else:
+        raise SystemExit("No YAML front matter found in journal.")
+
+
+def categories():
+    fig("Categories", "Creating category pages from keywords.")
+    #   ____      _                        _
+    #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
+    # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
+    # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
+    #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
+    #                     |___/
+    # From historgram of keywords to N-top categories
+    pwords = get_capitization_dict()
+    cat_dict = histogram()
+    cat_counter = Counter()
+    for cat, slugs in cat_dict.items():
+        cat_counter[cat] = len(slugs)
+    CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
+
+    # Write out the category page that goes in the site root as category.md
+    print("Writing out category.md and its include file.")
+    with open(CATEGORY_PAGE, "w") as fh:
+        fh.write("# Categories\n")
+        fh.write("{% include category.md %}\n")  # Reference to include
+        with open(CATEGORY_INCLUDE, "w") as fh2:
+            fh2.write(f"<ol start='{len(CATEGORIES)}' reversed>\n")
+            for category in CATEGORIES:
+                permalink = slugify(category)
+                pcat = pwords[category.lower()]
+                fh2.write(f'<li><a href="/{permalink}/">{pcat}</a></li>\n')
+            fh2.write("</ol>\n")
+
+    # Write out the many category pages that go in the site root as cat_*.md
+    for i, category in enumerate(CATEGORIES):
+        if category not in CATEGORY_FILTER:
+            permalink = slugify(category)
+            pcat = pwords[category.lower()]
+            front_matter = f"""---
+            title: {pcat}
+            permalink: /{permalink}/
+            layout: default
+            ---
+
+            """
+            front_matter = "\n".join([x.strip() for x in front_matter.split("\n")])
+            cat_file = f"{PATH}{REPO}cat_{permalink}.md"
+            include_file = f"{INCLUDES}cat_{permalink}.md"
+            # print(f"Creating {cat_file}")
+            with open(cat_file, "w") as fh:
+                fh.write(front_matter)
+                fh.write(f"# {pcat}\n\n")
+                # Filter out categories without YAML data:
+                cat_dict[category] = [x for x in cat_dict[category] if x in ydict]
+                # Number of posts:
+                category_len = len(cat_dict[category])
+                # Write reference to include file into category file:
+                fh.write(
+                    f"{{% include cat_{permalink}.md %}}\n"
+                )  # Reference to include
+                # Write include file include:
+                with open(include_file, "w") as fh2:
+                    fh2.write(f"<ol start='{category_len}' reversed>\n")
+                    for slug in cat_dict[category]:
+                        try:
+                            title = ydict[slug]["title"]
+                            description = ydict[slug]["description"]
+                            adate = ydict[slug]["date"]
+                            fh2.write(
+                                f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br/>{description}</li>\n'
+                            )
+                        except:
+                            pass
+                        # fh2.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
+                    fh2.write("</ol>\n")
+
+
+def expand_yaml():
+    #  _____                            _  __   __ _    __  __ _
+    # | ____|_  ___ __   __ _ _ __   __| | \ \ / // \  |  \/  | |
+    # |  _| \ \/ / '_ \ / _` | '_ \ / _` |  \ V // _ \ | |\/| | |
+    # | |___ >  <| |_) | (_| | | | | (_| |   | |/ ___ \| |  | | |___
+    # |_____/_/\_\ .__/ \__,_|_| |_|\__,_|   |_/_/   \_\_|  |_|_____|
+    #            |_|
+    fig("Expand YAML", "Checking for new posts needing AI-writing")
+    for i, (front_matter, apost) in enumerate(chop_chop(YAMLESQUE)):
+        if front_matter and len(front_matter) == 2:
+            if "title" not in front_matter or "date" not in front_matter:
+                print("A date and title field are required to publish.")
+                raise SystemExit()
+            else:
+                fig("Hit!", "Hitting API...")
+                slug = slugify(front_matter["title"])
+                title = front_matter["title"]
+                summary, api_hit = odb(SUMDB, write_summary, slug, apost)
+                # Setting these values ALSO commits it to the databases
+                description, api_hit = odb(DESCDB, write_meta, slug, summary)
+                print(f"description: {description}")
+                keyword_text = f"{title} {description} {summary}"
+                headline, api_hit = odb(HEADS, write_headline, slug, keyword_text)
+                print(f"headline: {headline}")
+                keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
+                print(f"keywords: {keywords}")
+                input(f"Press enter to continue...")
+                print()
+
+
+def new_source():
+    #  _   _                 ____
+    # | \ | | _____      __ / ___|  ___  _   _ _ __ ___ ___
+    # |  \| |/ _ \ \ /\ / / \___ \ / _ \| | | | '__/ __/ _ \
+    # | |\  |  __/\ V  V /   ___) | (_) | |_| | | | (_|  __/
+    # |_| \_|\___| \_/\_/   |____/ \___/ \__,_|_|  \___\___|
+    #
+    # Compare the input and output files. If same, there's been no changes.
+    fig("Compare files")
+    files_are_same = compare_files(YAMLESQUE, OUTPUT2_PATH)
+    print(f"Are the input and output files the same? {files_are_same}")
+    if files_are_same:
+        print("Nothing's changed. Nothing to publish.")
+    else:
+        print("Something's changed. Copied output to input.")
+        # Replaces old journal.md with the new journal.md (AI content filled-in)
+        shutil.copyfile(OUTPUT2_PATH, YAMLESQUE)
+
+
+def git_push():
+    #   ____ _ _     ____            _
+    #  / ___(_) |_  |  _ \ _   _ ___| |__
+    # | |  _| | __| | |_) | | | / __| '_ \
+    # | |_| | | |_  |  __/| |_| \__ \ | | |
+    #  \____|_|\__| |_|    \__,_|___/_| |_|
+    # Git commands
+    if not DISABLE_GIT:
+        fig("Git Push", "The actual release")
+        here = f"{PATH}{REPO}"
+        git(here, f"add {here}*")
+        git(here, "add _posts/*")
+        git(here, "add _includes/*")
+        git(here, "add assets/images/*")
+        git(here, f'commit -am "Pushing {REPO} to Github..."')
+        git(here, "push")
+
 #  _____           _   _____                 _   _
 # | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
 # |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 # This is a YAMLesque system, so we need to be able to parse YAMLesque.
-for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
-    pass
 
-# If you reach here, glboal ydict will be populated with the values from the YAMLesque file.
+rebuild_ydict()
+deletes()
+categories()
+# expand_yaml()
+# new_source()
+# git_push()
 
-fig("Deleting", "Deleting auto-generated pages from site.")
-#  ____       _      _
-# |  _ \  ___| | ___| |_ ___  ___
-# | | | |/ _ \ |/ _ \ __/ _ \/ __|
-# | |_| |  __/ |  __/ ||  __/\__ \
-# |____/ \___|_|\___|\__\___||___/
-# None of this is worth doing if ydict didn't come back with values.
-if ydict:
-    # Delete old files in output path
-    for fh in os.listdir(OUTPUT_PATH):
-        delete_me = f"{OUTPUT_PATH}/{fh}"
-        os.remove(delete_me)
-    # Delete all cat_*.md files in root:
-    for fh in os.listdir(f"{PATH}{REPO}"):
-        if fh.startswith("cat_"):
-            delete_me = f"{PATH}{REPO}/{fh}"
-            os.remove(delete_me)
-    # Delete the old temporary journal from _data
-    out_file = Path(OUTPUT2_PATH)
-    if out_file.exists():
-        out_file.unlink()
-else:
-    raise SystemExit("No YAML front matter found in journal.")
-
-fig("Categories", "Creating category pages from keywords.")
-#   ____      _                        _
-#  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
-# | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
-# | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
-#  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-#                     |___/
-# From historgram of keywords to N-top categories
-pwords = get_capitization_dict()
-cat_dict = histogram()
-cat_counter = Counter()
-for cat, slugs in cat_dict.items():
-    cat_counter[cat] = len(slugs)
-CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
-
-# Write out the category page that goes in the site root as category.md
-print("Writing out category.md and its include file.")
-with open(CATEGORY_PAGE, "w") as fh:
-    fh.write("# Categories\n")
-    fh.write("{% include category.md %}\n")  # Reference to include
-    with open(CATEGORY_INCLUDE, "w") as fh2:
-        fh2.write(f"<ol start='{len(CATEGORIES)}' reversed>\n")
-        for category in CATEGORIES:
-            permalink = slugify(category)
-            pcat = pwords[category.lower()]
-            fh2.write(f'<li><a href="/{permalink}/">{pcat}</a></li>\n')
-        fh2.write("</ol>\n")
-
-# Write out the many category pages that go in the site root as cat_*.md
-for i, category in enumerate(CATEGORIES):
-    if category not in CATEGORY_FILTER:
-        permalink = slugify(category)
-        pcat = pwords[category.lower()]
-        front_matter = f"""---
-        title: {pcat}
-        permalink: /{permalink}/
-        layout: default
-        ---
-
-        """
-        front_matter = "\n".join([x.strip() for x in front_matter.split("\n")])
-        cat_file = f"{PATH}{REPO}cat_{permalink}.md"
-        include_file = f"{INCLUDES}cat_{permalink}.md"
-        # print(f"Creating {cat_file}")
-        with open(cat_file, "w") as fh:
-            fh.write(front_matter)
-            fh.write(f"# {pcat}\n\n")
-            # Filter out categories without YAML data:
-            cat_dict[category] = [x for x in cat_dict[category] if x in ydict]
-            # Number of posts:
-            category_len = len(cat_dict[category])
-            # Write reference to include file into category file:
-            fh.write(f"{{% include cat_{permalink}.md %}}\n")  # Reference to include
-            # Write include file include:
-            with open(include_file, "w") as fh2:
-                fh2.write(f"<ol start='{category_len}' reversed>\n")
-                for slug in cat_dict[category]:
-                    try:
-                        title = ydict[slug]["title"]
-                        description = ydict[slug]["description"]
-                        adate = ydict[slug]["date"]
-                        fh2.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br/>{description}</li>\n')
-                    except:
-                        pass
-                    # fh2.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
-                fh2.write("</ol>\n")
-#  _____                            _  __   __ _    __  __ _     
-# | ____|_  ___ __   __ _ _ __   __| | \ \ / // \  |  \/  | |    
-# |  _| \ \/ / '_ \ / _` | '_ \ / _` |  \ V // _ \ | |\/| | |    
-# | |___ >  <| |_) | (_| | | | | (_| |   | |/ ___ \| |  | | |___ 
-# |_____/_/\_\ .__/ \__,_|_| |_|\__,_|   |_/_/   \_\_|  |_|_____|
-#            |_|                                                 
-fig("Expand YAML", "Checking for new posts needing AI-writing")
-links = []
-for i, (front_matter, apost) in enumerate(chop_chop(YAMLESQUE)):
-    if len(front_matter) == 2:
-        if "title" not in front_matter or "date" not in front_matter:
-            print("A date and title field are required to publish.")
-            raise SystemExit() 
-        else:
-            fig("Hit!", "Hitting API...")
-            slug = slugify(front_matter["title"])
-            title = front_matter["title"]
-            summary, api_hit = odb(SUMDB, write_summary, slug, apost)
-            # Setting these values ALSO commits it to the databases
-            description, api_hit = odb(DESCDB, write_meta, slug, summary)
-            print(f"description: {description}")
-            keyword_text = f"{title} {description} {summary}"
-            headline, api_hit = odb(HEADS, write_headline, slug, keyword_text)
-            print(f"headline: {headline}")
-            keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
-            print(f"keywords: {keywords}")
-            input(f"Press enter to continue...")
-            print()
-
-raise SystemExit()
-
-#  ____  _ _                _                              _
-# / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
-# \___ \| | |/ __/ _ \  _  | |/ _ \| | | | '__| '_ \ / _` | |
-#  ___) | | | (_|  __/ | |_| | (_) | |_| | |  | | | | (_| | |
-# |____/|_|_|\___\___|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
-fig("Slice Journal", "Chopping long file into many small ones.")
-# I could easily re-write this most important part of the program
-# to use the new YAMLESQUE list of tuples instead of the old line-by-line parsing
-
-# Parse the journal file into a list of posts & create link for index.
-# links = []
-# for i, (yfm, apost) in enumerate(chop_chop(yamlesque)):
-#     # Convert a yaml object named yfm into a text-string to be used as front matter
-#     # in a Jekyll site:
-#     apost = f"{front_matter}\n---\n{apost}"
-#     print(f"{i+1} ", end="", flush=True)
-#     # link = write_post_to_file(apost, i + 1)
-#     # if link:
-#     #     links.insert(0, link)
-# print()
-
-fig("Rebuilding", "Making new input from output")
-#  ____      _           _ _     _       _                              _
-# |  _ \ ___| |__  _   _(_) | __| |     | | ___  _   _ _ __ _ __   __ _| |
-# | |_) / _ \ '_ \| | | | | |/ _` |  _  | |/ _ \| | | | '__| '_ \ / _` | |
-# |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_) | |_| | |  | | | | (_| | |
-# |_| \_\___|_.__/ \__,_|_|_|\__,_|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
-# Fill-in Journal front matter with new data from OpenAI _data/*.db's 
-
-with open(OUTPUT2_PATH, "a") as fh:
-    for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
-        print(i, end=" ", flush=True)
-        # Currently disabled, rebuilding journal exactly
-        # apost = front_matter_inserter(apost)
-        if i:
-            fh.write((80 * "-") + "\n")
-            apost = f"{yfm}\n---\n{apost}"
-        else:
-            fh.write(apost)
-        fh.write(apost)
-print()
-raise SystemExit()
-
-#  _   _                 ____
-# | \ | | _____      __ / ___|  ___  _   _ _ __ ___ ___
-# |  \| |/ _ \ \ /\ / / \___ \ / _ \| | | | '__/ __/ _ \
-# | |\  |  __/\ V  V /   ___) | (_) | |_| | | | (_|  __/
-# |_| \_|\___| \_/\_/   |____/ \___/ \__,_|_|  \___\___|
-#
-# Compare the input and output files. If same, there's been no changes.
-fig("Compare files")
-files_are_same = compare_files(YAMLESQUE, OUTPUT2_PATH)
-print(f"Are the input and output files the same? {files_are_same}")
-if files_are_same:
-    print("Nothing's changed. Nothing to publish.")
-else:
-    print("Something's changed. Copied output to input.")
-    # Replaces old journal.md with the new journal.md (AI content filled-in)
-    shutil.copyfile(OUTPUT2_PATH, YAMLESQUE)
 
 #  ___           _             ____
 # |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___
@@ -916,28 +917,12 @@ else:
 # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
 #                                         |___/
 
-# Add countdown ordered list to index page
-links.insert(0, f'<ol start="{len(links)}" reversed>')
-links.append("</ol>")
-# Write index page
-index_page = "\n".join(links)
-# Write out list of posts
-with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
-    fh.writelines(index_page)
-#   ____ _ _     ____            _
-#  / ___(_) |_  |  _ \ _   _ ___| |__
-# | |  _| | __| | |_) | | | / __| '_ \
-# | |_| | | |_  |  __/| |_| \__ \ | | |
-#  \____|_|\__| |_|    \__,_|___/_| |_|
-# Git commands
-if not DISABLE_GIT:
-    fig("Git Push", "The actual release")
-    here = f"{PATH}{REPO}"
-    git(here, f"add {here}*")
-    git(here, "add _posts/*")
-    git(here, "add _includes/*")
-    git(here, "add assets/images/*")
-    git(here, f'commit -am "Pushing {REPO} to Github..."')
-    git(here, "push")
-
-fig("Done")
+# # Add countdown ordered list to index page
+# links.insert(0, f'<ol start="{len(links)}" reversed>')
+# links.append("</ol>")
+# # Write index page
+# index_page = "\n".join(links)
+# # Write out list of posts
+# with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
+#     fh.writelines(index_page)
+# fig("Done")
