@@ -257,7 +257,8 @@ def chop_chop(full_path, reverse=False):
     """Chop YAMLesque file to spew chuks."""
     global ydict
     with open(full_path, "r") as fh:
-        posts = CHOP.split(fh.read())
+        entry = fh.read()
+        posts = CHOP.split(entry)
         if reverse:
             posts.reverse()  # Reverse so article indexes don't change.
         for i, post in enumerate(posts):
@@ -283,7 +284,10 @@ def chop_chop(full_path, reverse=False):
             if myaml and "title" in myaml:
                 slug = slugify(myaml["title"])
                 ydict[slug] = myaml
-            yield myaml, remainder
+                rv = myaml, remainder
+            else:
+                rv = {}, entry
+            yield rv
 
 
 # def parse_journal(full_path, reverse=False):
@@ -826,7 +830,6 @@ print()
 fig("Slice Journal", "Chopping long file into many small ones.")
 
 # Parse the journal file into a list of posts & create link for index.
-(front_matter, content) = chop_chop(YAMLESQUE)
 links = []
 for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
     apost = f"{yfm}\n---\n{apost}"
