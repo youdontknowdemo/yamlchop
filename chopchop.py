@@ -141,18 +141,19 @@ def odb(DBNAME, afunc, slug, full_text):
     """Record OpenAI API hits in a database."""
     api_hit = False
     with sqldict(DBNAME) as db:
-        if slug not in db:
+        if slug in db:
+            result = db[slug]
+        else:
             result = afunc(full_text)  # Hits OpenAI API
             db[slug] = result
             db.commit()
+            fig("Hit API", f"Hit OpenAI API and saved to {DBNAME}")
             api_hit = True
-        else:
-            result = db[slug]
     return result, api_hit
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def find_keywords(data):
+def write_keywords(data):
     """Returns top keywords and main category for text."""
     print("Hitting OpenAI API for: keywords")
     response = openai.Completion.create(
@@ -174,7 +175,7 @@ def find_keywords(data):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_meta(data):
+def write_description(data):
     """Write a meta description for a post."""
     response = openai.Completion.create(
         engine=ENGINE,
@@ -293,18 +294,6 @@ def chop_chop(full_path, reverse=False):
             yield rv
 
 
-# def parse_journal(full_path, reverse=False):
-#     """Parse a journal file into posts. Returns a generator of posts, reverse-order."""
-#     with open(full_path, "r") as fh:
-#         post_str = fh.read()
-#         pattern = r"-{78,82}\s*\n"
-#         posts = re.split(pattern, post_str)
-#         if reverse:
-#             posts.reverse()  # Reverse so article indexes don't change.
-#         for post in posts:
-#             yield post
-
-
 def write_post_to_file(post, index):
     """Write a post to a file. Returns a markdown link to the post."""
     # Parse the post into lines
@@ -417,14 +406,13 @@ def write_post_to_file(post, index):
     # If we already have a description, we don't need to look at the summary:
     if not description:
         summary, api_hit = odb(SUMDB, write_summary, slug, post)
-        description, api_hit = odb(DESCDB, write_meta, slug, summary)
+        description, api_hit = odb(DESCDB, write_description, slug, summary)
         description = chop_last_sentence(description)
     if not headline:
-        keyword_text = f"{title} {description} {summary}"
-        headline, api_hit = odb(HEADS, write_headline, slug, keyword_text)
+        headline, api_hit = odb(HEADS, write_headline, slug, summary)
         headline = prepare_for_front_matter(headline)
     if not keywords:
-        keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
+        keywords, api_hit = odb(KWDB, write_keywords, slug, summary)
 
     for key, value in kw_dict.items():
         front_matter.append(f"{key}: {q(value)}")
@@ -731,8 +719,20 @@ def rebuild_ydict():
     # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \__, |\__,_|_|\___|\__|
     #                                    |___/                  
     with open(OUTPUT2_PATH, "w") as fh:
-        for i, (front_matter, body, combined) in enumerate(chop_chop(YAMLESQUE)):
+        for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
+            if fm:
+                if len(fm) == 2 and "date" in fm and "title" in fm:
+                    # We may have more data in the ydict to add to this.
+                    slug = slugify(fm["title"])
+                    if slug in ydict:
+                        # Use the ydict entry for making a new combined entry.
+                        combined = f"{ydict[slug]}\n---\n{body}"
+                else:
+                    write_me = combined
+            else:
+                write_me = combined
             fh.write(combined)
+            # fh.write(f"{SEPARATOR}{combined}")
 
 
 def deletes():
@@ -834,34 +834,46 @@ def categories():
                     fh2.write("</ol>\n")
 
 
-def expand_yaml():
-    #  _____                            _  __   __ _    __  __ _
-    # | ____|_  ___ __   __ _ _ __   __| | \ \ / // \  |  \/  | |
-    # |  _| \ \/ / '_ \ / _` | '_ \ / _` |  \ V // _ \ | |\/| | |
-    # | |___ >  <| |_) | (_| | | | | (_| |   | |/ ___ \| |  | | |___
-    # |_____/_/\_\ .__/ \__,_|_| |_|\__,_|   |_/_/   \_\_|  |_|_____|
-    #            |_|
-    fig("Expand YAML", "Checking for new posts needing AI-writing")
-    for i, (front_matter, apost) in enumerate(chop_chop(YAMLESQUE)):
-        if front_matter and len(front_matter) == 2:
-            if "title" not in front_matter or "date" not in front_matter:
-                print("A date and title field are required to publish.")
-                raise SystemExit()
-            else:
-                fig("Hit!", "Hitting API...")
-                slug = slugify(front_matter["title"])
-                title = front_matter["title"]
-                summary, api_hit = odb(SUMDB, write_summary, slug, apost)
-                # Setting these values ALSO commits it to the databases
-                description, api_hit = odb(DESCDB, write_meta, slug, summary)
-                print(f"description: {description}")
-                keyword_text = f"{title} {description} {summary}"
-                headline, api_hit = odb(HEADS, write_headline, slug, keyword_text)
-                print(f"headline: {headline}")
-                keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
-                print(f"keywords: {keywords}")
+def sync_check():
+    #  ______   ___   _  ____    ____ _               _    
+    # / ___\ \ / / \ | |/ ___|  / ___| |__   ___  ___| | __
+    # \___ \\ V /|  \| | |     | |   | '_ \ / _ \/ __| |/ /
+    #  ___) || | | |\  | |___  | |___| | | |  __/ (__|   < 
+    # |____/ |_| |_| \_|\____|  \____|_| |_|\___|\___|_|\_\
+    fig("SYNC Check", "Checking for new posts needing AI-writing")
+    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+        if fm and len(fm) == 2 and "title" in fm and "date" in fm:
+
+            # Only 2 fields of YAML front matter asks for release.
+            title = fm["title"]
+            slug = slugify(title)
+            ydict[slug]["title"] = title
+
+            # Setting these values ALSO commits it to the databases
+            # The summary is too big for YAML-stuffing so we keep it in db.
+            summary, api_hit = odb(SUMDB, write_summary, slug, apost)
+
+            # Descriptions belong on YAML-stuffing for re-writing
+            description, hit_description = odb(DESCDB, write_description, slug, summary)
+            ydict[slug]["description"] = description
+           
+            # Keywords belong on YAML-stuffing for re-writing
+            keywords, hit_keywords = odb(KWDB, write_description, slug, summary)
+            ydict[slug]["keywords"] = keywords
+
+            # Headlines belong on YAML-stuffing for re-writing
+            headline, hit_headline = odb(HEADS, write_headline, slug, summary)
+            ydict[slug]["headline"] = headline
+
+            if any([hit_description, hit_headline, hit_keywords]):
+                print(f"description: {description}\n")
+                print(f"headline: {headline}\n")
+                print(f"keywords: {keyword}\n")
                 input(f"Press enter to continue...")
-                print()
+            print()
+    # Outside the loop and the global ydict is updated but
+    # the database may now be ahead of the YAMLesque file.
+    rebuild_ydict()
 
 
 def new_source():
@@ -913,9 +925,9 @@ def update_source():
 
 
 rebuild_ydict()
-# deletes()
-# categories()
-# expand_yaml()
+deletes()
+categories()
+sync_check()
 # new_source()
 # git_push()
 
