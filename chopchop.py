@@ -90,16 +90,15 @@ add_arg("-b", "--blog", default="blog")
 add_arg("-o", "--output", default="_posts")
 
 # Parse command line args as CONSTANTS
-args = aparser.parse_args()
-BLOG = f"/{args.blog}/" if not args.blog.startswith("/") else args.blog
-OUTPUT = args.output
-AUTHOR = args.author
-FULL_PATH = args.full_path
-
-# Parse full path into path, repo, and file
-parts = FULL_PATH.split("/")
+CHOP = re.compile(r"-{78,82}\s*\n")
+ARGS = aparser.parse_args()
+BLOG = f"/{ARGS.blog}/" if not ARGS.blog.startswith("/") else ARGS.blog
+OUTPUT = ARGS.output
+AUTHOR = ARGS.author
+Fydict = defaultdict(dict)
+YAMLESQUE = ARGS.full_path
+parts = YAMLESQUE.split("/")
 REPO = parts[-2] + "/"
-fig(REPO, f"Processing repo: {REPO}")  # Print the repo name
 FILE = parts[-1]
 PATH = "/".join(parts[:-2]) + "/"
 GIT_EXE = "/usr/bin/git"
@@ -108,7 +107,6 @@ REPO_DATA = f"{PATH}{REPO}_data/"
 OUTPUT2_PATH = f"{REPO_DATA}{FILE}"
 KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 INCLUDES = f"{PATH}{REPO}_includes/"
-CHOPPER = (80 * "-") + "\n"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
 
@@ -119,8 +117,12 @@ KWDB = REPO_DATA + "keywords.db"
 HEADS = REPO_DATA + "headlines.db"
 
 # Print out constants
+fig(REPO, f"REPO: {REPO}")  # Print the repo name
 print(f"PATH: {PATH}")
 print(f"FILE: {FILE}")
+
+# Globals
+ydict = defaultdict(dict)
 
 # Create output path if it doesn't exist
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
@@ -252,16 +254,40 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
-def parse_journal(full_path, reverse=False):
-    """Parse a journal file into posts. Returns a generator of posts, reverse-order."""
+def chop_chop(full_path, reverse=False):
+    """Chop YAMLesque file to spew chuks."""
+    global ydict
     with open(full_path, "r") as fh:
-        post_str = fh.read()
-        pattern = r"-{78,82}\s*\n"
-        posts = re.split(pattern, post_str)
+        posts = CHOP.split(fh.read())
         if reverse:
             posts.reverse()  # Reverse so article indexes don't change.
         for post in posts:
-            yield post
+            parts = post.split("---")
+            yaml_str = parts[0]
+            try:
+                myaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
+            except yaml.YAMLError as exc:
+                print("Error in YAML front matter:")
+                print(exc)
+                print(myaml)
+                raise SystemExit()
+            remainder = "---".join(parts[1:])
+            if myaml and "title" in myaml:
+                slug = slugify(myaml["title"])
+                ydict[slug] = myaml
+            yield myaml, remainder
+
+
+# def parse_journal(full_path, reverse=False):
+#     """Parse a journal file into posts. Returns a generator of posts, reverse-order."""
+#     with open(full_path, "r") as fh:
+#         post_str = fh.read()
+#         pattern = r"-{78,82}\s*\n"
+#         posts = re.split(pattern, post_str)
+#         if reverse:
+#             posts.reverse()  # Reverse so article indexes don't change.
+#         for post in posts:
+#             yield post
 
 
 def write_post_to_file(post, index):
@@ -692,23 +718,8 @@ fig("YAML Check", "First things first")
 #  | |/ ___ \| |  | | |___  | |___| | | |  __/ (__|   < 
 #  |_/_/   \_\_|  |_|_____|  \____|_| |_|\___|\___|_|\_\
                                                        
-yaml_dict = defaultdict(dict)  # Here, we make a yaml_dict that will be used to store the YAML front matter.
-for i, post in enumerate(parse_journal(FULL_PATH)):
-    if i:
-        front_matter = extract_front_matter(post)
-        try:
-            yaml.safe_load(front_matter)
-        except yaml.YAMLError as exc:
-            print("Error in YAML front matter:")
-            # Print the error message:
-            print(exc)
-            print(front_matter)
-            raise SystemExit()
-        yaml_data = yaml.load(front_matter, Loader=yaml.FullLoader)
-        if yaml_data and "title" in yaml_data:
-            slug = slugify(yaml_data["title"])
-            yaml_dict[slug] = yaml_data  # Add the YAML front matter to the yaml_dict
-
+for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
+    pass
 
 fig("Deleting", "Deleting auto-generated pages from site.")
 #  ____       _      _
@@ -812,15 +823,16 @@ print()
 # |____/|_|_|\___\___|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
 fig("Slice Journal", "Chopping long file into many small ones.")
 
-# Parse the journal file
-all_posts = parse_journal(FULL_PATH)
+# Parse the journal file into a list of posts & create link for index.
+front_matter, content = chop_chop(YAMLESQUE)
 links = []
-for i, apost in enumerate(all_posts):
+for i, apost in enumerate(post_generator):
     print(f"{i+1} ", end="", flush=True)
-    link = write_post_to_file(apost, i + 1)
-    if link:
-        links.insert(0, link)
+    # link = write_post_to_file(apost, i + 1)
+    # if link:
+    #     links.insert(0, link)
 print()
+raise SystemExit()
 
 fig("Rebuilding", "Making new input from output")
 #  ____      _           _ _     _       _                              _
@@ -829,12 +841,12 @@ fig("Rebuilding", "Making new input from output")
 # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_) | |_| | |  | | | | (_| | |
 # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
 # Rebuild the journal in _data
-all_posts = parse_journal(FULL_PATH, reverse=False)
+front_matter, content = chop_chop(YAMLESQUE, reverse=False)
 with open(OUTPUT2_PATH, "a") as fh:
-    for i, apost in enumerate(all_posts):
+    for i, apost in enumerate(post_generator):
         print(i, end=" ", flush=True)
         if i:
-            fh.write(CHOPPER)
+            fh.write((80 * "-") + "\n")
         apost = front_matter_inserter(apost)
         fh.write(apost)
 print()
@@ -847,14 +859,14 @@ print()
 #
 # Compare the input and output files. If same, there's been no changes.
 fig("Compare files")
-files_are_same = compare_files(FULL_PATH, OUTPUT2_PATH)
+files_are_same = compare_files(YAMLESQUE, OUTPUT2_PATH)
 print(f"Are the input and output files the same? {files_are_same}")
 if files_are_same:
     print("Nothing's changed. Nothing to publish.")
 else:
     print("Something's changed. Copied output to input.")
     # Replaces old journal.md with the new journal.md (AI content filled-in)
-    shutil.copyfile(OUTPUT2_PATH, FULL_PATH)
+    shutil.copyfile(OUTPUT2_PATH, YAMLESQUE)
 
 #  ___           _             ____
 # |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___
