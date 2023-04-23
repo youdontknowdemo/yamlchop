@@ -826,13 +826,14 @@ print()
 fig("Slice Journal", "Chopping long file into many small ones.")
 
 # Parse the journal file into a list of posts & create link for index.
-front_matter, content = chop_chop(YAMLESQUE)
+(front_matter, content) = chop_chop(YAMLESQUE)
 links = []
 for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
+    apost = f"{yfm}\n---\n{apost}"
     print(f"{i+1} ", end="", flush=True)
-    # link = write_post_to_file(apost, i + 1)
-    # if link:
-    #     links.insert(0, link)
+    link = write_post_to_file(apost, i + 1)
+    if link:
+        links.insert(0, link)
 print()
 raise SystemExit()
 
