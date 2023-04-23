@@ -174,7 +174,6 @@ def find_keywords(data):
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_meta(data):
     """Write a meta description for a post."""
-    print("Hitting OpenAI API for: meta descriptions")
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
@@ -196,7 +195,6 @@ def write_meta(data):
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_headline(data):
     """Write an alternate headline for the post."""
-    print("Hitting OpenAI API for: headline")
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
@@ -219,7 +217,6 @@ def write_headline(data):
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_summary(text):
     """Summarize a text using OpenAI's API."""
-    print("Hitting OpenAI API for: summary")
     chunks = chunk_text(text, chunk_size=4000)
     summarized_text = ""
     for chunk in chunks:
@@ -284,7 +281,8 @@ def chop_chop(full_path, reverse=False):
             remainder = "---".join(parts[1:])
             if myaml and "title" in myaml:
                 slug = slugify(myaml["title"])
-                ydict[slug] = myaml
+                if slug:
+                    ydict[slug] = myaml
                 rv = (myaml, remainder)
             else:
                 rv = ({}, entry)
@@ -727,6 +725,7 @@ def get_capitization_dict():
 # This is a YAMLesque system, so we need to be able to parse YAMLesque.
 for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
     pass
+
 # If you reach here, glboal ydict will be populated with the values from the YAMLesque file.
 
 fig("Deleting", "Deleting auto-generated pages from site.")
@@ -819,7 +818,37 @@ for i, category in enumerate(CATEGORIES):
                         pass
                     # fh2.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
                 fh2.write("</ol>\n")
-print()
+#  _____                            _  __   __ _    __  __ _     
+# | ____|_  ___ __   __ _ _ __   __| | \ \ / // \  |  \/  | |    
+# |  _| \ \/ / '_ \ / _` | '_ \ / _` |  \ V // _ \ | |\/| | |    
+# | |___ >  <| |_) | (_| | | | | (_| |   | |/ ___ \| |  | | |___ 
+# |_____/_/\_\ .__/ \__,_|_| |_|\__,_|   |_/_/   \_\_|  |_|_____|
+#            |_|                                                 
+fig("Expand YAML", "Checking for new posts needing AI-writing")
+links = []
+for i, (front_matter, apost) in enumerate(chop_chop(YAMLESQUE)):
+    if len(front_matter) == 2:
+        if "title" not in front_matter or "date" not in front_matter:
+            print("A date and title field are required to publish.")
+            raise SystemExit() 
+        else:
+            fig("Hit!", "Hitting API...")
+            slug = slugify(front_matter["title"])
+            title = front_matter["title"]
+            summary, api_hit = odb(SUMDB, write_summary, slug, apost)
+            # Setting these values ALSO commits it to the databases
+            description, api_hit = odb(DESCDB, write_meta, slug, summary)
+            print(f"description: {description}")
+            keyword_text = f"{title} {description} {summary}"
+            headline, api_hit = odb(HEADS, write_headline, slug, keyword_text)
+            print(f"headline: {headline}")
+            keywords, api_hit = odb(KWDB, find_keywords, slug, keyword_text)
+            print(f"keywords: {keywords}")
+            input(f"Press enter to continue...")
+            print()
+
+raise SystemExit()
+
 #  ____  _ _                _                              _
 # / ___|| (_) ___ ___      | | ___  _   _ _ __ _ __   __ _| |
 # \___ \| | |/ __/ _ \  _  | |/ _ \| | | | '__| '_ \ / _` | |
@@ -828,11 +857,6 @@ print()
 fig("Slice Journal", "Chopping long file into many small ones.")
 # I could easily re-write this most important part of the program
 # to use the new YAMLESQUE list of tuples instead of the old line-by-line parsing
-
-
-links = []
-for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
-    pass
 
 # Parse the journal file into a list of posts & create link for index.
 # links = []
@@ -852,18 +876,12 @@ fig("Rebuilding", "Making new input from output")
 # | |_) / _ \ '_ \| | | | | |/ _` |  _  | |/ _ \| | | | '__| '_ \ / _` | |
 # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_) | |_| | |  | | | | (_| | |
 # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
-
-# Fill-in Journal front matter with new data from OpenAI _data/*.db's Wheras on
-# our last implementation, we opened and closed each database for every line,
-# this time we're going to prepare a job so we need only open each database
-# once. We do this by walking t front_matter with fewer than a certain amount
-# of required fields. This ydict is populated now, because of the yaml-check
-# step. We build a new object which is every field that is still needed, then
-# we step through each database getting those values if available.
+# Fill-in Journal front matter with new data from OpenAI _data/*.db's 
 
 with open(OUTPUT2_PATH, "a") as fh:
     for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
         print(i, end=" ", flush=True)
+        # Currently disabled, rebuilding journal exactly
         # apost = front_matter_inserter(apost)
         if i:
             fh.write((80 * "-") + "\n")
