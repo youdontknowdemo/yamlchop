@@ -799,7 +799,9 @@ for i, category in enumerate(CATEGORIES):
         # print(f"Creating {cat_file}")
         with open(cat_file, "w") as fh:
             fh.write(front_matter)
-            fh.write(f"# {pcat}\n")
+            fh.write(f"# {pcat}\n\n")
+            # Filter out categories without YAML data:
+            cat_dict[category] = [x for x in cat_dict[category] if x in ydict]
             # Number of posts:
             category_len = len(cat_dict[category])
             # Write reference to include file into category file:
@@ -809,9 +811,9 @@ for i, category in enumerate(CATEGORIES):
                 fh2.write(f"<ol start='{category_len}' reversed>\n")
                 for slug in cat_dict[category]:
                     try:
-                        title = yaml_dict[slug]["title"]
-                        description = yaml_dict[slug]["description"]
-                        adate = yaml_dict[slug]["date"]
+                        title = ydict[slug]["title"]
+                        description = ydict[slug]["description"]
+                        adate = ydict[slug]["date"]
                         fh2.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br/>{description}</li>\n')
                     except:
                         pass
