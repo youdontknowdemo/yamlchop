@@ -90,6 +90,7 @@ add_arg("-b", "--blog", default="blog")
 add_arg("-o", "--output", default="_posts")
 
 # Parse command line args as CONSTANTS
+SEPARATOR = (80 * "-") + "\n"
 CHOP = re.compile(r"-{78,82}\s*\n")
 ARGS = aparser.parse_args()
 BLOG = f"/{ARGS.blog}/" if not ARGS.blog.startswith("/") else ARGS.blog
@@ -255,33 +256,41 @@ def chunk_text(text, chunk_size=4000):
 def chop_chop(full_path, reverse=False):
     """Chop YAMLesque file to spew chuks."""
     global ydict
+    ydict = defaultdict(dict)
     with open(full_path, "r") as fh:
-        entry = fh.read()
-        posts = CHOP.split(entry)
+        posts = CHOP.split(fh.read())
         if reverse:
             posts.reverse()  # Reverse so article indexes don't change.
         for i, post in enumerate(posts):
-            parts = post.split("---")
-            yaml_str = parts[0]
-            myaml = {}
-            try:
-                myaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
-            except yaml.YAMLError as exc:
-                fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
-                for j, astr in enumerate(yaml_str.split("\n")):
-                    print(f"LINE {j + 1}--> {astr}")
-                print()
-                print("And here's the error:")
-                print(exc)
-                # ['context', 'context_mark', 'note', 'problem', 'problem_mark']:
-                print()
-                print("And the breakdown of the error:")
-                print(f"exec.context_mark: {exc.context_mark}")
-                print(f"exec.problem_mark: {exc.problem_mark}")
-
-                raise SystemExit()
-            remainder = "---".join(parts[1:])
-            yield (myaml, remainder)
+            if "---" not in post:
+                rv = None, None, post
+            else:
+                yaml_str, body = post.split("---", 1)
+                try:
+                    yaml_test = yaml.load(yaml_str, Loader=yaml.FullLoader)
+                    if yaml_test:
+                        combined = f"{SEPARATOR}{yaml_str}---{body}"
+                    else:
+                        combined = post
+                    rv = yaml_test, body, combined
+                except yaml.YAMLError as exc:
+                    fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
+                    for j, astr in enumerate(yaml_str.split("\n")):
+                        print(f"LINE {j + 1}--> {astr}")
+                    print()
+                    print("And here's the error:")
+                    print(exc)
+                    # ['context', 'context_mark', 'note', 'problem', 'problem_mark']:
+                    print()
+                    print("And the breakdown of the error:")
+                    print(f"exec.context_mark: {exc.context_mark}")
+                    print(f"exec.problem_mark: {exc.problem_mark}")
+                    raise SystemExit()
+            # Populate the global ydict
+            if yaml_test and "title" in yaml_test:
+                slug = slugify(yaml_test["title"])
+                ydict[slug] = yaml_test
+            yield rv
 
 
 # def parse_journal(full_path, reverse=False):
@@ -715,19 +724,15 @@ def get_capitization_dict():
 
 def rebuild_ydict():
     """Rebuilds ydict from _data/*.db's"""
-    global ydict
-    for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
-        pass
-    with open(OUTPUT2_PATH, "a") as fh:
-        for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
-            if i:
-                try:
-                    slug = slugify(yfm["title"])
-                    fh.write((80 * "-") + "\n")
-                    apost = f"{ydict[slug]}\n---\n{apost}"
-                except:
-                    pass
-            fh.write(apost)
+    #  ____      _           _ _     _             _ _      _   
+    # |  _ \ ___| |__  _   _(_) | __| |  _   _  __| (_) ___| |_ 
+    # | |_) / _ \ '_ \| | | | | |/ _` | | | | |/ _` | |/ __| __|
+    # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_| | | (__| |_ 
+    # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \__, |\__,_|_|\___|\__|
+    #                                    |___/                  
+    with open(OUTPUT2_PATH, "w") as fh:
+        for i, (front_matter, body, combined) in enumerate(chop_chop(YAMLESQUE)):
+            fh.write(combined)
 
 
 def deletes():
@@ -908,9 +913,8 @@ def update_source():
 
 
 rebuild_ydict()
-deletes()
-categories()
-update_source()
+# deletes()
+# categories()
 # expand_yaml()
 # new_source()
 # git_push()
