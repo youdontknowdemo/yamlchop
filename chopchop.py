@@ -826,18 +826,25 @@ print()
 #  ___) | | | (_|  __/ | |_| | (_) | |_| | |  | | | | (_| | |
 # |____/|_|_|\___\___|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
 fig("Slice Journal", "Chopping long file into many small ones.")
+# I could easily re-write this most important part of the program
+# to use the new YAMLESQUE list of tuples instead of the old line-by-line parsing
+
+
+links = []
+for i, (yfm, apost) in enumerate(chop_chop(yamlesque)):
+    pass
 
 # Parse the journal file into a list of posts & create link for index.
-links = []
-for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
-    # Convert a yaml object named yfm into a text-string to be used as front matter
-    # in a Jekyll site:
-    apost = f"{front_matter}\n---\n{apost}"
-    print(f"{i+1} ", end="", flush=True)
-    # link = write_post_to_file(apost, i + 1)
-    # if link:
-    #     links.insert(0, link)
-print()
+# links = []
+# for i, (yfm, apost) in enumerate(chop_chop(yamlesque)):
+#     # Convert a yaml object named yfm into a text-string to be used as front matter
+#     # in a Jekyll site:
+#     apost = f"{front_matter}\n---\n{apost}"
+#     print(f"{i+1} ", end="", flush=True)
+#     # link = write_post_to_file(apost, i + 1)
+#     # if link:
+#     #     links.insert(0, link)
+# print()
 
 fig("Rebuilding", "Making new input from output")
 #  ____      _           _ _     _       _                              _
