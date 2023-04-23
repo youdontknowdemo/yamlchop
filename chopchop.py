@@ -902,9 +902,15 @@ def git_push():
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 # This is a YAMLesque system, so we need to be able to parse YAMLesque.
 
+def update_source():
+    print("Hit")
+    return
+
+
 rebuild_ydict()
 deletes()
 categories()
+update_source()
 # expand_yaml()
 # new_source()
 # git_push()
