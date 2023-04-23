@@ -108,6 +108,7 @@ KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 INCLUDES = f"{PATH}{REPO}_includes/"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
+CATEGORY_FILTER = ["blog", "index", "journal", "category"]
 
 # Databases
 SUMDB = REPO_DATA + "summaries.db"
@@ -180,7 +181,7 @@ def write_meta(data):
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
             "...that will entice readers to click through to the blog post. "
             "You wrote this. Write from the first person perspective. Never say 'The author'. '"
-            "Always finish sentences. Never chop off a sentence. End in a period."
+            "Keep it short to just like a few sentences, but always finish your sentences."
             "\nSummary:\n\n"
         ),
         temperature=0.5,
@@ -284,9 +285,9 @@ def chop_chop(full_path, reverse=False):
             if myaml and "title" in myaml:
                 slug = slugify(myaml["title"])
                 ydict[slug] = myaml
-                rv = myaml, remainder
+                rv = (myaml, remainder)
             else:
-                rv = {}, entry
+                rv = ({}, entry)
             yield rv
 
 
@@ -662,19 +663,20 @@ def q(text):
 def show_common(counter_obj, num_items):
     """Show the most common items in a counter object and return a list of the items."""
     global pwords
+    stop_at = 10
     console = Console()
     most_common = counter_obj.most_common(num_items)
     categories = [item[0] for item in most_common]
     # Create table and add header
     table = Table(
-        title="Most Common Items", show_header=True, header_style="bold magenta"
+        title=f"Most Common {stop_at} Items", show_header=True, header_style="bold magenta"
     )
     table.add_column("Item", justify="left", style="cyan")
     table.add_column("Count", justify="right", style="green")
     # Add rows to the table
     for i, (item, count) in enumerate(most_common):
-        table.add_row(pwords[item], f"{count}")
-        if i > 10:
+        table.add_row(f"{i + 1}. {pwords[item]}", f"{count}")
+        if i > stop_at - 2:
             break
     console.print(table)
     return categories
@@ -722,10 +724,10 @@ def get_capitization_dict():
 # |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-
-# One spin through the journal to validate YAML and populate global ydict
+# This is a YAMLesque system, so we need to be able to parse YAMLesque.
 for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
     pass
+# If you reach here, glboal ydict will be populated with the values from the YAMLesque file.
 
 fig("Deleting", "Deleting auto-generated pages from site.")
 #  ____       _      _
@@ -733,24 +735,23 @@ fig("Deleting", "Deleting auto-generated pages from site.")
 # | | | |/ _ \ |/ _ \ __/ _ \/ __|
 # | |_| |  __/ |  __/ ||  __/\__ \
 # |____/ \___|_|\___|\__\___||___/
-#
-# Get OpenAI API key
-
-# Delete old files in output path
-for fh in os.listdir(OUTPUT_PATH):
-    delete_me = f"{OUTPUT_PATH}/{fh}"
-    os.remove(delete_me)
-
-# Delete all cat_*.md files in root:
-for fh in os.listdir(f"{PATH}{REPO}"):
-    if fh.startswith("cat_"):
-        delete_me = f"{PATH}{REPO}/{fh}"
+# None of this is worth doing if ydict didn't come back with values.
+if ydict:
+    # Delete old files in output path
+    for fh in os.listdir(OUTPUT_PATH):
+        delete_me = f"{OUTPUT_PATH}/{fh}"
         os.remove(delete_me)
-
-# Delete the old temporary journal from _data
-out_file = Path(OUTPUT2_PATH)
-if out_file.exists():
-    out_file.unlink()
+    # Delete all cat_*.md files in root:
+    for fh in os.listdir(f"{PATH}{REPO}"):
+        if fh.startswith("cat_"):
+            delete_me = f"{PATH}{REPO}/{fh}"
+            os.remove(delete_me)
+    # Delete the old temporary journal from _data
+    out_file = Path(OUTPUT2_PATH)
+    if out_file.exists():
+        out_file.unlink()
+else:
+    raise SystemExit("No YAML front matter found in journal.")
 
 fig("Categories", "Creating category pages from keywords.")
 #   ____      _                        _
@@ -759,9 +760,7 @@ fig("Categories", "Creating category pages from keywords.")
 # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
 #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
 #                     |___/
-# Get the most common keywords to use as categories
-# by creating a histogram of keywords. The resulting
-# Counter object is used to retreive the top N items.
+# From historgram of keywords to N-top categories
 pwords = get_capitization_dict()
 cat_dict = histogram()
 cat_counter = Counter()
@@ -769,10 +768,8 @@ for cat, slugs in cat_dict.items():
     cat_counter[cat] = len(slugs)
 CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
 
-
-# We write out the top category page and an include file
-# of links that is referenced by the top category page.
-print("Writing out Category Page & pages")
+# Write out the category page that goes in the site root as category.md
+print("Writing out category.md and its include file.")
 with open(CATEGORY_PAGE, "w") as fh:
     fh.write("# Categories\n")
     fh.write("{% include category.md %}\n")  # Reference to include
@@ -784,10 +781,9 @@ with open(CATEGORY_PAGE, "w") as fh:
             fh2.write(f'<li><a href="/{permalink}/">{pcat}</a></li>\n')
         fh2.write("</ol>\n")
 
-# Write out individual category pages that go in site root as cat_*.md
-# Also write out their individual 1-to-1 include files.
+# Write out the many category pages that go in the site root as cat_*.md
 for i, category in enumerate(CATEGORIES):
-    if category not in ["blog"]:
+    if category not in CATEGORY_FILTER:
         permalink = slugify(category)
         pcat = pwords[category.lower()]
         front_matter = f"""---
@@ -832,13 +828,14 @@ fig("Slice Journal", "Chopping long file into many small ones.")
 # Parse the journal file into a list of posts & create link for index.
 links = []
 for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
-    apost = f"{yfm}\n---\n{apost}"
+    # Convert a yaml object named yfm into a text-string to be used as front matter
+    # in a Jekyll site:
+    apost = f"{front_matter}\n---\n{apost}"
     print(f"{i+1} ", end="", flush=True)
-    link = write_post_to_file(apost, i + 1)
-    if link:
-        links.insert(0, link)
+    # link = write_post_to_file(apost, i + 1)
+    # if link:
+    #     links.insert(0, link)
 print()
-raise SystemExit()
 
 fig("Rebuilding", "Making new input from output")
 #  ____      _           _ _     _       _                              _
