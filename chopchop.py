@@ -95,7 +95,6 @@ ARGS = aparser.parse_args()
 BLOG = f"/{ARGS.blog}/" if not ARGS.blog.startswith("/") else ARGS.blog
 OUTPUT = ARGS.output
 AUTHOR = ARGS.author
-Fydict = defaultdict(dict)
 YAMLESQUE = ARGS.full_path
 parts = YAMLESQUE.split("/")
 REPO = parts[-2] + "/"
@@ -711,13 +710,7 @@ def get_capitization_dict():
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
-fig("YAML Check", "First things first")
-#__   __ _    __  __ _        ____ _               _    
-#\ \ / // \  |  \/  | |      / ___| |__   ___  ___| | __
-# \ V // _ \ | |\/| | |     | |   | '_ \ / _ \/ __| |/ /
-#  | |/ ___ \| |  | | |___  | |___| | | |  __/ (__|   < 
-#  |_/_/   \_\_|  |_|_____|  \____|_| |_|\___|\___|_|\_\
-                                                       
+# One spin through the journal to validate YAML and populate global ydict
 for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
     pass
 
