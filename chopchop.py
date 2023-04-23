@@ -726,13 +726,14 @@ def rebuild_ydict():
                     slug = slugify(fm["title"])
                     if slug in ydict:
                         # Use the ydict entry for making a new combined entry.
-                        combined = f"{ydict[slug]}\n---\n{body}"
+                        # Convert ydict[slug] to a string for yaml front matter.
+                        front_matter = yaml.dump(ydict[slug])
+                        combined = f"{SEPARATOR}{front_matter}---{body}"
                 else:
                     write_me = combined
             else:
                 write_me = combined
             fh.write(combined)
-            # fh.write(f"{SEPARATOR}{combined}")
 
 
 def deletes():
