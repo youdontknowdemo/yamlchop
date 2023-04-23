@@ -260,15 +260,24 @@ def chop_chop(full_path, reverse=False):
         posts = CHOP.split(fh.read())
         if reverse:
             posts.reverse()  # Reverse so article indexes don't change.
-        for post in posts:
+        for i, post in enumerate(posts):
             parts = post.split("---")
             yaml_str = parts[0]
             try:
                 myaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
             except yaml.YAMLError as exc:
-                print("Error in YAML front matter:")
+                fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
+                for j, astr in enumerate(yaml_str.split("\n")):
+                    print(f"LINE {j + 1}--> {astr}")
+                print()
+                print("And here's the error:")
                 print(exc)
-                print(myaml)
+                # ['context', 'context_mark', 'note', 'problem', 'problem_mark']:
+                print()
+                print("And the breakdown of the error:")
+                print(f"exec.context_mark: {exc.context_mark}")
+                print(f"exec.problem_mark: {exc.problem_mark}")
+
                 raise SystemExit()
             remainder = "---".join(parts[1:])
             if myaml and "title" in myaml:
@@ -819,7 +828,7 @@ fig("Slice Journal", "Chopping long file into many small ones.")
 # Parse the journal file into a list of posts & create link for index.
 front_matter, content = chop_chop(YAMLESQUE)
 links = []
-for i, apost in enumerate(post_generator):
+for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
     print(f"{i+1} ", end="", flush=True)
     # link = write_post_to_file(apost, i + 1)
     # if link:
@@ -833,16 +842,25 @@ fig("Rebuilding", "Making new input from output")
 # | |_) / _ \ '_ \| | | | | |/ _` |  _  | |/ _ \| | | | '__| '_ \ / _` | |
 # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_) | |_| | |  | | | | (_| | |
 # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \___/ \___/ \__,_|_|  |_| |_|\__,_|_|
-# Rebuild the journal in _data
-front_matter, content = chop_chop(YAMLESQUE, reverse=False)
+
+# Fill-in Journal front matter with new data from OpenAI _data/*.db's Wheras on
+# our last implementation, we opened and closed each database for every line,
+# this time we're going to prepare a job so we need only open each database
+# once. We do this by walking t front_matter with fewer than a certain amount
+# of required fields. This ydict is populated now, because of the yaml-check
+# step. We build a new object which is every field that is still needed, then
+# we step through each database getting those values if available.
+
 with open(OUTPUT2_PATH, "a") as fh:
-    for i, apost in enumerate(post_generator):
+    for i, (yfm, apost) in enumerate(chop_chop(YAMLESQUE)):
         print(i, end=" ", flush=True)
+        # apost = front_matter_inserter(apost)
         if i:
             fh.write((80 * "-") + "\n")
-        apost = front_matter_inserter(apost)
+        apost = f"{yfm}\n---\n{apost}"
         fh.write(apost)
 print()
+raise SystemExit()
 
 #  _   _                 ____
 # | \ | | _____      __ / ___|  ___  _   _ _ __ ___ ___
