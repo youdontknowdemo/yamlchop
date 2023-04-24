@@ -39,15 +39,12 @@ import yaml
 import shlex
 import openai
 import shutil
-import datetime
 import argparse
-import pandas as pd
 from time import sleep
 from retry import retry
 from pathlib import Path
 from slugify import slugify
 from pyfiglet import Figlet
-from dateutil import parser
 from rich.table import Table
 from datetime import datetime
 from rich.console import Console
@@ -65,7 +62,7 @@ NUMBER_OF_CATEGORIES = 300
 POST_BY_POST = True
 INTERACTIVE = False
 
-with open(f"/home/ubuntu/repos/skite/openai.txt", "r") as fh:
+with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
     openai.api_key = fh.readline()
 
 
@@ -421,10 +418,6 @@ def build_ydict():
                         [f"{k}: {safety_quotes(v)}" for k, v in ydict[slug].items()]
                     )
                     combined = f"{SEPARATOR}{front_matter}\n---{body}"
-                else:
-                    write_me = combined
-            else:
-                write_me = combined
             fh.write(combined)
 
 
@@ -579,9 +572,8 @@ def categories():
                             fh2.write(
                                 f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br/>{description}</li>\n'
                             )
-                        except:
+                        except KeyError:
                             pass
-                        # fh2.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
                     fh2.write("</ol>\n")
 
 
@@ -620,7 +612,7 @@ def sync_check():
                 print(f"headline: {headline}\n")
                 print(f"description: {description}\n")
                 print(f"keywords: {keywords}\n")
-                input(f"Press enter to continue...")
+                input("Press enter to continue...")
             print()
     # Outside the loop and the global ydict is updated but
     # the database may now be ahead of the YAMLesque file.
@@ -674,39 +666,6 @@ def make_index():
         fh.write("</ol>\n")
 
 
-def git_push():
-    #   ____ _ _     ____            _
-    #  / ___(_) |_  |  _ \ _   _ ___| |__
-    # | |  _| | __| | |_) | | | / __| '_ \
-    # | |_| | | |_  |  __/| |_| \__ \ | | |
-    #  \____|_|\__| |_|    \__,_|___/_| |_|
-    # Git commands
-    fig("Git Push", "Releasing site changes...")
-    here = f"{PATH}{REPO}"
-    git(here, f"add {here}cat_*")
-    git(here, "add _posts/*")
-    git(here, "add _includes/*")
-    git(here, "add assets/images/*")
-    git(here, f'commit -am "Pushing {REPO} to Github..."')
-    git(here, "push")
-
-
-#  _____           _   _____                 _   _
-# | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
-# |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
-# | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
-# |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-# This is a YAMLesque system, so we need to be able to parse YAMLesque.
-
-#  _____ _            ____  _                                             _
-# |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
-#   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
-#   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
-#   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
-#                                   |___/ |___/
-# Doing so has a distinct Python generator look to it, where we yield chunks:
-
-
 def write_posts():
     """Write the posts to the output directory"""
     # __        __    _ _         ____           _
@@ -752,6 +711,7 @@ def write_posts():
 date: {adate}
 title: "{title}"
 permalink: {permalink}
+headline: {headline}
 description: "{description}"
 keywords: {keywords}
 categories: {categories}
@@ -763,6 +723,39 @@ layout: post
     print()
 
 
+def git_push():
+    #   ____ _ _     ____            _
+    #  / ___(_) |_  |  _ \ _   _ ___| |__
+    # | |  _| | __| | |_) | | | / __| '_ \
+    # | |_| | | |_  |  __/| |_| \__ \ | | |
+    #  \____|_|\__| |_|    \__,_|___/_| |_|
+    # Git commands
+    fig("Git Push", "Releasing site changes...")
+    here = f"{PATH}{REPO}"
+    git(here, f"add {here}cat_*")
+    git(here, "add _posts/*")
+    git(here, "add _includes/*")
+    git(here, "add assets/images/*")
+    git(here, f'commit -am "Pushing {REPO} to Github..."')
+    git(here, "push")
+
+
+#  _____           _   _____                 _   _
+# | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
+# |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
+# | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
+# |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
+# This is a YAMLesque system, so we need to be able to parse YAMLesque.
+
+#  _____ _            ____  _                                             _
+# |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
+#   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
+#   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
+#   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
+#                                   |___/ |___/
+# Doing so has a distinct Python generator look to it, where we yield chunks:
+
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -771,13 +764,13 @@ layout: post
 # This controls the entire (usually linear) flow. Edit for debugging.
 
 build_ydict()  # Builds global ydict (should always run)
-deletes()      # Deletes old posts
-categories()   # Builds global categories and builds category pages
-sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
-new_source()   # Replaces YAMLESQUE input with syncronized output
-make_index()   # Builds index page of all posts (for blog page)
+deletes()  # Deletes old posts
+categories()  # Builds global categories and builds category pages
+sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+new_source()  # Replaces YAMLESQUE input with syncronized output
+make_index()  # Builds index page of all posts (for blog page)
 write_posts()  # Writes out all Jekyll-style posts
-git_push()     # Pushes changes to Github (publishes)
+git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
