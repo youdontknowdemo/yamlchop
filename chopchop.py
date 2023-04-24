@@ -771,13 +771,13 @@ layout: post
 # This controls the entire (usually linear) flow. Edit for debugging.
 
 build_ydict()  # Builds global ydict (should always run)
-# deletes()      # Deletes old posts
-categories()  # Builds global categories and builds category pages
-# sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
-# new_source()   # Replaces YAMLESQUE input with syncronized output
-# make_index()   # Builds index page of all posts (for blog page)
+deletes()      # Deletes old posts
+categories()   # Builds global categories and builds category pages
+sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
+new_source()   # Replaces YAMLESQUE input with syncronized output
+make_index()   # Builds index page of all posts (for blog page)
 write_posts()  # Writes out all Jekyll-style posts
-# git_push()     # Pushes changes to Github (publishes)
+git_push()     # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
