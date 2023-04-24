@@ -652,13 +652,16 @@ def make_index():
     #                                         |___/
     fig("Index Page", "Making the index page")
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
-        num_posts = len(ydict) - 1
+        num_posts = len(ydict) + 1
         fh.write(f'<ol start="{num_posts}" reversed >\n')
         for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
             if fm and "title" in fm and "date" in fm and "description" in fm:
                 title = fm["title"]
                 slug = slugify(title)
                 description = fm["description"]
+                # Neutralize pointy brackets for description:
+                description = description.replace("<", "&lt;")
+                description = description.replace(">", "&gt;")
                 adate = fm["date"]
                 fh.write(
                     f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n'
