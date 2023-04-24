@@ -474,6 +474,7 @@ def show_common(counter_obj, num_items):
         if i > stop_at - 2:
             break
     console.print(table)
+    categories = [x for x in categories if x not in ["", " ", None]]
     return categories
 
 
