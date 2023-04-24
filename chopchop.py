@@ -390,6 +390,7 @@ def get_capitization_dict():
     for key in words:
         alist = words[key]
         pwords[key] = Counter(alist).most_common(1)[0][0]
+    # Hardwired overrides:
     pwords["window"] = "Windows"
     return pwords
 
@@ -678,7 +679,7 @@ def git_push():
     # Git commands
     fig("Git Push", "Releasing site changes...")
     here = f"{PATH}{REPO}"
-    git(here, f"add {here}*")
+    git(here, f"add {here}cat_*")
     git(here, "add _posts/*")
     git(here, "add _includes/*")
     git(here, "add assets/images/*")
@@ -748,8 +749,7 @@ keywords: {keywords}
 category: "{category}"
 author: {AUTHOR}
 layout: post
----
-"""
+---"""
                 )
                 fh.write(body)
     print()
