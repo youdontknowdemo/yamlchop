@@ -762,7 +762,8 @@ layout: post
                 fh.write(body)
     print()
 
-#  _____ _                                 _             _ 
+
+#  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
 # |  _| | | (_) \ V  V /  | (_| (_) | | | | |_| | | (_) | |
@@ -771,17 +772,16 @@ layout: post
 
 build_ydict()  # Builds global ydict (should always run)
 # deletes()      # Deletes old posts
-categories()   # Builds global categories and builds category pages
+categories()  # Builds global categories and builds category pages
 # sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
 # new_source()   # Replaces YAMLESQUE input with syncronized output
 # make_index()   # Builds index page of all posts (for blog page)
 write_posts()  # Writes out all Jekyll-style posts
 # git_push()     # Pushes changes to Github (publishes)
 
-#  ____                   
-# |  _ \  ___  _ __   ___ 
+#  ____
+# |  _ \  ___  _ __   ___
 # | | | |/ _ \| '_ \ / _ \
 # | |_| | (_) | | | |  __/
 # |____/ \___/|_| |_|\___|
 fig("Done!", "All done!")
-                        
