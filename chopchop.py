@@ -46,7 +46,6 @@ ENGINE = "text-davinci-003"
 NUMBER_OF_CATEGORIES = 300
 
 # Debugging
-DISABLE_GIT = False
 POST_BY_POST = True
 INTERACTIVE = False
 
@@ -137,6 +136,51 @@ Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
 
+def chop_chop(full_path, reverse=False):
+    """Chop YAMLesque file to spew chuks."""
+    #   ____                           _
+    #  / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
+    # | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
+    # | |_| |  __/ | | |  __/ | | (_| | || (_) | |
+    #  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|
+    global ydict
+    ydict = defaultdict(dict)
+    with open(full_path, "r") as fh:
+        posts = CHOP.split(fh.read())
+        if reverse:
+            posts.reverse()  # Reverse so article indexes don't change.
+        for i, post in enumerate(posts):
+            if "---" not in post:
+                rv = None, None, post
+            else:
+                yaml_str, body = post.split("---", 1)
+                try:
+                    yaml_test = yaml.load(yaml_str, Loader=yaml.FullLoader)
+                    if yaml_test:
+                        combined = f"{SEPARATOR}{yaml_str}---{body}"
+                    else:
+                        combined = post
+                    rv = yaml_test, body, combined
+                except yaml.YAMLError as exc:
+                    fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
+                    for j, astr in enumerate(yaml_str.split("\n")):
+                        print(f"LINE {j + 1}--> {astr}")
+                    print()
+                    print("And here's the error:")
+                    print(exc)
+                    # ['context', 'context_mark', 'note', 'problem', 'problem_mark']:
+                    print()
+                    print("And the breakdown of the error:")
+                    print(f"exec.context_mark: {exc.context_mark}")
+                    print(f"exec.problem_mark: {exc.problem_mark}")
+                    raise SystemExit()
+            # Populate the global ydict
+            if yaml_test and "title" in yaml_test:
+                slug = slugify(yaml_test["title"])
+                ydict[slug] = yaml_test
+            yield rv
+
+
 def odb(DBNAME, afunc, slug, full_text):
     """Record OpenAI API hits in a database."""
     api_hit = False
@@ -144,10 +188,10 @@ def odb(DBNAME, afunc, slug, full_text):
         if slug in db:
             result = db[slug]
         else:
-            #    _    ____ ___   _     _ _
-            #   / \  |  _ \_ _| | |__ (_) |_
-            #  / _ \ | |_) | |  | '_ \| | __|
-            # / ___ \|  __/| |  | | | | | |_
+            #     _    ____ ___   _     _ _
+            #    / \  |  _ \_ _| | |__ (_) |_
+            #   / _ \ | |_) | |  | '_ \| | __|
+            #  / ___ \|  __/| |  | | | | | |_
             # /_/   \_\_|  |___| |_| |_|_|\__|
             result = afunc(full_text)  # Hits OpenAI API
             db[slug] = result
@@ -269,51 +313,6 @@ def oget(DBNAME, slug):
     return result
 
 
-def chop_chop(full_path, reverse=False):
-    """Chop YAMLesque file to spew chuks."""
-    #   ____                           _
-    #  / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
-    # | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
-    # | |_| |  __/ | | |  __/ | | (_| | || (_) | |
-    #  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|
-    global ydict
-    ydict = defaultdict(dict)
-    with open(full_path, "r") as fh:
-        posts = CHOP.split(fh.read())
-        if reverse:
-            posts.reverse()  # Reverse so article indexes don't change.
-        for i, post in enumerate(posts):
-            if "---" not in post:
-                rv = None, None, post
-            else:
-                yaml_str, body = post.split("---", 1)
-                try:
-                    yaml_test = yaml.load(yaml_str, Loader=yaml.FullLoader)
-                    if yaml_test:
-                        combined = f"{SEPARATOR}{yaml_str}---{body}"
-                    else:
-                        combined = post
-                    rv = yaml_test, body, combined
-                except yaml.YAMLError as exc:
-                    fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
-                    for j, astr in enumerate(yaml_str.split("\n")):
-                        print(f"LINE {j + 1}--> {astr}")
-                    print()
-                    print("And here's the error:")
-                    print(exc)
-                    # ['context', 'context_mark', 'note', 'problem', 'problem_mark']:
-                    print()
-                    print("And the breakdown of the error:")
-                    print(f"exec.context_mark: {exc.context_mark}")
-                    print(f"exec.problem_mark: {exc.problem_mark}")
-                    raise SystemExit()
-            # Populate the global ydict
-            if yaml_test and "title" in yaml_test:
-                slug = slugify(yaml_test["title"])
-                ydict[slug] = yaml_test
-            yield rv
-
-
 def git(cwd, line_command):
     """Run a Linux git command."""
     cmd = [GIT_EXE] + shlex.split(line_command)
@@ -369,50 +368,6 @@ def q(text):
     return text
 
 
-def show_common(counter_obj, num_items):
-    """Show the most common items in a counter object and return a list of the items."""
-    global pwords
-    stop_at = 10
-    console = Console()
-    most_common = counter_obj.most_common(num_items)
-    categories = [item[0] for item in most_common]
-    # Create table and add header
-    table = Table(
-        title=f"Most Common {stop_at} Items",
-        show_header=True,
-        header_style="bold magenta",
-    )
-    table.add_column("Item", justify="left", style="cyan")
-    table.add_column("Count", justify="right", style="green")
-    # Add rows to the table
-    for i, (item, count) in enumerate(most_common):
-        table.add_row(f"{i + 1}. {pwords[item]}", f"{count}")
-        if i > stop_at - 2:
-            break
-    console.print(table)
-    return categories
-
-
-def histogram():
-    """Create a histogram of keywords."""
-    # There is a 1-time dependenccy on running the following commands:
-    # import nltk; nltk.download('wordnet')
-    keywords = []
-    lemmatizer = WordNetLemmatizer()
-    cat_dict = defaultdict(list)
-    with sqldict(KWDB) as db:
-        for slug, kwstr in db.iteritems():
-            keywords = kwstr.split(", ")
-            for keyword in keywords:
-                keyword = keyword.strip().lower()
-                keyword = lemmatizer.lemmatize(keyword)
-                cat_dict[keyword].append(slug)
-    # Reverse each list of slugs so that the most recent is first.
-    for key in cat_dict:
-        cat_dict[key].reverse()
-    return cat_dict
-
-
 def get_capitization_dict():
     # We need a dictionary of most common capitalization usage of Category words.
     words = defaultdict(list)
@@ -459,6 +414,61 @@ def rebuild_ydict():
             else:
                 write_me = combined
             fh.write(combined)
+
+
+def histogram():
+    """Create a histogram of keywords."""
+    #  _   _ _     _
+    # | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___
+    # | |_| | / __| __/ _ \ / _` | '__/ _` | '_ ` _ \
+    # |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
+    # |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
+    #                       |___/
+    # There is a 1-time dependenccy on running the following commands:
+    # import nltk; nltk.download('wordnet')
+    keywords = []
+    lemmatizer = WordNetLemmatizer()
+    cat_dict = defaultdict(list)
+    with sqldict(KWDB) as db:
+        for slug, kwstr in db.iteritems():
+            keywords = kwstr.split(", ")
+            for keyword in keywords:
+                keyword = keyword.strip().lower()
+                keyword = lemmatizer.lemmatize(keyword)
+                cat_dict[keyword].append(slug)
+    # Reverse each list of slugs so that the most recent is first.
+    for key in cat_dict:
+        cat_dict[key].reverse()
+    return cat_dict
+
+
+def show_common(counter_obj, num_items):
+    """Show the most common items in a counter object and return a list of the items."""
+    #  ____  _
+    # / ___|| |__   _____      __   ___ ___  _ __ ___  _ __ ___   ___  _ __
+    # \___ \| '_ \ / _ \ \ /\ / /  / __/ _ \| '_ ` _ \| '_ ` _ \ / _ \| '_ \
+    #  ___) | | | | (_) \ V  V /  | (_| (_) | | | | | | | | | | | (_) | | | |
+    # |____/|_| |_|\___/ \_/\_/    \___\___/|_| |_| |_|_| |_| |_|\___/|_| |_|
+    global pwords
+    stop_at = 10
+    console = Console()
+    most_common = counter_obj.most_common(num_items)
+    categories = [item[0] for item in most_common]
+    # Create table and add header
+    table = Table(
+        title=f"Most Common {stop_at} Items",
+        show_header=True,
+        header_style="bold magenta",
+    )
+    table.add_column("Item", justify="left", style="cyan")
+    table.add_column("Count", justify="right", style="green")
+    # Add rows to the table
+    for i, (item, count) in enumerate(most_common):
+        table.add_row(f"{i + 1}. {pwords[item]}", f"{count}")
+        if i > stop_at - 2:
+            break
+    console.print(table)
+    return categories
 
 
 def deletes():
@@ -620,6 +630,30 @@ def new_source():
         shutil.copyfile(OUTPUT2_PATH, YAMLESQUE)
 
 
+def make_index():
+    """Builds the index page"""
+    #  ___           _             ____
+    # |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___
+    #  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
+    #  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
+    # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
+    #                                         |___/
+    fig("Index Page", "Making the index page")
+    with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
+        fh.write(f'<ol start="{len(ydict)}" reversed >\n')
+        # fh.write("<ol start=  reversed>\n")
+        for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+            if fm and "title" in fm and "date" in fm and "description" in fm:
+                title = fm["title"]
+                description = fm["description"]
+                adate = fm["date"]
+                fh.write(
+                    f'<li><a href="{BLOG}{slugify(title)}/">{title}</a> ({adate})\n<br>{description}</li>\n'
+                )
+            # fh.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
+        fh.write("</ol>\n")
+
+
 def git_push():
     #   ____ _ _     ____            _
     #  / ___(_) |_  |  _ \ _   _ ___| |__
@@ -627,15 +661,14 @@ def git_push():
     # | |_| | | |_  |  __/| |_| \__ \ | | |
     #  \____|_|\__| |_|    \__,_|___/_| |_|
     # Git commands
-    if not DISABLE_GIT:
-        fig("Git Push", "The actual release")
-        here = f"{PATH}{REPO}"
-        git(here, f"add {here}*")
-        git(here, "add _posts/*")
-        git(here, "add _includes/*")
-        git(here, "add assets/images/*")
-        git(here, f'commit -am "Pushing {REPO} to Github..."')
-        git(here, "push")
+    fig("Git Push", "The actual release")
+    here = f"{PATH}{REPO}"
+    git(here, f"add {here}*")
+    git(here, "add _posts/*")
+    git(here, "add _includes/*")
+    git(here, "add assets/images/*")
+    git(here, f'commit -am "Pushing {REPO} to Github..."')
+    git(here, "push")
 
 
 #  _____           _   _____                 _   _
@@ -646,32 +679,11 @@ def git_push():
 # This is a YAMLesque system, so we need to be able to parse YAMLesque.
 
 
-def update_source():
-    print("Hit")
-    return
-
-
 rebuild_ydict()
 deletes()
 categories()
 sync_check()
 new_source()
+make_index()
 # git_push()
-
-
-#  ___           _             ____
-# |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___
-#  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
-#  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
-# |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
-#                                         |___/
-
-# # Add countdown ordered list to index page
-# links.insert(0, f'<ol start="{len(links)}" reversed>')
-# links.append("</ol>")
-# # Write index page
-# index_page = "\n".join(links)
-# # Write out list of posts
-# with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
-#     fh.writelines(index_page)
-# fig("Done")
+fig("Done")
