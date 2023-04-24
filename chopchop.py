@@ -2,24 +2,40 @@
 # Date: 2023-04-22
 # Description: Chop a journal.md file into individual blog posts.
 #   ____ _                  ____ _
-#  / ___| |__   ___  _ __  / ___| |__   ___  _ __
-# | |   | '_ \ / _ \| '_ \| |   | '_ \ / _ \| '_ \
-# | |___| | | | (_) | |_) | |___| | | | (_) | |_) |
-#  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/
+#  / ___| |__   ___  _ __  / ___| |__   ___  _ __    - I keep one journal.md file for life.
+# | |   | '_ \ / _ \| '_ \| |   | '_ \ / _ \| '_ \   - This is it. One place to look each day.
+# | |___| | | | (_) | |_) | |___| | | | (_) | |_) |  - I chop it up into individual blog posts.
+#  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/   - I use this script to do it.
 #                   |_|                     |_|
-# python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
-
-# TO-DO:
-# - Clean up journal parsing based on better YAML parsing
-# - Make rebuilding the journal dependent on it being needed
-# - Speed it up by not opening/closing databases for every page.
-# - Check resulting pages for broken links.
+# USAGE: python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
+#                       ___
+#                      |   |         ____            This looks odd because it's a text-based UI
+#                      |_  |        /    \           and I'm using a monospace font.
+#                        \ |       |      \
+#                        |  \      |       \         I'm able to edit it so easily because I use
+#                         \  \____ \_      |         a text-based editor called Vim. Actually, it's
+#                          \      \_/     _|         NeoVim, which is a fork of Vim. Same thing.
+#                    __     \_           /
+#   .-,             /  \      |          |           I'll spend a little time designing this odd
+#   |  \            |   `----_|          |           bit of space here next to Alice, who really
+#    \  \_________,-`                /\   \          isn't necessary either for this chop chop
+#    |                              /  \_  \         script to work. But I like to make references
+#    `-----------,                  |    \  \        to it all the time, so here she is.
+#                |                  /     \  |
+#                |                 |       | \       Monospace text is good. Don't unterestimate
+#                /                 |       \__|      its power, no matter what direction tech goes.
+#               /   _              |                 It takes awhile to get used to the fact that
+#              /   / \_             \                text can be a UI. But once you do, you'll
+#              |  /    \__      __--`                never go back. It's so much more powerful.
+#             _/ /        \   _/
+#         ___/  /          \_/                       That's Wonderland! It's a Linux wonder land.
+#        /     /                                     Get used to stringing up the output of commands
+#        `----`                                      and piping them into other commands.
 
 import os
 import re
 import sys
 import yaml
-import html
 import shlex
 import openai
 import shutil
@@ -65,7 +81,7 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("ChopChop", "A radical new blogging system based on 1-file for life")
+fig("ChopChop", "A radical new YAMLesque blogging system based on 1-file for life")
 
 #  ____                          _
 # |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___
@@ -351,17 +367,11 @@ def compare_files(file1, file2):
                 return True
 
 
-def q(text):
-    # Ensure that it is quoted if it needs it based on the use of colons
-    # while defending against double quotes. It's too easy to make strings
-    # that have accumulated nested quotes. Use some technique like Regex or
-    # something to make sure there's not patterns like "", """, """"", etc.
+def safety_quotes(text):
     if not text:
         return text
     if ":" in text:
         if '"' in text:
-            # Use RegEx to remove any number of repeating double quotes with only one double quote.
-            # This will allow us to use single quotes to wrap the string.
             text = re.sub(r"\"{2,}", '"', text)
         if text[0] != '"' and text[-1] != '"':
             text = f'"{text}"'
@@ -385,13 +395,13 @@ def get_capitization_dict():
 
 
 def rebuild_ydict():
-    """Rebuilds ydict from _data/*.db's"""
-    #  ____      _           _ _     _             _ _      _
-    # |  _ \ ___| |__  _   _(_) | __| |  _   _  __| (_) ___| |_
-    # | |_) / _ \ '_ \| | | | | |/ _` | | | | |/ _` | |/ __| __|
-    # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_| | | (__| |_
-    # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \__, |\__,_|_|\___|\__|
-    #                                    |___/
+    """Rebuilds ydict from _data/*.dbs, which may have more daata than the YAMLESQUE source."""
+    #  ____        _ _     _                         _       _ _      _
+    # | __ ) _   _(_) | __| |  _   _  __ _ _ __ ___ | |   __| (_) ___| |_
+    # |  _ \| | | | | |/ _` | | | | |/ _` | '_ ` _ \| |  / _` | |/ __| __|
+    # | |_) | |_| | | | (_| | | |_| | (_| | | | | | | | | (_| | | (__| |_
+    # |____/ \__,_|_|_|\__,_|  \__, |\__,_|_| |_| |_|_|  \__,_|_|\___|\__|
+    #                          |___/
     with open(OUTPUT2_PATH, "w") as fh:
         for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
             if fm:
@@ -406,7 +416,7 @@ def rebuild_ydict():
                     ydict[slug]["headline"] = headline
                     # Flatten ydict[slug] into a string of key/value pairs.
                     front_matter = "\n".join(
-                        [f"{key}: {q(value)}" for key, value in ydict[slug].items()]
+                        [f"{k}: {safety_quotes(v)}" for k, v in ydict[slug].items()]
                     )
                     combined = f"{SEPARATOR}{front_matter}\n---{body}"
                 else:
@@ -498,25 +508,25 @@ def deletes():
 
 
 def categories():
-    fig("Categories", "Creating category pages from keywords.")
+    """Create category pages from keywords."""
     #   ____      _                        _
     #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
     # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
     # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
     #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
     #                     |___/
-    # From historgram of keywords to N-top categories
-    pwords = get_capitization_dict()
-    cat_dict = histogram()
-    cat_counter = Counter()
+    fig("Categories", "Creating category pages from keywords.")
+    pwords = get_capitization_dict()  # Get a dict of capitalized words
+    cat_dict = histogram()  # Get a dict of keywords and slugs
+    cat_counter = Counter()  # Create a counter object
     for cat, slugs in cat_dict.items():
-        cat_counter[cat] = len(slugs)
+        cat_counter[cat] = len(slugs)  # Add the number of slugs to the counter
     CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
 
     # Write out the category page that goes in the site root as category.md
     print("Writing out category.md and its include file.")
     with open(CATEGORY_PAGE, "w") as fh:
-        fh.write("# Categories\n")
+        fh.write("# Categories\n")  # This could be more frontmatter-y
         fh.write("{% include category.md %}\n")  # Reference to include
         with open(CATEGORY_INCLUDE, "w") as fh2:
             fh2.write(f"<ol start='{len(CATEGORIES)}' reversed>\n")
@@ -571,6 +581,7 @@ def categories():
 
 
 def sync_check():
+    """Check for new posts needing AI-writing or YAMLESQUE source-file updating."""
     #  ______   ___   _  ____    ____ _               _
     # / ___\ \ / / \ | |/ ___|  / ___| |__   ___  ___| | __
     # \___ \\ V /|  \| | |     | |   | '_ \ / _ \/ __| |/ /
@@ -612,6 +623,7 @@ def sync_check():
 
 
 def new_source():
+    """If there's a new source, copy it to the input file. It's meta."""
     #  _   _                 ____
     # | \ | | _____      __ / ___|  ___  _   _ _ __ ___ ___
     # |  \| |/ _ \ \ /\ / / \___ \ / _ \| | | | '__/ __/ _ \
@@ -640,17 +652,17 @@ def make_index():
     #                                         |___/
     fig("Index Page", "Making the index page")
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
-        fh.write(f'<ol start="{len(ydict)}" reversed >\n')
-        # fh.write("<ol start=  reversed>\n")
+        num_posts = len(ydict) - 1
+        fh.write(f'<ol start="{num_posts}" reversed >\n')
         for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
             if fm and "title" in fm and "date" in fm and "description" in fm:
                 title = fm["title"]
+                slug = slugify(title)
                 description = fm["description"]
                 adate = fm["date"]
                 fh.write(
-                    f'<li><a href="{BLOG}{slugify(title)}/">{title}</a> ({adate})\n<br>{description}</li>\n'
+                    f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n'
                 )
-            # fh.write(f'<li><a href="{BLOG}{slug}/">{slug}</a></li>\n')
         fh.write("</ol>\n")
 
 
