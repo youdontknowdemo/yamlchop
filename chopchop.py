@@ -125,6 +125,7 @@ INCLUDES = f"{PATH}{REPO}_includes/"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
 CATEGORY_FILTER = ["blog", "index", "journal", "category"]
+CATEGORIES = []
 
 # Databases
 SUMDB = REPO_DATA + "summaries.db"
@@ -395,7 +396,7 @@ def get_capitization_dict():
     return pwords
 
 
-def rebuild_ydict():
+def build_ydict():
     """Rebuilds ydict from _data/*.dbs, which may have more daata than the YAMLESQUE source."""
     #  ____        _ _     _                         _       _ _      _
     # | __ ) _   _(_) | __| |  _   _  __ _ _ __ ___ | |   __| (_) ___| |_
@@ -446,6 +447,7 @@ def histogram():
             for keyword in keywords:
                 keyword = keyword.strip().lower()
                 keyword = lemmatizer.lemmatize(keyword)
+                keyword = keyword.lower()
                 cat_dict[keyword].append(slug)
     # Reverse each list of slugs so that the most recent is first.
     for key in cat_dict:
@@ -517,12 +519,14 @@ def categories():
     #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
     #                     |___/
     fig("Categories", "Creating category pages from keywords.")
+    global CATEGORIES
     pwords = get_capitization_dict()  # Get a dict of capitalized words
     cat_dict = histogram()  # Get a dict of keywords and slugs
     cat_counter = Counter()  # Create a counter object
     for cat, slugs in cat_dict.items():
         cat_counter[cat] = len(slugs)  # Add the number of slugs to the counter
     CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
+    print(f"Using {len(CATEGORIES)} categories.")
 
     # Write out the category page that goes in the site root as category.md
     print("Writing out category.md and its include file.")
@@ -620,7 +624,7 @@ def sync_check():
             print()
     # Outside the loop and the global ydict is updated but
     # the database may now be ahead of the YAMLesque file.
-    rebuild_ydict()
+    build_ydict()
 
 
 def new_source():
@@ -715,6 +719,7 @@ def write_posts():
     # Chop, chop YAMLESQUE, that's what we do as Python generator.
     # That means it's memory efficient and can parse very large files.
     for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
+        global pwords
         if fm and len(fm) > 2:
             title = fm["title"]
             stem = slugify(title)
@@ -722,12 +727,15 @@ def write_posts():
             print(f"{i+1} ", end="", flush=True)
             adate = fm["date"]
             description = fm["description"]
-            keywords = fm["keywords"]
             headline = fm["headline"]
-            if "category" in fm:
-                category = fm["category"]
-            else:
-                category = ""
+            keywords = fm["keywords"]
+            keyword_list = keywords.split(", ")
+            categories = set()
+            for keyword in keyword_list:
+                keyword = keyword.lower()
+                if keyword in CATEGORIES:
+                    categories.add(keyword)
+            categories = ", ".join(categories)
             permalink = f"{BLOG}{stem}/"
             # convert a date string to a date object formatted like: Sat Apr 22, 2023
             date_object = datetime.strptime(adate, "%a %b %d, %Y")
@@ -746,7 +754,7 @@ title: "{title}"
 permalink: {permalink}
 description: "{description}"
 keywords: {keywords}
-category: "{category}"
+categories: {categories}
 author: {AUTHOR}
 layout: post
 ---"""
@@ -754,13 +762,26 @@ layout: post
                 fh.write(body)
     print()
 
+#  _____ _                                 _             _ 
+# |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
+# | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
+# |  _| | | (_) \ V  V /  | (_| (_) | | | | |_| | | (_) | |
+# |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
+# This controls the entire (usually linear) flow. Edit for debugging.
 
-rebuild_ydict()
-deletes()
-categories()
-sync_check()
-new_source()
-make_index()
-write_posts()
-git_push()
-fig("Done")
+build_ydict()  # Builds global ydict (should always run)
+# deletes()      # Deletes old posts
+categories()   # Builds global categories and builds category pages
+# sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
+# new_source()   # Replaces YAMLESQUE input with syncronized output
+# make_index()   # Builds index page of all posts (for blog page)
+write_posts()  # Writes out all Jekyll-style posts
+# git_push()     # Pushes changes to Github (publishes)
+
+#  ____                   
+# |  _ \  ___  _ __   ___ 
+# | | | |/ _ \| '_ \ / _ \
+# | |_| | (_) | | | |  __/
+# |____/ \___/|_| |_|\___|
+fig("Done!", "All done!")
+                        
