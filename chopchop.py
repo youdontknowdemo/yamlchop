@@ -411,9 +411,9 @@ def rebuild_ydict():
                     description = oget(DESCDB, slug)
                     keywords = oget(KWDB, slug)
                     headline = oget(HEADS, slug)
+                    ydict[slug]["headline"] = headline
                     ydict[slug]["description"] = description
                     ydict[slug]["keywords"] = keywords
-                    ydict[slug]["headline"] = headline
                     # Flatten ydict[slug] into a string of key/value pairs.
                     front_matter = "\n".join(
                         [f"{k}: {safety_quotes(v)}" for k, v in ydict[slug].items()]
@@ -599,22 +599,22 @@ def sync_check():
             # The summary is too big for YAML-stuffing so we keep it in db.
             summary, api_hit = odb(SUMDB, write_summary, slug, apost)
 
+            # Headlines belong on YAML-stuffing for re-writing
+            headline, hit_headline = odb(HEADS, write_headline, slug, summary)
+            ydict[slug]["headline"] = headline
+
             # Descriptions belong on YAML-stuffing for re-writing
             description, hit_description = odb(DESCDB, write_description, slug, summary)
             ydict[slug]["description"] = description
 
             # Keywords belong on YAML-stuffing for re-writing
-            keywords, hit_keywords = odb(KWDB, write_description, slug, summary)
+            keywords, hit_keywords = odb(KWDB, write_keywords, slug, summary)
             ydict[slug]["keywords"] = keywords
 
-            # Headlines belong on YAML-stuffing for re-writing
-            headline, hit_headline = odb(HEADS, write_headline, slug, summary)
-            ydict[slug]["headline"] = headline
-
             if any([hit_description, hit_headline, hit_keywords]):
-                print(f"description: {description}\n")
                 print(f"headline: {headline}\n")
-                print(f"keywords: {keyword}\n")
+                print(f"description: {description}\n")
+                print(f"keywords: {keywords}\n")
                 input(f"Press enter to continue...")
             print()
     # Outside the loop and the global ydict is updated but
@@ -690,6 +690,63 @@ def git_push():
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 # This is a YAMLesque system, so we need to be able to parse YAMLesque.
 
+#  _____ _            ____  _                                             _ 
+# |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
+#   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
+#   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
+#   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
+#                                   |___/ |___/                             
+# Doing so has a distinct Python generator look to it, where we yield chunks:
+
+def write_posts():
+    """Write the posts to the output directory"""
+    # __        __    _ _         ____           _       
+    # \ \      / / __(_) |_ ___  |  _ \ ___  ___| |_ ___ 
+    #  \ \ /\ / / '__| | __/ _ \ | |_) / _ \/ __| __/ __|
+    #   \ V  V /| |  | | ||  __/ |  __/ (_) \__ \ |_\__ \
+    #    \_/\_/ |_|  |_|\__\___| |_|   \___/|___/\__|___/
+                                                   
+    # This is a YAMLesque system, so we need to be able to parse YAMLesque.
+    # Chop, chop YAMLESQUE, that's what we do as Python generator.
+    # That means it's memory efficient and can parse very large files.
+    for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
+        if fm and len(fm) > 2:
+            title = fm["title"]
+            stem = slugify(title)
+            print(f"{i+1}. {stem}")
+            adate = fm["date"]
+            description = fm["description"]
+            keywords = fm["keywords"]
+            headline = fm["headline"]
+            if "category" in fm:
+                category = fm["category"]
+            else:
+                category = ""
+            permalink = f"{BLOG}{stem}/"
+            # convert a date string to a date object formatted like: Sat Apr 22, 2023
+            date_object = datetime.strptime(adate, "%a %b %d, %Y")
+            # convert the date object to a string formatted like: 2023-04-22
+            adate = date_object.strftime("%Y-%m-%d")
+            # The Jekyll pattern for filenames in the _posts directory
+            # is YYYY-MM-DD-title.md
+            # Write the post to the output directory
+            filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
+            print(f"Writing {filename}")
+            with open(filename, "w", encoding="utf-8") as fh:
+                fh.write(f"""---
+layout: post
+title: "{title}"
+date: {adate}
+description: "{description}"
+keywords: "{keywords}"
+category: "{category}"
+permalink: {permalink}
+---
+""")
+                fh.write(body)
+            raise SystemExit()
+
+
 
 rebuild_ydict()
 deletes()
@@ -697,5 +754,6 @@ categories()
 sync_check()
 new_source()
 make_index()
+# write_posts()
 # git_push()
 fig("Done")
