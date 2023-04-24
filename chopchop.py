@@ -137,6 +137,16 @@ Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
 
+def oget(DBNAME, slug):
+    """Record OpenAI API hits in a database."""
+    with sqldict(DBNAME) as db:
+        if slug in db:
+            result = db[slug]
+        else:
+            result = None
+    return result
+
+
 def odb(DBNAME, afunc, slug, full_text):
     """Record OpenAI API hits in a database."""
     api_hit = False
@@ -724,11 +734,15 @@ def rebuild_ydict():
                 if len(fm) == 2 and "date" in fm and "title" in fm:
                     # We may have more data in the ydict to add to this.
                     slug = slugify(fm["title"])
-                    if slug in ydict:
-                        # Use the ydict entry for making a new combined entry.
-                        # Convert ydict[slug] to a string for yaml front matter.
-                        front_matter = yaml.dump(ydict[slug])
-                        combined = f"{SEPARATOR}{front_matter}---{body}"
+                    description = oget(DESCDB, slug)
+                    keywords = oget(KWDB, slug)
+                    headline = oget(HEADS, slug)
+                    ydict[slug]["description"] = description
+                    ydict[slug]["keywords"] = keywords
+                    ydict[slug]["headline"] = headline
+                    # Flatten ydict[slug] into a string of key/value pairs.
+                    front_matter = "\n".join([f"{key}: {q(value)}" for key, value in ydict[slug].items()])
+                    combined = f"{SEPARATOR}{front_matter}\n---{body}"
                 else:
                     write_me = combined
             else:
