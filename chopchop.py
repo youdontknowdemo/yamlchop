@@ -137,16 +137,6 @@ Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
 
-def oget(DBNAME, slug):
-    """Record OpenAI API hits in a database."""
-    with sqldict(DBNAME) as db:
-        if slug in db:
-            result = db[slug]
-        else:
-            result = None
-    return result
-
-
 def odb(DBNAME, afunc, slug, full_text):
     """Record OpenAI API hits in a database."""
     api_hit = False
@@ -154,6 +144,11 @@ def odb(DBNAME, afunc, slug, full_text):
         if slug in db:
             result = db[slug]
         else:
+            #    _    ____ ___   _     _ _
+            #   / \  |  _ \_ _| | |__ (_) |_
+            #  / _ \ | |_) | |  | '_ \| | __|
+            # / ___ \|  __/| |  | | | | | |_
+            # /_/   \_\_|  |___| |_| |_|_|\__|
             result = afunc(full_text)  # Hits OpenAI API
             db[slug] = result
             db.commit()
@@ -264,8 +259,23 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
+def oget(DBNAME, slug):
+    """Return a value from a database."""
+    with sqldict(DBNAME) as db:
+        if slug in db:
+            result = db[slug]
+        else:
+            result = None
+    return result
+
+
 def chop_chop(full_path, reverse=False):
     """Chop YAMLesque file to spew chuks."""
+    #   ____                           _
+    #  / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
+    # | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
+    # | |_| |  __/ | | |  __/ | | (_| | || (_) | |
+    #  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|
     global ydict
     ydict = defaultdict(dict)
     with open(full_path, "r") as fh:
@@ -302,210 +312,6 @@ def chop_chop(full_path, reverse=False):
                 slug = slugify(yaml_test["title"])
                 ydict[slug] = yaml_test
             yield rv
-
-
-def write_post_to_file(post, index):
-    """Write a post to a file. Returns a markdown link to the post."""
-    # Parse the post into lines
-    global CATEGORIES
-    lines = post.strip().split("\n")
-    date_str, slug = None, None
-    front_matter = ["---"]
-    kw_dict = {}
-    content = []
-    in_content = False
-    api_hit = False
-    for i, line in enumerate(lines):
-        if i == 0:
-            # First line is always the date stamp.
-            filename_date = None
-            if "date:" not in line:
-                # Even date-lines must get a markdown headline hash
-                return
-            # Parse the date from the line
-            date_str = line[len("date: ") :].strip()
-            date_str = date_str.strip('"')  # remove quotes
-            adate = datetime.strptime(date_str, "%a %b %d, %Y").date()
-            # Format the date into a string
-            date_str = adate.strftime("%Y-%m-%d")
-            # Format the date into a filename
-            kw_dict["date"] = date_str
-        elif i == 1:
-            # Second line is always the title for headline & url
-            if line and "title: " in line:
-                title = " ".join(line.split(" ")[1:])
-                title = title.strip('"')  # remove quotes
-            else:
-                return
-            # Turn title into slug for permalink
-            slug = slugify(title.replace("'", ""))
-            kw_dict["title"] = title
-            kw_dict["slug"] = slug
-            kw_dict["permalink"] = f"/{BLOG}{slug}/"
-        else:
-            # We are past the first two lines.
-            # The duty past here is to continue parsing top matter
-            # until we hit the "---" front-matter end-parsing marker.
-            # If it's a blank line, it's ambiguous, but we want it to
-            # be able to end the top-matter if the "---" is missing.
-            # The first behavior split is whether we're in_content or not:
-            if in_content:
-                # We're in the content, so just add the line
-                content.append(line)
-            else:
-                # We're still in the top matter, so add the line
-                # and check for the end of the top matter.
-                # Each top-matter line is expected to be a yaml-like line.
-                # If it's not a yaml-like line, there's 2 possibilities:
-                # 1. It's a blank line, which means keep parsing top matter because a field might come next.
-                # 2. It's a line of content, which means we're done with top matter.
-                if line:
-                    # Check if it's a yaml-like line. ":" in line isn't good enough
-                    # because a sentence might use a colon. Instead, check for a colon at the end of the first word.
-                    first_word = line.split(" ")[0]
-                    if first_word.endswith(":"):
-                        # It's a yaml-like line, so add it to the top matter
-                        # front_matter.append(line)
-                        # Parse the yaml-like line into a key/value pair
-                        ykey = first_word[:-1]
-                        yvalue = " ".join(line.split(" ")[1:])
-                        # Check if any of these offending characters are in yvalue: " ' [ ] { } , :
-                        # Add the key/value pair to the kw_dict
-                        kw_dict[ykey] = yvalue
-                    elif line == "---":
-                        # It's the end of the top matter, so we're done with top matter
-                        in_content = True
-                    else:
-                        # It's not a yaml-like line, so we're done with top matter
-                        # Once we throw this toggle, it's the one time we write "---" to the file.
-                        # front_matter.append("---")
-                        in_content = True
-
-    # Create the file name from the date and index
-    file_name = f"{date_str}-post-{index:04}.md"
-    out_path = f"{OUTPUT_PATH}/{file_name}"
-
-    # Initialize per-post variables
-    summary = None
-    if "description" in kw_dict:
-        description = chop_last_sentence(kw_dict["description"])
-    else:
-        description = None
-    if "headline" in kw_dict:
-        headline = kw_dict["headline"]
-    else:
-        headline = None
-    if "keywords" in kw_dict:
-        keywords = kw_dict["keywords"]
-    else:
-        keywords = None
-    if "categories" in kw_dict:
-        categories = kw_dict["categories"]
-    else:
-        categories = []
-        try:
-            for keyword in keywords.split(","):
-                keyword = keyword.strip().lower()
-                if keyword in CATEGORIES:
-                    categories.append(keyword)
-            kw_dict["categories"] = ", ".join(categories)
-        except:
-            pass
-
-    # The OpenAI work is done here
-    # If we already have a description, we don't need to look at the summary:
-    if not description:
-        summary, api_hit = odb(SUMDB, write_summary, slug, post)
-        description, api_hit = odb(DESCDB, write_description, slug, summary)
-        description = chop_last_sentence(description)
-    if not headline:
-        headline, api_hit = odb(HEADS, write_headline, slug, summary)
-        headline = prepare_for_front_matter(headline)
-    if not keywords:
-        keywords, api_hit = odb(KWDB, write_keywords, slug, summary)
-
-    for key, value in kw_dict.items():
-        front_matter.append(f"{key}: {q(value)}")
-    front_matter.append(f"author: {AUTHOR}")
-    front_matter.append(f"layout: post")
-    front_matter.append("---")
-    front_matter.extend(content)
-    content = front_matter
-    # Write to file
-    with open(out_path, "w") as f:
-        # Flatten list of lines into a single string
-        flat_content = "\n".join(content)
-        f.writelines(flat_content)
-    link = f'<li><a href="{BLOG}{slug}/">{title}</a> ({convert_date(date_str)})<br />{description}</li>'
-    # print(f"Chop {index} {out_path}")
-    if POST_BY_POST and api_hit:
-        print()
-        print(f"Slug: {slug}")
-        print()
-        print(f"Title: {title}")
-        print()
-        print(f"Headline: {headline}")
-        print()
-        print(f"Description: {description}")
-        print()
-        print(f"Keywords: {keywords}")
-        print()
-        if INTERACTIVE:
-            input("Press Enter to continue...")
-            print()
-
-    return link
-
-
-def neutralize_underscores(s):
-    # Check if the string starts with an underscore followed by a letter,
-    # but does not end with an underscore
-    if re.match(r"^_[a-zA-Z][^_]*[^_]$", s):
-        # Replace the underscore with a backslash and underscore
-        s = "\\" + s[1:]
-    return s
-
-
-def extract_front_matter(jekyll):
-    parts = jekyll.split("---")
-    myaml = f"{parts[0]}"
-    return myaml
-
-
-def convert_date(date_str):
-    # I want the date pattern Thu Aug 05, 2021
-    # Which is the same as %a %b %d, %Y
-    # Convert the input of this function which is a date string to that format
-    return date_str
-    # date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-    # return date_obj.strftime("%a %b %d, %Y")
-
-
-def chop_last_sentence(text):
-    """Chop off the last sentence of a string if it is not a sentence ending with punctuation."""
-    if not text:
-        return None
-    if text[-1] in ".?!":
-        return text
-    if "." in text:
-        return text[: text.rfind(".") + 1]
-    if "?" in text:
-        return text[: text.rfind("?") + 1]
-    if "!" in text:
-        return text[: text.rfind("!") + 1]
-    return text
-
-
-def prepare_for_front_matter(text):
-    """Prepare text for front matter."""
-    if not text:
-        return None
-    text = text.replace('"', "")
-    text = text.replace("\n", " ")
-    # RegEx replace multiple spaces with a single space
-    text = re.sub(r"\s+", " ", text)
-    text = text.strip()
-    return text
 
 
 def git(cwd, line_command):
@@ -546,110 +352,13 @@ def compare_files(file1, file2):
                 return True
 
 
-def front_matter_inserter(pre_post):
-    """Conditionally insert front matter based on whether and subfields are present."""
-    # Step though the text in pre_post line by line.
-    # The first line is always the date. If not, return full pre_post.
-    # The second line is always the tile. If not, return full pre_post.
-    lines = pre_post.split("\n")
-    in_content = False
-    top_matter = []
-    new_post = []
-    top_dict = {}
-    for i, line in enumerate(lines):
-        # Who needs trailing white space anyway?
-        line = line.rstrip()
-        if i == 0:
-            if line.startswith("date:"):
-                # This is the most common case and what we want to find.
-                top_dict["date"] = " ".join(line.split(" ")[1:])
-            elif line == "---":
-                # We use this when we want to immediately close the front-matter
-                # indicating that it's a meta-post and should not be published.
-                top_matter.append("---")
-                in_content = True
-            else:
-                # Anything else in the first line, and we should skip it and keep
-                # the original post intact.
-                return pre_post
-        elif not in_content:
-            # Handles everything still in front-matter.
-            first_word = line.split(" ")[0]
-            if line == "":
-                # Front-matter doesn't need blank lines, so pass.
-                pass
-            elif line[0] == "#":
-                # This indicates the old system before yaml-like top-matter.
-                # Let them know this and raise SystemExit.
-                print(
-                    "ERROR: Old-style top matter detected. Please convert to yaml-like top matter."
-                )
-                print(line)
-                raise SystemExit()
-            elif line == "---":
-                # We're where we're trying to close the front-matter, but we may not have
-                # all the yaml key/value pairs that we need: headline, description, keywords.
-                # If they're not there, we retreive them from each one's database.
-                # This whole process uses a slugified title as a primary key, so we have to have it.
-                # If we reached this point and have no title (in top_dict), close the front-matter
-                # and start the content.
-                in_content = True
-            elif first_word.endswith(":"):
-                # We're in the top-matter and we have a yaml-like line:
-                # Get the field-name:
-                # print(first_word)
-                field_name = first_word[:-1]
-                # Add the field-name and value to the top_dict:
-                value = " ".join(line.split(" ")[1:]).strip()
-                # print(f"field_name: {field_name}, value: {value}")
-                top_dict[field_name] = value
-            else:
-                # Anything else is an error.
-                print("ERROR: Unhandled case in front_matter_inserter()")
-                print(line)
-                raise SystemExit()
-            if "title" in top_dict:
-                slug = slugify(top_dict["title"].replace("'", ""))
-                # We DO have a title, so we slugify exactly the same way as in write_post_to_file()
-                # and use that as the slug.
-                # Now we can get the headline, description and keywords from the databases.
-                # We'll use the slug as the key.
-                # The databases in the order we want to check them are: HEADS, DESCDB, KWDB
-                if "headline" not in top_dict:
-                    with sqldict(HEADS) as db:
-                        # print("Getting headline from db")
-                        if slug in db:
-                            headline = db[slug]
-                            top_dict["headline"] = headline
-                if "description" not in top_dict:
-                    with sqldict(DESCDB) as db:
-                        # print("Getting description from db")
-                        if slug in db:
-                            description = db[slug]
-                            top_dict["description"] = description
-                if "keywords" not in top_dict:
-                    with sqldict(KWDB) as db:
-                        # print("Getting keywords from db")
-                        if slug in db:
-                            keywords = db[slug]
-                            top_dict["keywords"] = keywords
-        else:
-            new_post.append(neutralize_underscores(line))
-    if top_dict:
-        # Loop through top_dict and add each key/value pair to top_matter.
-        for key, value in top_dict.items():
-            top_matter.append(f"{key}: {q(value)}")
-        top_matter.append("---")
-    top_matter.extend(new_post)
-    content = top_matter
-    return "\n".join(content)
-
-
 def q(text):
     # Ensure that it is quoted if it needs it based on the use of colons
     # while defending against double quotes. It's too easy to make strings
     # that have accumulated nested quotes. Use some technique like Regex or
     # something to make sure there's not patterns like "", """, """"", etc.
+    if not text:
+        return text
     if ":" in text:
         if '"' in text:
             # Use RegEx to remove any number of repeating double quotes with only one double quote.
@@ -722,12 +431,12 @@ def get_capitization_dict():
 
 def rebuild_ydict():
     """Rebuilds ydict from _data/*.db's"""
-    #  ____      _           _ _     _             _ _      _   
-    # |  _ \ ___| |__  _   _(_) | __| |  _   _  __| (_) ___| |_ 
+    #  ____      _           _ _     _             _ _      _
+    # |  _ \ ___| |__  _   _(_) | __| |  _   _  __| (_) ___| |_
     # | |_) / _ \ '_ \| | | | | |/ _` | | | | |/ _` | |/ __| __|
-    # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_| | | (__| |_ 
+    # |  _ <  __/ |_) | |_| | | | (_| | | |_| | (_| | | (__| |_
     # |_| \_\___|_.__/ \__,_|_|_|\__,_|  \__, |\__,_|_|\___|\__|
-    #                                    |___/                  
+    #                                    |___/
     with open(OUTPUT2_PATH, "w") as fh:
         for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
             if fm:
@@ -741,7 +450,9 @@ def rebuild_ydict():
                     ydict[slug]["keywords"] = keywords
                     ydict[slug]["headline"] = headline
                     # Flatten ydict[slug] into a string of key/value pairs.
-                    front_matter = "\n".join([f"{key}: {q(value)}" for key, value in ydict[slug].items()])
+                    front_matter = "\n".join(
+                        [f"{key}: {q(value)}" for key, value in ydict[slug].items()]
+                    )
                     combined = f"{SEPARATOR}{front_matter}\n---{body}"
                 else:
                     write_me = combined
@@ -850,15 +561,14 @@ def categories():
 
 
 def sync_check():
-    #  ______   ___   _  ____    ____ _               _    
+    #  ______   ___   _  ____    ____ _               _
     # / ___\ \ / / \ | |/ ___|  / ___| |__   ___  ___| | __
     # \___ \\ V /|  \| | |     | |   | '_ \ / _ \/ __| |/ /
-    #  ___) || | | |\  | |___  | |___| | | |  __/ (__|   < 
+    #  ___) || | | |\  | |___  | |___| | | |  __/ (__|   <
     # |____/ |_| |_| \_|\____|  \____|_| |_|\___|\___|_|\_\
     fig("SYNC Check", "Checking for new posts needing AI-writing")
     for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
         if fm and len(fm) == 2 and "title" in fm and "date" in fm:
-
             # Only 2 fields of YAML front matter asks for release.
             title = fm["title"]
             slug = slugify(title)
@@ -871,7 +581,7 @@ def sync_check():
             # Descriptions belong on YAML-stuffing for re-writing
             description, hit_description = odb(DESCDB, write_description, slug, summary)
             ydict[slug]["description"] = description
-           
+
             # Keywords belong on YAML-stuffing for re-writing
             keywords, hit_keywords = odb(KWDB, write_description, slug, summary)
             ydict[slug]["keywords"] = keywords
@@ -927,12 +637,14 @@ def git_push():
         git(here, f'commit -am "Pushing {REPO} to Github..."')
         git(here, "push")
 
+
 #  _____           _   _____                 _   _
 # | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
 # |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 # This is a YAMLesque system, so we need to be able to parse YAMLesque.
+
 
 def update_source():
     print("Hit")
@@ -943,7 +655,7 @@ rebuild_ydict()
 deletes()
 categories()
 sync_check()
-# new_source()
+new_source()
 # git_push()
 
 
