@@ -673,7 +673,7 @@ def git_push():
     # | |_| | | |_  |  __/| |_| \__ \ | | |
     #  \____|_|\__| |_|    \__,_|___/_| |_|
     # Git commands
-    fig("Git Push", "The actual release")
+    fig("Git Push", "Releasing site changes...")
     here = f"{PATH}{REPO}"
     git(here, f"add {here}*")
     git(here, "add _posts/*")
@@ -690,22 +690,23 @@ def git_push():
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 # This is a YAMLesque system, so we need to be able to parse YAMLesque.
 
-#  _____ _            ____  _                                             _ 
+#  _____ _            ____  _                                             _
 # |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
 #   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
 #   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
-#                                   |___/ |___/                             
+#                                   |___/ |___/
 # Doing so has a distinct Python generator look to it, where we yield chunks:
+
 
 def write_posts():
     """Write the posts to the output directory"""
-    # __        __    _ _         ____           _       
-    # \ \      / / __(_) |_ ___  |  _ \ ___  ___| |_ ___ 
+    # __        __    _ _         ____           _
+    # \ \      / / __(_) |_ ___  |  _ \ ___  ___| |_ ___
     #  \ \ /\ / / '__| | __/ _ \ | |_) / _ \/ __| __/ __|
     #   \ V  V /| |  | | ||  __/ |  __/ (_) \__ \ |_\__ \
     #    \_/\_/ |_|  |_|\__\___| |_|   \___/|___/\__|___/
-                                                   
+    fig("Write Posts", "Chop, chop, chop...")
     # This is a YAMLesque system, so we need to be able to parse YAMLesque.
     # Chop, chop YAMLESQUE, that's what we do as Python generator.
     # That means it's memory efficient and can parse very large files.
@@ -713,7 +714,8 @@ def write_posts():
         if fm and len(fm) > 2:
             title = fm["title"]
             stem = slugify(title)
-            print(f"{i+1}. {stem}")
+            # print(f"{i+1}. {stem}")
+            print(f"{i+1} ", end="", flush=True)
             adate = fm["date"]
             description = fm["description"]
             keywords = fm["keywords"]
@@ -731,21 +733,23 @@ def write_posts():
             # is YYYY-MM-DD-title.md
             # Write the post to the output directory
             filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
-            print(f"Writing {filename}")
+            # print(f"Writing {filename}")
             with open(filename, "w", encoding="utf-8") as fh:
-                fh.write(f"""---
-layout: post
-title: "{title}"
+                fh.write(
+                    f"""---
 date: {adate}
-description: "{description}"
-keywords: "{keywords}"
-category: "{category}"
+title: "{title}"
 permalink: {permalink}
+description: "{description}"
+keywords: {keywords}
+category: "{category}"
+author: {AUTHOR}
+layout: post
 ---
-""")
+"""
+                )
                 fh.write(body)
-            raise SystemExit()
-
+    print()
 
 
 rebuild_ydict()
@@ -754,6 +758,6 @@ categories()
 sync_check()
 new_source()
 make_index()
-# write_posts()
-# git_push()
+write_posts()
+git_push()
 fig("Done")
