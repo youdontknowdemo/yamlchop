@@ -510,80 +510,6 @@ def category_page():
                 fh2.write("</ol>\n")
 
 
-def categories_old():
-    """Create category pages from keywords."""
-    #   ____      _                        _
-    #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
-    # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
-    # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
-    #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-    #                     |___/
-    fig("Categories", "Creating category pages from keywords.")
-    global CATEGORIES
-    pwords = get_capitization_dict()  # Get a dict of capitalized words
-    cat_dict = histogram()  # Get a dict of keywords and slugs
-    cat_counter = Counter()  # Create a counter object
-    for cat, slugs in cat_dict.items():
-        cat_counter[cat] = len(slugs)  # Add the number of slugs to the counter
-    CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
-    print(f"Using {len(CATEGORIES)} categories.")
-
-    # Write out the category page that goes in the site root as category.md
-    print("Writing out category.md and its include file.")
-    with open(CATEGORY_PAGE, "w") as fh:
-        fh.write("# Categories\n")  # This could be more frontmatter-y
-        fh.write("{% include category.md %}\n")  # Reference to include
-        with open(CATEGORY_INCLUDE, "w") as fh2:
-            fh2.write(f"<ol start='{len(CATEGORIES)}' reversed>\n")
-            for category in CATEGORIES:
-                permalink = slugify(category)
-                pcat = pwords[category.lower()]
-                fh2.write(f'<li><a href="/{permalink}/">{pcat}</a></li>\n')
-            fh2.write("</ol>\n")
-
-    # Write out the many category pages that go in the site root as cat_*.md
-    for i, category in enumerate(CATEGORIES):
-        if category not in CATEGORY_FILTER:
-            permalink = slugify(category)
-            pcat = pwords[category.lower()]
-            front_matter = f"""---
-            title: {pcat}
-            permalink: /{permalink}/
-            layout: default
-            ---
-
-            """
-            front_matter = "\n".join([x.strip() for x in front_matter.split("\n")])
-            cat_file = f"{PATH}{REPO}cat_{permalink}.md"
-            include_file = f"{INCLUDES}cat_{permalink}.md"
-            # print(f"Creating {cat_file}")
-            with open(cat_file, "w") as fh:
-                fh.write(front_matter)
-                fh.write(f"# {pcat}\n\n")
-                # Filter out categories without YAML data:
-                cat_dict[category] = [x for x in cat_dict[category] if x in ydict]
-                # Number of posts:
-                category_len = len(cat_dict[category])
-                # Write reference to include file into category file:
-                fh.write(
-                    f"{{% include cat_{permalink}.md %}}\n"
-                )  # Reference to include
-                # Write include file include:
-                with open(include_file, "w") as fh2:
-                    fh2.write(f"<ol start='{category_len}' reversed>\n")
-                    for slug in cat_dict[category]:
-                        try:
-                            title = ydict[slug]["title"]
-                            description = ydict[slug]["description"]
-                            adate = ydict[slug]["date"]
-                            fh2.write(
-                                f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br/>{description}</li>\n'
-                            )
-                        except KeyError:
-                            pass
-                    fh2.write("</ol>\n")
-
-
 def sync_check():
     """Check for new posts needing AI-writing or YAMLESQUE source-file updating."""
     #  ______   ___   _  ____    ____ _               _
@@ -808,8 +734,11 @@ layout: default
             for slug in slugcat[cat]:
                 title = ydict[slug]["title"]
                 aslug = slugify(title)
+                adate = ydict[slug]["date"]
+                description = ydict[slug]["description"]
                 apermalink = f"{BLOG}{aslug}/"
-                fh.write(f"- [{title}]({apermalink})\n")
+                alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
+                fh.write(alink)
 
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
