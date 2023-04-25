@@ -744,6 +744,7 @@ make_index()  # Builds index page of all posts (for blog page)
 write_posts()  # Writes out all Jekyll-style posts
 git_push()  # Pushes changes to Github (publishes)
 
+
 #  ____
 # |  _ \  ___  _ __   ___
 # | | | |/ _ \| '_ \ / _ \
