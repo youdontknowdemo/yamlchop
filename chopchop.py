@@ -135,9 +135,9 @@ fig(REPO, f"REPO: {REPO}")  # Print the repo name
 print(f"PATH: {PATH}")
 print(f"FILE: {FILE}")
 
-# Globals
+# globals
 ydict = defaultdict(dict)
-pwords = defaultdict(lambda x=None: x)
+cdict = defaultdict(dict)
 
 # Create output path if it doesn't exist
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
@@ -381,23 +381,6 @@ def sq(text):
     return text
 
 
-def get_capitization_dict():
-    # We need a dictionary of most common capitalization usage of Category words.
-    words = defaultdict(list)
-    with sqldict(KWDB) as db:
-        for slug, keywords in db.iteritems():
-            keywords = keywords.split(", ")
-            for keyword in keywords:
-                lower_word = keyword.strip().lower()
-                words[lower_word].append(keyword)
-    for key in words:
-        alist = words[key]
-        pwords[key] = Counter(alist).most_common(1)[0][0]
-    # Hardwired overrides:
-    pwords["window"] = "Windows"
-    return pwords
-
-
 def build_ydict(yamlesque=YAMLESQUE):
     """Rebuilds ydict from _data/*.dbs, which may have more daata than the YAMLESQUE source."""
     #  ____        _ _     _                         _       _ _      _
@@ -428,6 +411,7 @@ def build_ydict(yamlesque=YAMLESQUE):
                 # ydict[slug]["keywords"] = keywords
     print(f"ydict has {len(ydict)} entries.")
 
+
 def histogram():
     """Create a histogram of keywords."""
     #  _   _ _     _
@@ -455,36 +439,6 @@ def histogram():
     return cat_dict
 
 
-def show_common(counter_obj, num_items):
-    """Show the most common items in a counter object and return a list of the items."""
-    #  ____  _
-    # / ___|| |__   _____      __   ___ ___  _ __ ___  _ __ ___   ___  _ __
-    # \___ \| '_ \ / _ \ \ /\ / /  / __/ _ \| '_ ` _ \| '_ ` _ \ / _ \| '_ \
-    #  ___) | | | | (_) \ V  V /  | (_| (_) | | | | | | | | | | | (_) | | | |
-    # |____/|_| |_|\___/ \_/\_/    \___\___/|_| |_| |_|_| |_| |_|\___/|_| |_|
-    global pwords
-    stop_at = 10
-    console = Console()
-    most_common = counter_obj.most_common(num_items + 5)
-    categories = [item[0] for item in most_common]
-    # Create table and add header
-    table = Table(
-        title=f"Most Common {stop_at} Items",
-        show_header=True,
-        header_style="bold magenta",
-    )
-    table.add_column("Item", justify="left", style="cyan")
-    table.add_column("Count", justify="right", style="green")
-    # Add rows to the table
-    for i, (item, count) in enumerate(most_common):
-        table.add_row(f"{i + 1}. {pwords[item]}", f"{count}")
-        if i > stop_at - 2:
-            break
-    console.print(table)
-    categories = categories[:num_items]
-    return categories
-
-
 def deletes():
     fig("Deleting", "Deleting auto-generated pages from site.")
     #  ____       _      _
@@ -502,6 +456,56 @@ def deletes():
     of = Path(OUTPUT2_PATH)
     if of.exists():
         of.unlink()
+
+
+def categories():
+    """Find the categories"""
+    #   ____      _                        _           
+    #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
+    # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
+    # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
+    #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
+    #                     |___/                        
+    # Category selection
+    fig("Categories", "Finding catgories...")
+    pwords = defaultdict(lambda x=None: x)
+    cat_dict = defaultdict(list)
+    words = defaultdict(list)
+    lemmatizer = WordNetLemmatizer()
+    with open(YAMLESQUE) as fh:
+        for post in CHOP.split(fh.read()):
+            ystr, body = post.split("---", 1)
+            if ystr:
+                yml = yaml.load(ystr, Loader=yaml.FullLoader)
+                if "title" in yml:
+                    slug = slugify(yml["title"])
+                if "keywords" in yml:
+                    keywords = yml["keywords"].split(", ")
+                    for keyword in keywords:
+                        keyword = lemmatizer.lemmatize(keyword)
+                        keyword_lower = keyword.lower().strip()
+                        words[keyword_lower].append(keyword)
+                        cat_dict[keyword_lower].append(slug)
+    for key in words:
+        alist = words[key]
+        pwords[key] = Counter(alist).most_common(1)[0][0]
+    for key in cat_dict:
+        cat_dict[key].reverse()
+    cat_counter = Counter()  # Create a counter object
+    for cat, slugs in cat_dict.items():
+        cat_counter[cat] = len(slugs)
+    common_cats = cat_counter.most_common()
+    common_cats = [x for x in common_cats if x[0] not in CATEGORY_FILTER]
+    show_cats = 15
+    for cat, count in common_cats:
+        cdict[cat]["slug"] = slugify(cat)
+        cdict[cat]["count"] = count
+        cdict[cat]["title"] = pwords[cat]
+    print(f"Found {len(cdict):,} categories.")
+    for i, acat in enumerate(cdict):
+        print(f"{i+1}. {cdict[acat]['title']} ({cdict[acat]['count']})")
+        if i + 1 >= show_cats:
+            break
 
 
 def categories_old():
@@ -757,45 +761,12 @@ def git_push():
 #                                   |___/ |___/
 # Doing so has a distinct Python generator look to it, where we yield chunks:
 
-def categories():
-    fig("Categories", "Finding catgories...")
-    pwords = defaultdict(lambda x=None: x)
-    cat_dict = defaultdict(list)
-    words = defaultdict(list)
-    lemmatizer = WordNetLemmatizer()
-    with open(YAMLESQUE) as fh:
-        for post in CHOP.split(fh.read()):
-            ystr, body = post.split("---", 1)
-            if ystr:
-                yml = yaml.load(ystr, Loader=yaml.FullLoader)
-                if "title" in yml:
-                    slug = slugify(yml["title"])
-                if "keywords" in yml:
-                    keywords = yml["keywords"].split(", ")
-                    for keyword in keywords:
-                        keyword = lemmatizer.lemmatize(keyword)
-                        keyword_lower = keyword.lower().strip()
-                        words[keyword_lower].append(keyword)
-                        cat_dict[keyword_lower].append(slug)
-    for key in words:
-        alist = words[key]
-        pwords[key] = Counter(alist).most_common(1)[0][0]
-    for key in cat_dict:
-        cat_dict[key].reverse()
-    cat_counter = Counter()  # Create a counter object
-    for cat, slugs in cat_dict.items():
-        cat_counter[cat] = len(slugs)
-    common_cats = cat_counter.most_common()
-    commone_cats = [x for x in common_cats if x[0] not in CATEGORY_FILTER]
-    show_cats = 20
-    print(f"Found {len(common_cats):,} categories. Here are the top {show_cats}:")
-    for i, cat in enumerate(common_cats):
-        category, freq = cat
-        print(f"{i+1}. {pwords[category]} ({freq:,})")
-        if i + 1 >= show_cats:
-            break
-
-
+def category_pages():
+    """Build the category pages"""
+    fig("Cat Pages", "Building category pages...")
+    global cdict
+    if cdict:
+        print(len(cdict))
 
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
@@ -804,14 +775,15 @@ def categories():
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-build_ydict()  # Builds global ydict (should always run)
-# deletes()      # Deletes old posts
-categories()    # Builds global categories and builds category pages
-#sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
-#new_source()  # Replaces YAMLESQUE input with syncronized output
-#make_index()  # Builds index page of all posts (for blog page)
-#write_posts()  # Writes out all Jekyll-style posts
-# git_push()  # Pushes changes to Github (publishes)
+build_ydict()    # Builds global ydict (should always run)
+deletes()        # Deletes old posts
+categories()     # Builds global categories and builds category pages
+category_pages()
+# sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
+# new_source()   # Replaces YAMLESQUE input with syncronized output
+# make_index()   # Builds index page of all posts (for blog page)
+# write_posts()  # Writes out all Jekyll-style posts
+# git_push()     # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
