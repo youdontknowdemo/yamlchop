@@ -365,7 +365,8 @@ def compare_files(file1, file2):
                 return True
 
 
-def safety_quotes(text):
+def sq(text):
+    """Safely return a quoted string."""
     if not text:
         return text
     if ":" in text:
@@ -401,11 +402,12 @@ def build_ydict():
     # | |_) | |_| | | | (_| | | |_| | (_| | | | | | | | | (_| | | (__| |_
     # |____/ \__,_|_|_|\__,_|  \__, |\__,_|_| |_| |_|_|  \__,_|_|\___|\__|
     #                          |___/
+    global ydict
+    ydict = defaultdict(dict)
     with open(OUTPUT2_PATH, "w") as fh:
         for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
             if fm:
                 if len(fm) == 2 and "date" in fm and "title" in fm:
-                    # We may have more data in the ydict to add to this.
                     slug = slugify(fm["title"])
                     description = oget(DESCDB, slug)
                     keywords = oget(KWDB, slug)
@@ -413,11 +415,8 @@ def build_ydict():
                     ydict[slug]["headline"] = headline
                     ydict[slug]["description"] = description
                     ydict[slug]["keywords"] = keywords
-                    # Flatten ydict[slug] into a string of key/value pairs.
-                    front_matter = "\n".join(
-                        [f"{k}: {safety_quotes(v)}" for k, v in ydict[slug].items()]
-                    )
-                    combined = f"{SEPARATOR}{front_matter}\n---{body}"
+                    nfm = "\n".join([f"{k}: {sq(v)}" for k, v in ydict[slug].items()])
+                    combined = f"{SEPARATOR}{nfm}\n---{body}"
             fh.write(combined)
 
 
@@ -458,7 +457,7 @@ def show_common(counter_obj, num_items):
     global pwords
     stop_at = 10
     console = Console()
-    most_common = counter_obj.most_common(num_items)
+    most_common = counter_obj.most_common(num_items + 5)
     categories = [item[0] for item in most_common]
     # Create table and add header
     table = Table(
@@ -474,7 +473,7 @@ def show_common(counter_obj, num_items):
         if i > stop_at - 2:
             break
     console.print(table)
-    categories = [x for x in categories if x not in ["", " ", None]]
+    categories = categories[:num_items]
     return categories
 
 
@@ -757,6 +756,18 @@ def git_push():
 # Doing so has a distinct Python generator look to it, where we yield chunks:
 
 
+def desc_cats():
+    build_ydict()
+    cat_limit = 20
+    cat_dict = histogram()  # Get a dict of keywords and slugs
+    cat_counter = Counter()  # Create a counter object
+    for cat, slugs in cat_dict.items():
+        cat_counter[cat] = len(slugs)  # Add the number of slugs to the counter
+    CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
+    for category in CATEGORIES:
+        print(f"{category}: {len(cat_dict[category])}")
+
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -764,14 +775,15 @@ def git_push():
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-build_ydict()  # Builds global ydict (should always run)
-deletes()  # Deletes old posts
+# build_ydict()  # Builds global ydict (should always run)
+# deletes()  # Deletes old posts
 categories()  # Builds global categories and builds category pages
-sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
-new_source()  # Replaces YAMLESQUE input with syncronized output
-make_index()  # Builds index page of all posts (for blog page)
-write_posts()  # Writes out all Jekyll-style posts
-git_push()  # Pushes changes to Github (publishes)
+# sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+# new_source()  # Replaces YAMLESQUE input with syncronized output
+# make_index()  # Builds index page of all posts (for blog page)
+# write_posts()  # Writes out all Jekyll-style posts
+desc_cats()  # Writes out category pages
+# git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
