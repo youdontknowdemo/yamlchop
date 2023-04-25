@@ -685,9 +685,9 @@ def write_posts():
             # print(f"{i+1}. {stem}")
             print(f"{i+1} ", end="", flush=True)
             adate = fm["date"]
-            description = fm["description"]
-            headline = fm["headline"]
-            keywords = fm["keywords"]
+            description = sq(fm["description"])
+            headline = sq(fm["headline"])
+            keywords = sq(fm["keywords"])
             keyword_list = keywords.split(", ")
             categories = set()
             for keyword in keyword_list:
@@ -695,6 +695,7 @@ def write_posts():
                 if keyword in CATEGORIES:
                     categories.add(keyword)
             categories = ", ".join(categories)
+            catefories = sq(categories)
             permalink = f"{BLOG}{stem}/"
             # convert a date string to a date object formatted like: Sat Apr 22, 2023
             date_object = datetime.strptime(adate, "%a %b %d, %Y")
@@ -757,15 +758,38 @@ def git_push():
 
 
 def desc_cats():
-    build_ydict()
-    cat_limit = 20
-    cat_dict = histogram()  # Get a dict of keywords and slugs
+    global pwords, ydict
+    pwords = defaultdict(lambda x=None: x)
+    ydict = {}
+    cat_dict = defaultdict(list)
+    words = defaultdict(list)
+    with open(YAMLESQUE) as fh:
+        for post in CHOP.split(fh.read()):
+            ystr, body = post.split("---", 1)
+            if ystr:
+                yml = yaml.load(ystr, Loader=yaml.FullLoader)
+                if "title" in yml:
+                    slug = slugify(yml["title"])
+                    ydict[slug] = yml
+                if "keywords" in yml:
+                    keywords = yml["keywords"].split(", ")
+                    for keyword in keywords:
+                        keyword = lemmatizer.lemmatize(keyword)
+                        keyword_lower = keyword.lower().strip()
+                        words[keyword_lower].append(keyword)
+                        cat_dict[keyword_lower].append(slug)
+    for key in words:
+        alist = words[key]
+        pwords[key] = Counter(alist).most_common(1)[0][0]
+    for key in cat_dict:
+        cat_dict[key].reverse()
     cat_counter = Counter()  # Create a counter object
     for cat, slugs in cat_dict.items():
-        cat_counter[cat] = len(slugs)  # Add the number of slugs to the counter
-    CATEGORIES = show_common(cat_counter, NUMBER_OF_CATEGORIES)
-    for category in CATEGORIES:
-        print(f"{category}: {len(cat_dict[category])}")
+        cat_counter[cat] = len(slugs)
+    common_cats = cat_counter.most_common()
+    for i, cat in enumerate(common_cats):
+        category, freq = cat
+        print(freq, pwords[category])
 
 
 #  _____ _                                 _             _
@@ -775,15 +799,15 @@ def desc_cats():
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-# build_ydict()  # Builds global ydict (should always run)
-# deletes()  # Deletes old posts
+build_ydict()  # Builds global ydict (should always run)
+deletes()  # Deletes old posts
 categories()  # Builds global categories and builds category pages
-# sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
-# new_source()  # Replaces YAMLESQUE input with syncronized output
-# make_index()  # Builds index page of all posts (for blog page)
-# write_posts()  # Writes out all Jekyll-style posts
-desc_cats()  # Writes out category pages
-# git_push()  # Pushes changes to Github (publishes)
+sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+new_source()  # Replaces YAMLESQUE input with syncronized output
+make_index()  # Builds index page of all posts (for blog page)
+write_posts()  # Writes out all Jekyll-style posts
+# desc_cats()  # Writes out category pages
+git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
