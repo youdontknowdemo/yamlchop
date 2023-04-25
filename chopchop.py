@@ -395,8 +395,8 @@ def build_ydict(yamlesque=YAMLESQUE):
             if fm and isinstance(fm, dict):
                 if "title" in fm:
                     slug = slugify(fm["title"])
-                fm["slug"] = slug
-                ydict[slug] = fm
+                    fm["slug"] = slug
+                    ydict[slug] = fm
                 # and len(fm) == 2 and "date" in fm and "title" in fm:
                 # slug = slugify(fm["title"])
                 # ydict[slug] = fm
@@ -408,33 +408,6 @@ def build_ydict(yamlesque=YAMLESQUE):
                 # ydict[slug]["description"] = description
                 # ydict[slug]["keywords"] = keywords
     print(f"ydict has {len(ydict)} entries.")
-
-
-def histogram():
-    """Create a histogram of keywords."""
-    #  _   _ _     _
-    # | | | (_)___| |_ ___   __ _ _ __ __ _ _ __ ___
-    # | |_| | / __| __/ _ \ / _` | '__/ _` | '_ ` _ \
-    # |  _  | \__ \ || (_) | (_| | | | (_| | | | | | |
-    # |_| |_|_|___/\__\___/ \__, |_|  \__,_|_| |_| |_|
-    #                       |___/
-    # There is a 1-time dependenccy on running the following commands:
-    # import nltk; nltk.download('wordnet')
-    keywords = []
-    lemmatizer = WordNetLemmatizer()
-    cat_dict = defaultdict(list)
-    with sqldict(KWDB) as db:
-        for slug, kwstr in db.iteritems():
-            keywords = kwstr.split(", ")
-            for keyword in keywords:
-                keyword = keyword.strip().lower()
-                keyword = lemmatizer.lemmatize(keyword)
-                keyword = keyword.lower()
-                cat_dict[keyword].append(slug)
-    # Reverse each list of slugs so that the most recent is first.
-    for key in cat_dict:
-        cat_dict[key].reverse()
-    return cat_dict
 
 
 def deletes():
@@ -512,14 +485,14 @@ def categories():
 
 
 def category_page():
-    """Build the category pages"""
+    """Build the category page (singular)"""
     #   ____      _     ____                  
     #  / ___|__ _| |_  |  _ \ __ _  __ _  ___ 
     # | |   / _` | __| | |_) / _` |/ _` |/ _ \
     # | |__| (_| | |_  |  __/ (_| | (_| |  __/
     #  \____\__,_|\__| |_|   \__,_|\__, |\___|
     #                              |___/           
-    global cdict, NUMBER_OF_CATEGORIES, CATEGORY_PAGE
+    global cdict
     fig("Cat Page", f"Building category page...")
     if cdict:
         with open(CATEGORY_PAGE, "w") as fh:
@@ -712,11 +685,9 @@ def write_posts():
     # Chop, chop YAMLESQUE, that's what we do as Python generator.
     # That means it's memory efficient and can parse very large files.
     for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
-        global pwords
         if fm and len(fm) > 2:
             title = fm["title"]
             stem = slugify(title)
-            # print(f"{i+1}. {stem}")
             print(f"{i+1} ", end="", flush=True)
             adate = fm["date"]
             description = sq(fm["description"])
@@ -731,15 +702,9 @@ def write_posts():
             categories = ", ".join(categories)
             catefories = sq(categories)
             permalink = f"{BLOG}{stem}/"
-            # convert a date string to a date object formatted like: Sat Apr 22, 2023
             date_object = datetime.strptime(adate, "%a %b %d, %Y")
-            # convert the date object to a string formatted like: 2023-04-22
             adate = date_object.strftime("%Y-%m-%d")
-            # The Jekyll pattern for filenames in the _posts directory
-            # is YYYY-MM-DD-title.md
-            # Write the post to the output directory
             filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
-            # print(f"Writing {filename}")
             with open(filename, "w", encoding="utf-8") as fh:
                 fh.write(
                     f"""---
@@ -759,6 +724,7 @@ layout: post
 
 
 def git_push():
+    """Pushes the changes to Github"""
     #   ____ _ _     ____            _
     #  / ___(_) |_  |  _ \ _   _ ___| |__
     # | |  _| | __| | |_) | | | / __| '_ \
@@ -790,6 +756,61 @@ def git_push():
 #                                   |___/ |___/
 # Doing so has a distinct Python generator look to it, where we yield chunks:
 
+def category_pages():
+    """Outputs the individual category pages and includes"""
+    #   ____      _     ____                       
+    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___  ___ 
+    # | |   / _` | __| | |_) / _` |/ _` |/ _ \/ __|
+    # | |__| (_| | |_  |  __/ (_| | (_| |  __/\__ \
+    #  \____\__,_|\__| |_|   \__,_|\__, |\___||___/
+    #                              |___/           
+    fig("Cat Pages", "Building category pages (plural)...")
+    global cdict
+    lemmatizer = WordNetLemmatizer()
+    top_cats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
+
+    # Map every slug to a category:
+    slugcat = defaultdict(list)
+    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+        if fm:
+            if "keywords" in fm and "title" in fm:
+                slug = slugify(fm["title"])
+                keywords = fm["keywords"]
+                keyword_list = keywords.split(", ")
+                for keyword in keyword_list:
+                    keyword = keyword.lower()
+                    keyword = lemmatizer.lemmatize(keyword)
+                    keyword = keyword.lower()
+                    if keyword in top_cats:
+                        slugcat[keyword].append(slug)
+    # Create the category pages:
+    for cat in top_cats:
+        slug = slugify(cat)
+        filename = f"{PATH}{REPO}cat_{slug}.md"
+        include_file = f"cat_{slug}.md"
+        permalink = f"/{slug}/"
+        with open(filename, "w", encoding="utf-8") as fh:
+            cat_str = f"""---
+title: {cdict[cat]["title"]}
+permalink: {permalink}
+layout: default
+---
+
+"""
+            fh.write(cat_str)
+            fh.write(f"{{% include {include_file} %}}\n")
+
+    # Create the category includes:
+    for cat in top_cats:
+        slug = slugify(cat)
+        filename = f"{INCLUDES}cat_{slug}.md"
+        with open(filename, "w", encoding="utf-8") as fh:
+            for slug in slugcat[cat]:
+                title = ydict[slug]["title"]
+                aslug = slugify(title)
+                apermalink = f"{BLOG}{aslug}/"
+                fh.write(f"- [{title}]({apermalink})\n")
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -798,9 +819,10 @@ def git_push():
 # This controls the entire (usually linear) flow. Edit for debugging.
 
 build_ydict()    # Builds global ydict (should always run)
-deletes()        # Deletes old posts
+# deletes()        # Deletes old posts
 categories()     # Builds global categories and builds category pages
-category_page()
+# category_page()
+category_pages()
 # sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
 # new_source()   # Replaces YAMLESQUE input with syncronized output
 # make_index()   # Builds index page of all posts (for blog page)
