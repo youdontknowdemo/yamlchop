@@ -121,7 +121,7 @@ KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 INCLUDES = f"{PATH}{REPO}_includes/"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
-CATEGORY_FILTER = ["blog", "index", "journal", "category"]
+CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default"]
 CATEGORIES = []
 
 # Databases
@@ -504,7 +504,7 @@ def deletes():
         of.unlink()
 
 
-def categories():
+def categories_old():
     """Create category pages from keywords."""
     #   ____      _                        _
     #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
@@ -757,24 +757,19 @@ def git_push():
 #                                   |___/ |___/
 # Doing so has a distinct Python generator look to it, where we yield chunks:
 
-
-def desc_cats():
-    global pwords, ydict
+def categories():
+    fig("Categories", "Finding catgories...")
     pwords = defaultdict(lambda x=None: x)
-    ydict = {}
     cat_dict = defaultdict(list)
     words = defaultdict(list)
+    lemmatizer = WordNetLemmatizer()
     with open(YAMLESQUE) as fh:
         for post in CHOP.split(fh.read()):
             ystr, body = post.split("---", 1)
             if ystr:
-                try:
-                    yml = yaml.load(ystr, Loader=yaml.FullLoader)
-                except yaml.YAMLError as exc:
-                    diagnose_yaml(ystr, exc)
+                yml = yaml.load(ystr, Loader=yaml.FullLoader)
                 if "title" in yml:
                     slug = slugify(yml["title"])
-                    ydict[slug] = yml
                 if "keywords" in yml:
                     keywords = yml["keywords"].split(", ")
                     for keyword in keywords:
@@ -791,9 +786,15 @@ def desc_cats():
     for cat, slugs in cat_dict.items():
         cat_counter[cat] = len(slugs)
     common_cats = cat_counter.most_common()
+    commone_cats = [x for x in common_cats if x[0] not in CATEGORY_FILTER]
+    show_cats = 20
+    print(f"Found {len(common_cats):,} categories. Here are the top {show_cats}:")
     for i, cat in enumerate(common_cats):
         category, freq = cat
-        print(freq, pwords[category])
+        print(f"{i+1}. {pwords[category]} ({freq:,})")
+        if i + 1 >= show_cats:
+            break
+
 
 
 #  _____ _                                 _             _
@@ -804,13 +805,12 @@ def desc_cats():
 # This controls the entire (usually linear) flow. Edit for debugging.
 
 build_ydict()  # Builds global ydict (should always run)
-# deletes()  # Deletes old posts
-#categories()  # Builds global categories and builds category pages
+# deletes()      # Deletes old posts
+categories()    # Builds global categories and builds category pages
 #sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 #new_source()  # Replaces YAMLESQUE input with syncronized output
 #make_index()  # Builds index page of all posts (for blog page)
 #write_posts()  # Writes out all Jekyll-style posts
-# desc_cats()  # Writes out category pages
 # git_push()  # Pushes changes to Github (publishes)
 
 #  ____
