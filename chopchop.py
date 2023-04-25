@@ -1,5 +1,5 @@
 # Author: Mike Levin
-# Date: 2023-04-22
+# Date: 2023-04-25
 # Description: Chop a journal.md file into individual blog posts.
 #   ____ _                  ____ _
 #  / ___| |__   ___  _ __  / ___| |__   ___  _ __    - I keep one journal.md file for life.
@@ -55,10 +55,6 @@ from collections import Counter, defaultdict
 AUTHOR = "Mike Levin"
 ENGINE = "text-davinci-003"
 NUMBER_OF_CATEGORIES = 100
-
-# Debugging
-POST_BY_POST = True
-INTERACTIVE = False
 
 with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
     openai.api_key = fh.readline()
@@ -186,8 +182,8 @@ def diagnose_yaml(yaml_str, YMLError):
     print(f"YMLError.context_mark: {YMLError.context_mark}")
     print()
     print("And the breakdown of the error:")
-    print(f"exec.context_mark: {exc.context_mark}")
-    print(f"exec.problem_mark: {exc.problem_mark}")
+    print(f"exec.context_mark: {YMLError.context_mark}")
+    print(f"exec.problem_mark: {YMLError.problem_mark}")
     raise SystemExit()
 
 
@@ -365,7 +361,7 @@ def sq(text):
     """Safely return a quoted string."""
     if not text:
         return text
-    test = text.strip()
+    text = text.strip()
     text = text.strip('"')
     text = re.sub(r"\"{2,}", '"', text)
     text = text.replace('"', "'")
@@ -387,26 +383,15 @@ def build_ydict(yamlesque=YAMLESQUE):
     # | |_) | |_| | | | (_| | | |_| | (_| | | | | | | | | (_| | | (__| |_
     # |____/ \__,_|_|_|\__,_|  \__, |\__,_|_| |_| |_|_|  \__,_|_|\___|\__|
     #                          |___/
-    fig("YAML dict", "Building dictionary of all YAML with slug.")
+    fig("YAML check", "Building dictionary of all YAML with slug.")
     global ydict
     ydict = defaultdict(dict)
-    with open(yamlesque) as fh:
-        for i, (fm, _, _) in enumerate(chop_chop(YAMLESQUE)):
-            if fm and isinstance(fm, dict):
-                if "title" in fm:
-                    slug = slugify(fm["title"])
-                    fm["slug"] = slug
-                    ydict[slug] = fm
-                # and len(fm) == 2 and "date" in fm and "title" in fm:
-                # slug = slugify(fm["title"])
-                # ydict[slug] = fm
-                # ydict[slug]["slug"] = slug
-                # description = oget(DESCDB, slug)
-                # keywords = oget(KWDB, slug)
-                # headline = oget(HEADS, slug)
-                # ydict[slug]["headline"] = headline
-                # ydict[slug]["description"] = description
-                # ydict[slug]["keywords"] = keywords
+    for i, (fm, _, _) in enumerate(chop_chop(YAMLESQUE)):
+        if fm and isinstance(fm, dict):
+            if "title" in fm:
+                slug = slugify(fm["title"])
+                fm["slug"] = slug
+                ydict[slug] = fm
     print(f"ydict has {len(ydict)} entries.")
 
 
@@ -436,12 +421,12 @@ def deletes():
 
 def categories():
     """Find the categories"""
-    #   ____      _                        _           
-    #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
+    #   ____      _                        _
+    #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
     # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
     # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
     #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-    #                     |___/                        
+    #                     |___/
     # Category selection
     fig("Categories", "Finding catgories...")
     pwords = defaultdict(lambda x=None: x)
@@ -486,14 +471,14 @@ def categories():
 
 def category_page():
     """Build the category page (singular)"""
-    #   ____      _     ____                  
-    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___ 
+    #   ____      _     ____
+    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___
     # | |   / _` | __| | |_) / _` |/ _` |/ _ \
     # | |__| (_| | |_  |  __/ (_| | (_| |  __/
     #  \____\__,_|\__| |_|   \__,_|\__, |\___|
-    #                              |___/           
+    #                              |___/
     global cdict
-    fig("Cat Page", f"Building category page...")
+    fig("Cat Page", "Building category page...")
     if cdict:
         with open(CATEGORY_PAGE, "w") as fh:
             with open(CATEGORY_INCLUDE, "w") as fh2:
@@ -508,6 +493,70 @@ def category_page():
                     if i + 1 >= NUMBER_OF_CATEGORIES:
                         break
                 fh2.write("</ol>\n")
+
+
+def category_pages():
+    """Outputs the individual category pages and includes"""
+    #   ____      _     ____
+    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___  ___
+    # | |   / _` | __| | |_) / _` |/ _` |/ _ \/ __|
+    # | |__| (_| | |_  |  __/ (_| | (_| |  __/\__ \
+    #  \____\__,_|\__| |_|   \__,_|\__, |\___||___/
+    #                              |___/
+    fig("Cat Pages", "Building category pages (plural)...")
+    global cdict
+    lemmatizer = WordNetLemmatizer()
+    top_cats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
+
+    # Map every slug to a category:
+    slugcat = defaultdict(list)
+    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+        if fm:
+            if "keywords" in fm and "title" in fm:
+                slug = slugify(fm["title"])
+                keywords = fm["keywords"]
+                keyword_list = keywords.split(", ")
+                for keyword in keyword_list:
+                    keyword = keyword.lower()
+                    keyword = lemmatizer.lemmatize(keyword)
+                    keyword = keyword.lower()
+                    if keyword in top_cats:
+                        slugcat[keyword].append(slug)
+    # Create the category pages:
+    for cat in top_cats:
+        slug = slugify(cat)
+        filename = f"{PATH}{REPO}cat_{slug}.md"
+        include_file = f"cat_{slug}.md"
+        permalink = f"/{slug}/"
+        with open(filename, "w", encoding="utf-8") as fh:
+            cat_str = f"""---
+title: {cdict[cat]["title"]}
+permalink: {permalink}
+layout: default
+---
+
+# {cdict[cat]["title"]}
+
+"""
+            fh.write(cat_str)
+            fh.write(f"{{% include {include_file} %}}\n")
+
+    # Create the category includes:
+    for cat in top_cats:
+        slug = slugify(cat)
+        filename = f"{INCLUDES}cat_{slug}.md"
+        with open(filename, "w", encoding="utf-8") as fh:
+            posts_in_cat = len(slugcat[cat])
+            fh.write(f"<ol start='{posts_in_cat}' reversed>\n")
+            for slug in slugcat[cat]:
+                title = ydict[slug]["title"]
+                aslug = slugify(title)
+                adate = ydict[slug]["date"]
+                description = ydict[slug]["description"]
+                apermalink = f"{BLOG}{aslug}/"
+                alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
+                fh.write(alink)
+            fh.write("</ol>\n")
 
 
 def sync_check():
@@ -526,20 +575,10 @@ def sync_check():
             ydict[slug]["title"] = title
 
             # Setting these values ALSO commits it to the databases
-            # The summary is too big for YAML-stuffing so we keep it in db.
             summary, api_hit = odb(SUMDB, write_summary, slug, apost)
-
-            # Headlines belong on YAML-stuffing for re-writing
             headline, hit_headline = odb(HEADS, write_headline, slug, summary)
-            ydict[slug]["headline"] = headline
-
-            # Descriptions belong on YAML-stuffing for re-writing
             description, hit_description = odb(DESCDB, write_description, slug, summary)
-            ydict[slug]["description"] = description
-
-            # Keywords belong on YAML-stuffing for re-writing
             keywords, hit_keywords = odb(KWDB, write_keywords, slug, summary)
-            ydict[slug]["keywords"] = keywords
 
             if any([hit_description, hit_headline, hit_keywords]):
                 print(f"headline: {headline}\n")
@@ -547,9 +586,6 @@ def sync_check():
                 print(f"keywords: {keywords}\n")
                 input("Press enter to continue...")
             print()
-    # Outside the loop and the global ydict is updated but
-    # the database may now be ahead of the YAMLesque file.
-    build_ydict()
 
 
 def new_source():
@@ -600,13 +636,14 @@ def make_index():
 
 
 def write_posts():
-    """Write the posts to the output directory"""
-    # __        __    _ _         ____           _
-    # \ \      / / __(_) |_ ___  |  _ \ ___  ___| |_ ___
-    #  \ \ /\ / / '__| | __/ _ \ | |_) / _ \/ __| __/ __|
-    #   \ V  V /| |  | | ||  __/ |  __/ (_) \__ \ |_\__ \
-    #    \_/\_/ |_|  |_|\__\___| |_|   \___/|___/\__|___/
-    fig("Write Posts", "Chop, chop, chop...")
+    """Chop YAMLESQUE up into posts"""
+    #   ____ _                   ____           _
+    #  / ___| |__   ___  _ __   |  _ \ ___  ___| |_ ___
+    # | |   | '_ \ / _ \| '_ \  | |_) / _ \/ __| __/ __|
+    # | |___| | | | (_) | |_) | |  __/ (_) \__ \ |_\__ \
+    #  \____|_| |_|\___/| .__/  |_|   \___/|___/\__|___/
+    #                   |_|
+    fig("Chop Pages", "Chop, chop, chop...")
     # This is a YAMLesque system, so we need to be able to parse YAMLesque.
     # Chop, chop YAMLESQUE, that's what we do as Python generator.
     # That means it's memory efficient and can parse very large files.
@@ -626,7 +663,6 @@ def write_posts():
                 if keyword in CATEGORIES:
                     categories.add(keyword)
             categories = ", ".join(categories)
-            catefories = sq(categories)
             permalink = f"{BLOG}{stem}/"
             date_object = datetime.strptime(adate, "%a %b %d, %Y")
             adate = date_object.strftime("%Y-%m-%d")
@@ -682,64 +718,6 @@ def git_push():
 #                                   |___/ |___/
 # Doing so has a distinct Python generator look to it, where we yield chunks:
 
-def category_pages():
-    """Outputs the individual category pages and includes"""
-    #   ____      _     ____                       
-    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___  ___ 
-    # | |   / _` | __| | |_) / _` |/ _` |/ _ \/ __|
-    # | |__| (_| | |_  |  __/ (_| | (_| |  __/\__ \
-    #  \____\__,_|\__| |_|   \__,_|\__, |\___||___/
-    #                              |___/           
-    fig("Cat Pages", "Building category pages (plural)...")
-    global cdict
-    lemmatizer = WordNetLemmatizer()
-    top_cats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
-
-    # Map every slug to a category:
-    slugcat = defaultdict(list)
-    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
-        if fm:
-            if "keywords" in fm and "title" in fm:
-                slug = slugify(fm["title"])
-                keywords = fm["keywords"]
-                keyword_list = keywords.split(", ")
-                for keyword in keyword_list:
-                    keyword = keyword.lower()
-                    keyword = lemmatizer.lemmatize(keyword)
-                    keyword = keyword.lower()
-                    if keyword in top_cats:
-                        slugcat[keyword].append(slug)
-    # Create the category pages:
-    for cat in top_cats:
-        slug = slugify(cat)
-        filename = f"{PATH}{REPO}cat_{slug}.md"
-        include_file = f"cat_{slug}.md"
-        permalink = f"/{slug}/"
-        with open(filename, "w", encoding="utf-8") as fh:
-            cat_str = f"""---
-title: {cdict[cat]["title"]}
-permalink: {permalink}
-layout: default
----
-
-"""
-            fh.write(cat_str)
-            fh.write(f"{{% include {include_file} %}}\n")
-
-    # Create the category includes:
-    for cat in top_cats:
-        slug = slugify(cat)
-        filename = f"{INCLUDES}cat_{slug}.md"
-        with open(filename, "w", encoding="utf-8") as fh:
-            for slug in slugcat[cat]:
-                title = ydict[slug]["title"]
-                aslug = slugify(title)
-                adate = ydict[slug]["date"]
-                description = ydict[slug]["description"]
-                apermalink = f"{BLOG}{aslug}/"
-                alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
-                fh.write(alink)
-
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -747,16 +725,16 @@ layout: default
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-build_ydict()    # Builds global ydict (should always run)
-# deletes()        # Deletes old posts
-categories()     # Builds global categories and builds category pages
-# category_page()
-category_pages()
-# sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
-# new_source()   # Replaces YAMLESQUE input with syncronized output
-# make_index()   # Builds index page of all posts (for blog page)
-# write_posts()  # Writes out all Jekyll-style posts
-# git_push()     # Pushes changes to Github (publishes)
+build_ydict()  # Builds global ydict (should always run)
+deletes()  # Deletes old posts
+categories()  # Builds global categories and builds category pages
+category_page()  # Builds category.md and include
+category_pages()  # Builds cat_*.md and cat_*.md includes
+sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+# new_source()     # Replaces YAMLESQUE input with syncronized output
+make_index()  # Builds index page of all posts (for blog page)
+write_posts()  # Writes out all Jekyll-style posts
+git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
