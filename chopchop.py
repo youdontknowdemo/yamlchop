@@ -151,36 +151,31 @@ Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 
 
 def chop_chop(full_path, reverse=False):
-    """Chop YAMLesque file to spew chuks."""
+    """Yields 3-tuples of YAMLESQUE source-file as (YAML, post, YAML+post).
+    If there's no YAML, position 0 will be None and position 2 will be post."""
     #   ____                           _
     #  / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
     # | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
     # | |_| |  __/ | | |  __/ | | (_| | || (_) | |
     #  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|
-    global ydict
-    ydict = defaultdict(dict)
     with open(full_path, "r") as fh:
+        global SEPARATOR
         posts = CHOP.split(fh.read())
         if reverse:
             posts.reverse()  # Reverse so article indexes don't change.
         for i, post in enumerate(posts):
-            if "---" not in post:
-                rv = None, None, post
-            else:
+            rv = None, post, post  # Always rebuild source at very least.
+            parsed_yaml, yaml_str, body = None, "", ""
+            if "---" in post:
                 yaml_str, body = post.split("---", 1)
                 try:
-                    yaml_test = yaml.load(yaml_str, Loader=yaml.FullLoader)
-                    if yaml_test:
-                        combined = f"{SEPARATOR}{yaml_str}---{body}"
-                    else:
-                        combined = post
-                    rv = yaml_test, body, combined
-                except yaml.YAMLError as exc:
-                    diagnose_yaml(yaml_str, exc)
-            # Populate the global ydict
-            if yaml_test and "title" in yaml_test:
-                slug = slugify(yaml_test["title"])
-                ydict[slug] = yaml_test
+                    parsed_yaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
+                    rv = parsed_yaml, body, f"{SEPARATOR}{yaml_str}---{body}"
+                except yaml.YAMLError:
+                    # This generator is for outputting pages with YAML.
+                    # Passing silently here will cause the page to be
+                    # not be published (banner, to-do, no title, etc.)
+                    ...
             yield rv
 
 
@@ -403,7 +398,7 @@ def get_capitization_dict():
     return pwords
 
 
-def build_ydict():
+def build_ydict(yamlesque=YAMLESQUE):
     """Rebuilds ydict from _data/*.dbs, which may have more daata than the YAMLESQUE source."""
     #  ____        _ _     _                         _       _ _      _
     # | __ ) _   _(_) | __| |  _   _  __ _ _ __ ___ | |   __| (_) ___| |_
@@ -411,23 +406,27 @@ def build_ydict():
     # | |_) | |_| | | | (_| | | |_| | (_| | | | | | | | | (_| | | (__| |_
     # |____/ \__,_|_|_|\__,_|  \__, |\__,_|_| |_| |_|_|  \__,_|_|\___|\__|
     #                          |___/
+    fig("YAML dict", "Building dictionary of all YAML with slug.")
     global ydict
     ydict = defaultdict(dict)
-    with open(OUTPUT2_PATH, "w") as fh:
-        for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
-            if fm:
-                if len(fm) == 2 and "date" in fm and "title" in fm:
+    with open(yamlesque) as fh:
+        for i, (fm, _, _) in enumerate(chop_chop(YAMLESQUE)):
+            if fm and isinstance(fm, dict):
+                if "title" in fm:
                     slug = slugify(fm["title"])
-                    description = oget(DESCDB, slug)
-                    keywords = oget(KWDB, slug)
-                    headline = oget(HEADS, slug)
-                    ydict[slug]["headline"] = headline
-                    ydict[slug]["description"] = description
-                    ydict[slug]["keywords"] = keywords
-                    nfm = "\n".join([f"{k}: {sq(v)}" for k, v in ydict[slug].items()])
-                    combined = f"{SEPARATOR}{nfm}\n---{body}"
-            fh.write(combined)
-
+                fm["slug"] = slug
+                ydict[slug] = fm
+                # and len(fm) == 2 and "date" in fm and "title" in fm:
+                # slug = slugify(fm["title"])
+                # ydict[slug] = fm
+                # ydict[slug]["slug"] = slug
+                # description = oget(DESCDB, slug)
+                # keywords = oget(KWDB, slug)
+                # headline = oget(HEADS, slug)
+                # ydict[slug]["headline"] = headline
+                # ydict[slug]["description"] = description
+                # ydict[slug]["keywords"] = keywords
+    print(f"ydict has {len(ydict)} entries.")
 
 def histogram():
     """Create a histogram of keywords."""
@@ -493,23 +492,16 @@ def deletes():
     # | | | |/ _ \ |/ _ \ __/ _ \/ __|
     # | |_| |  __/ |  __/ ||  __/\__ \
     # |____/ \___|_|\___|\__\___||___/
-    # None of this is worth doing if ydict didn't come back with values.
-    if ydict:
-        # Delete old files in output path
-        for fh in os.listdir(OUTPUT_PATH):
-            delete_me = f"{OUTPUT_PATH}/{fh}"
+    for fh in os.listdir(OUTPUT_PATH):
+        delete_me = f"{OUTPUT_PATH}/{fh}"
+        os.remove(delete_me)
+    for fh in os.listdir(f"{PATH}{REPO}"):
+        if fh.startswith("cat_"):
+            delete_me = f"{PATH}{REPO}/{fh}"
             os.remove(delete_me)
-        # Delete all cat_*.md files in root:
-        for fh in os.listdir(f"{PATH}{REPO}"):
-            if fh.startswith("cat_"):
-                delete_me = f"{PATH}{REPO}/{fh}"
-                os.remove(delete_me)
-        # Delete the old temporary journal from _data
-        out_file = Path(OUTPUT2_PATH)
-        if out_file.exists():
-            out_file.unlink()
-    else:
-        raise SystemExit("No YAML front matter found in journal.")
+    of = Path(OUTPUT2_PATH)
+    if of.exists():
+        of.unlink()
 
 
 def categories():
@@ -812,14 +804,14 @@ def desc_cats():
 # This controls the entire (usually linear) flow. Edit for debugging.
 
 build_ydict()  # Builds global ydict (should always run)
-deletes()  # Deletes old posts
-categories()  # Builds global categories and builds category pages
-sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
-new_source()  # Replaces YAMLESQUE input with syncronized output
-make_index()  # Builds index page of all posts (for blog page)
-write_posts()  # Writes out all Jekyll-style posts
+# deletes()  # Deletes old posts
+#categories()  # Builds global categories and builds category pages
+#sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+#new_source()  # Replaces YAMLESQUE input with syncronized output
+#make_index()  # Builds index page of all posts (for blog page)
+#write_posts()  # Writes out all Jekyll-style posts
 # desc_cats()  # Writes out category pages
-git_push()  # Pushes changes to Github (publishes)
+# git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
