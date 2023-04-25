@@ -45,9 +45,7 @@ from retry import retry
 from pathlib import Path
 from slugify import slugify
 from pyfiglet import Figlet
-from rich.table import Table
 from datetime import datetime
-from rich.console import Console
 from subprocess import Popen, PIPE
 from nltk.stem import WordNetLemmatizer
 from sqlitedict import SqliteDict as sqldict
@@ -56,7 +54,7 @@ from collections import Counter, defaultdict
 
 AUTHOR = "Mike Levin"
 ENGINE = "text-davinci-003"
-NUMBER_OF_CATEGORIES = 300
+NUMBER_OF_CATEGORIES = 100
 
 # Debugging
 POST_BY_POST = True
@@ -440,6 +438,7 @@ def histogram():
 
 
 def deletes():
+    global INCLUDES
     fig("Deleting", "Deleting auto-generated pages from site.")
     #  ____       _      _
     # |  _ \  ___| | ___| |_ ___  ___
@@ -452,6 +451,10 @@ def deletes():
     for fh in os.listdir(f"{PATH}{REPO}"):
         if fh.startswith("cat_"):
             delete_me = f"{PATH}{REPO}/{fh}"
+            os.remove(delete_me)
+    for fh in os.listdir(f"{INCLUDES}"):
+        if fh.startswith("cat_"):
+            delete_me = f"{INCLUDES}/{fh}"
             os.remove(delete_me)
     of = Path(OUTPUT2_PATH)
     if of.exists():
@@ -763,10 +766,23 @@ def git_push():
 
 def category_pages():
     """Build the category pages"""
-    fig("Cat Pages", "Building category pages...")
-    global cdict
+    global cdict, NUMBER_OF_CATEGORIES, CATEGORY_PAGE
+    fig("Cat Pages", f"Building {NUMBER_OF_CATEGORIES:,} category pages...")
     if cdict:
-        print(len(cdict))
+        with open(CATEGORY_PAGE, "w") as fh:
+            fh.write("# Categories\n")  # This could be more frontmatter-y
+            fh.write("{% include category.md %}\n")  # Reference to include
+            for i, cat in enumerate(cdict):
+                print(i + 1, cat)
+                with open(CATEGORY_INCLUDE, "w") as fh2:
+                    fh2.write(f"<ol start='{NUMBER_OF_CATEGORIES}' reversed>\n")
+                    for cat in cdict:
+                        permalink = slugify(cat)
+                        title = cdict[cat]["title"]
+                        fh2.write(f'<li><a href="/{permalink}/">{title}</a></li>\n')
+                    fh2.write("</ol>\n")
+                if i + 1 >= NUMBER_OF_CATEGORIES:
+                    break
 
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
