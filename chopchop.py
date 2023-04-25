@@ -176,23 +176,26 @@ def chop_chop(full_path, reverse=False):
                         combined = post
                     rv = yaml_test, body, combined
                 except yaml.YAMLError as exc:
-                    fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
-                    for j, astr in enumerate(yaml_str.split("\n")):
-                        print(f"LINE {j + 1}--> {astr}")
-                    print()
-                    print("And here's the error:")
-                    print(exc)
-                    # ['context', 'context_mark', 'note', 'problem', 'problem_mark']:
-                    print()
-                    print("And the breakdown of the error:")
-                    print(f"exec.context_mark: {exc.context_mark}")
-                    print(f"exec.problem_mark: {exc.problem_mark}")
-                    raise SystemExit()
+                    diagnose_yaml(yaml_str, exc)
             # Populate the global ydict
             if yaml_test and "title" in yaml_test:
                 slug = slugify(yaml_test["title"])
                 ydict[slug] = yaml_test
             yield rv
+
+
+def diagnose_yaml(yaml_str, YMLError):
+    fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
+    for j, astr in enumerate(yaml_str.split("\n")):
+        print(f"LINE {j + 1}--> {astr}")
+    print()
+    print("And here's the error:")
+    print(f"YMLError.context_mark: {YMLError.context_mark}")
+    print()
+    print("And the breakdown of the error:")
+    print(f"exec.context_mark: {exc.context_mark}")
+    print(f"exec.problem_mark: {exc.problem_mark}")
+    raise SystemExit()
 
 
 def odb(DBNAME, afunc, slug, full_text):
@@ -369,11 +372,17 @@ def sq(text):
     """Safely return a quoted string."""
     if not text:
         return text
-    if ":" in text:
-        if '"' in text:
-            text = re.sub(r"\"{2,}", '"', text)
-        if text[0] != '"' and text[-1] != '"':
-            text = f'"{text}"'
+    test = text.strip()
+    text = text.strip('"')
+    text = re.sub(r"\"{2,}", '"', text)
+    text = text.replace('"', "'")
+    # Replace all cariage returns and line feeds with spaces:
+    text = re.sub(r"[\r\n]+", " ", text)
+    # Replace all multiple spaces with a single space:
+    text = re.sub(r"\s+", " ", text)
+    # If any of the following characters (including single quotes) are in the text, do if:
+    if re.search(r"[;:]", text):
+        text = f'"{text}"'
     return text
 
 
@@ -710,13 +719,13 @@ def write_posts():
                 fh.write(
                     f"""---
 date: {adate}
-title: "{title}"
+title: {sq(title)}
 permalink: {permalink}
-headline: {headline}
-description: "{description}"
-keywords: {keywords}
-categories: {categories}
-author: {AUTHOR}
+headline: {sq(headline)}
+description: {sq(description)}
+keywords: {sq(keywords)}
+categories: {sq(categories)}
+author: {sq(AUTHOR)}
 layout: post
 ---"""
                 )
@@ -767,7 +776,10 @@ def desc_cats():
         for post in CHOP.split(fh.read()):
             ystr, body = post.split("---", 1)
             if ystr:
-                yml = yaml.load(ystr, Loader=yaml.FullLoader)
+                try:
+                    yml = yaml.load(ystr, Loader=yaml.FullLoader)
+                except yaml.YAMLError as exc:
+                    diagnose_yaml(ystr, exc)
                 if "title" in yml:
                     slug = slugify(yml["title"])
                     ydict[slug] = yml
