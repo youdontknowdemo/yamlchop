@@ -511,6 +511,32 @@ def categories():
             break
 
 
+def category_page():
+    """Build the category pages"""
+    #   ____      _     ____                  
+    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___ 
+    # | |   / _` | __| | |_) / _` |/ _` |/ _ \
+    # | |__| (_| | |_  |  __/ (_| | (_| |  __/
+    #  \____\__,_|\__| |_|   \__,_|\__, |\___|
+    #                              |___/           
+    global cdict, NUMBER_OF_CATEGORIES, CATEGORY_PAGE
+    fig("Cat Page", f"Building category page...")
+    if cdict:
+        with open(CATEGORY_PAGE, "w") as fh:
+            with open(CATEGORY_INCLUDE, "w") as fh2:
+                fh.write("# Categories\n")  # This could be more frontmatter-y
+                fh.write("{% include category.md %}\n")  # Reference to include
+                fh2.write(f"<ol start='{NUMBER_OF_CATEGORIES}' reversed>\n")
+                for i, cat in enumerate(cdict):
+                    # print(i + 1, cat)
+                    permalink = slugify(cat)
+                    title = cdict[cat]["title"]
+                    fh2.write(f'<li><a href="/{permalink}/">{title}</a></li>\n')
+                    if i + 1 >= NUMBER_OF_CATEGORIES:
+                        break
+                fh2.write("</ol>\n")
+
+
 def categories_old():
     """Create category pages from keywords."""
     #   ____      _                        _
@@ -764,26 +790,6 @@ def git_push():
 #                                   |___/ |___/
 # Doing so has a distinct Python generator look to it, where we yield chunks:
 
-def category_pages():
-    """Build the category pages"""
-    global cdict, NUMBER_OF_CATEGORIES, CATEGORY_PAGE
-    fig("Cat Pages", f"Building {NUMBER_OF_CATEGORIES:,} category pages...")
-    if cdict:
-        with open(CATEGORY_PAGE, "w") as fh:
-            fh.write("# Categories\n")  # This could be more frontmatter-y
-            fh.write("{% include category.md %}\n")  # Reference to include
-            for i, cat in enumerate(cdict):
-                print(i + 1, cat)
-                with open(CATEGORY_INCLUDE, "w") as fh2:
-                    fh2.write(f"<ol start='{NUMBER_OF_CATEGORIES}' reversed>\n")
-                    for cat in cdict:
-                        permalink = slugify(cat)
-                        title = cdict[cat]["title"]
-                        fh2.write(f'<li><a href="/{permalink}/">{title}</a></li>\n')
-                    fh2.write("</ol>\n")
-                if i + 1 >= NUMBER_OF_CATEGORIES:
-                    break
-
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -794,7 +800,7 @@ def category_pages():
 build_ydict()    # Builds global ydict (should always run)
 deletes()        # Deletes old posts
 categories()     # Builds global categories and builds category pages
-category_pages()
+category_page()
 # sync_check()   # Catches YAMLESQUE file up with database of OpenAI responses
 # new_source()   # Replaces YAMLESQUE input with syncronized output
 # make_index()   # Builds index page of all posts (for blog page)
