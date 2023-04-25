@@ -56,9 +56,6 @@ AUTHOR = "Mike Levin"
 ENGINE = "text-davinci-003"
 NUMBER_OF_CATEGORIES = 100
 
-with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
-    openai.api_key = fh.readline()
-
 
 # Load function early so we can start showing figlets.
 def fig(text, description=None):
@@ -108,21 +105,20 @@ REPO = parts[-2] + "/"
 FILE = parts[-1]
 PATH = "/".join(parts[:-2]) + "/"
 GIT_EXE = "/usr/bin/git"
-OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
-REPO_DATA = f"{PATH}{REPO}_data/"
-OUTPUT2_PATH = f"{REPO_DATA}{FILE}"
-KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 INCLUDES = f"{PATH}{REPO}_includes/"
+REPO_DATA = f"{PATH}{REPO}_data/"
+OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
+TEMP_OUTPUT = f"{REPO_DATA}{FILE}"
+KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
 CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default"]
-CATEGORIES = []
 
 # Databases
-SUMDB = REPO_DATA + "summaries.db"
-DESCDB = REPO_DATA + "descriptions.db"
-KWDB = REPO_DATA + "keywords.db"
-HEADS = REPO_DATA + "headlines.db"
+SUMMARIESDB = REPO_DATA + "summaries.db"
+HEADLINESDB = REPO_DATA + "headlines.db"
+DESCRIPTIONSDB = REPO_DATA + "descriptions.db"
+KEYWORDSDB = REPO_DATA + "keywords.db"
 
 # Print out constants
 fig(REPO, f"REPO: {REPO}")  # Print the repo name
@@ -136,6 +132,9 @@ cdict = defaultdict(dict)
 # Create output path if it doesn't exist
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
+
+with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
+    openai.api_key = fh.readline()
 
 #  _____                 _   _
 # |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
@@ -397,12 +396,13 @@ def build_ydict(yamlesque=YAMLESQUE):
 
 def deletes():
     global INCLUDES
-    fig("Deleting", "Deleting auto-generated pages from site.")
-    #  ____       _      _
-    # |  _ \  ___| | ___| |_ ___  ___
-    # | | | |/ _ \ |/ _ \ __/ _ \/ __|
-    # | |_| |  __/ |  __/ ||  __/\__ \
-    # |____/ \___|_|\___|\__\___||___/
+    fig("Deleting old", "Deleting auto-generated pages from site.")
+    #  ____       _      _   _                     _     _
+    # |  _ \  ___| | ___| |_(_)_ __   __ _    ___ | | __| |
+    # | | | |/ _ \ |/ _ \ __| | '_ \ / _` |  / _ \| |/ _` |
+    # | |_| |  __/ |  __/ |_| | | | | (_| | | (_) | | (_| |
+    # |____/ \___|_|\___|\__|_|_| |_|\__, |  \___/|_|\__,_|
+    #                                |___/
     for fh in os.listdir(OUTPUT_PATH):
         delete_me = f"{OUTPUT_PATH}/{fh}"
         os.remove(delete_me)
@@ -414,7 +414,7 @@ def deletes():
         if fh.startswith("cat_"):
             delete_me = f"{INCLUDES}/{fh}"
             os.remove(delete_me)
-    of = Path(OUTPUT2_PATH)
+    of = Path(TEMP_OUTPUT)
     if of.exists():
         of.unlink()
 
@@ -485,13 +485,11 @@ def category_page():
                 fh.write("# Categories\n")  # This could be more frontmatter-y
                 fh.write("{% include category.md %}\n")  # Reference to include
                 fh2.write(f"<ol start='{NUMBER_OF_CATEGORIES}' reversed>\n")
-                for i, cat in enumerate(cdict):
-                    # print(i + 1, cat)
+                top_cats = get_top_cats()
+                for i, cat in enumerate(top_cats):
                     permalink = slugify(cat)
                     title = cdict[cat]["title"]
                     fh2.write(f'<li><a href="/{permalink}/">{title}</a></li>\n')
-                    if i + 1 >= NUMBER_OF_CATEGORIES:
-                        break
                 fh2.write("</ol>\n")
 
 
@@ -506,7 +504,7 @@ def category_pages():
     fig("Cat Pages", "Building category pages (plural)...")
     global cdict
     lemmatizer = WordNetLemmatizer()
-    top_cats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
+    top_cats = get_top_cats()
 
     # Map every slug to a category:
     slugcat = defaultdict(list)
@@ -575,10 +573,12 @@ def sync_check():
             ydict[slug]["title"] = title
 
             # Setting these values ALSO commits it to the databases
-            summary, api_hit = odb(SUMDB, write_summary, slug, apost)
-            headline, hit_headline = odb(HEADS, write_headline, slug, summary)
-            description, hit_description = odb(DESCDB, write_description, slug, summary)
-            keywords, hit_keywords = odb(KWDB, write_keywords, slug, summary)
+            summary, api_hit = odb(SUMMARIESDB, write_summary, slug, apost)
+            headline, hit_headline = odb(HEADLINESDB, write_headline, slug, summary)
+            description, hit_description = odb(
+                DESCRIPTIONSDB, write_description, slug, summary
+            )
+            keywords, hit_keywords = odb(KEYWORDSDB, write_keywords, slug, summary)
 
             if any([hit_description, hit_headline, hit_keywords]):
                 print(f"headline: {headline}\n")
@@ -598,14 +598,14 @@ def new_source():
     #
     # Compare the input and output files. If same, there's been no changes.
     fig("Compare files")
-    files_are_same = compare_files(YAMLESQUE, OUTPUT2_PATH)
+    files_are_same = compare_files(YAMLESQUE, TEMP_OUTPUT)
     print(f"Are the input and output files the same? {files_are_same}")
     if files_are_same:
         print("Nothing's changed. Nothing to publish.")
     else:
         print("Something's changed. Copied output to input.")
         # Replaces old journal.md with the new journal.md (AI content filled-in)
-        shutil.copyfile(OUTPUT2_PATH, YAMLESQUE)
+        shutil.copyfile(TEMP_OUTPUT, YAMLESQUE)
 
 
 def make_index():
@@ -658,9 +658,10 @@ def write_posts():
             keywords = sq(fm["keywords"])
             keyword_list = keywords.split(", ")
             categories = set()
+            top_cats = get_top_cats()
             for keyword in keyword_list:
                 keyword = keyword.lower()
-                if keyword in CATEGORIES:
+                if keyword in top_cats:
                     categories.add(keyword)
             categories = ", ".join(categories)
             permalink = f"{BLOG}{stem}/"
@@ -718,6 +719,13 @@ def git_push():
 #                                   |___/ |___/
 # Doing so has a distinct Python generator look to it, where we yield chunks:
 
+
+def get_top_cats():
+    global cdict
+    tcats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
+    return tcats
+
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -734,7 +742,7 @@ sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 # new_source()     # Replaces YAMLESQUE input with syncronized output
 make_index()  # Builds index page of all posts (for blog page)
 write_posts()  # Writes out all Jekyll-style posts
-git_push()  # Pushes changes to Github (publishes)
+# git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
