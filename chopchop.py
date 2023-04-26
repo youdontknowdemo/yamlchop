@@ -629,7 +629,7 @@ def new_source():
     else:
         print("Something's changed. Copied output to input.")
         # Put a copy of the current YAMLESQUE file into data folder:
-        shutil.copyfile(YAMLESQUE, f"{REPO_DATA}journal-backup.md")
+        shutil.copyfile(YAMLESQUE, f"{REPO_DATA}journal-prior.md")
         # Replaces old journal.md with the new journal.md (AI content filled-in)
         shutil.copyfile(TEMP_OUTPUT, YAMLESQUE)
 
@@ -791,7 +791,7 @@ categories()  # Builds global categories and builds category pages
 category_page()  # Builds category.md and include
 category_pages()  # Builds cat_*.md and cat_*.md includes
 yaml_chop()  # Writes out all Jekyll-style posts
-#git_push()  # Pushes changes to Github (publishes)
+git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
