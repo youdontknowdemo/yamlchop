@@ -165,7 +165,6 @@ def chop_chop(full_path, reverse=False):
                 yaml_str, body = post.split("---", 1)
                 try:
                     parsed_yaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
-                    # rv = parsed_yaml, body, f"{SEPARATOR}{yaml_str}---{body}"
                     rv = parsed_yaml, body, post
                 except yaml.YAMLError:
                     # This generator is for outputting pages with YAML.
@@ -329,7 +328,7 @@ def oget(DBNAME, slug):
 def git(cwd, line_command):
     """Run a Linux git command."""
     cmd = [GIT_EXE] + shlex.split(line_command)
-    print(f"COMMAND: <<{shlex.join(cmd)}>>")
+    print(f"{cmd}")
     process = Popen(
         args=cmd,
         cwd=cwd,
@@ -397,7 +396,7 @@ def build_ydict(yamlesque=YAMLESQUE):
     # | |_) | |_| | | | (_| | | |_| | (_| | | | | | | | | (_| | | (__| |_
     # |____/ \__,_|_|_|\__,_|  \__, |\__,_|_| |_| |_|_|  \__,_|_|\___|\__|
     #                          |___/
-    fig("YAML check", "Building dictionary of all YAML with slug.")
+    # fig("YAML check", "Building dictionary of all YAML with slug.")
     global ydict
     ydict = defaultdict(dict)
     for i, (fm, _, _) in enumerate(chop_chop(YAMLESQUE)):
@@ -611,6 +610,7 @@ def sync_check():
                 print(f"keywords: {keywords}\n")
                 input("Press enter to continue...")
             print()
+    build_ydict()
 
 
 def new_source():
@@ -628,6 +628,8 @@ def new_source():
         print("Nothing's changed. Nothing to publish.")
     else:
         print("Something's changed. Copied output to input.")
+        # Put a copy of the current YAMLESQUE file into data folder:
+        shutil.copyfile(YAMLESQUE, f"{REPO_DATA}journal-backup.md")
         # Replaces old journal.md with the new journal.md (AI content filled-in)
         shutil.copyfile(TEMP_OUTPUT, YAMLESQUE)
 
@@ -639,7 +641,7 @@ def make_index():
     #  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
     #  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
     # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
-    fig("Index Page", "Making blog index page")  # |___/
+    fig("Index Page", "Making blog index")  # |___/
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
         fh.write(f'<ol start="{num_posts}" reversed >\n')
@@ -720,6 +722,7 @@ def git_push():
     fig("Git Push", "Releasing site changes...")
     here = f"{PATH}{REPO}"
     git(here, f"add {here}cat_*")
+    git(here, "add _data/*")
     git(here, "add _posts/*")
     git(here, "add _includes/*")
     git(here, "add assets/images/*")
@@ -751,20 +754,26 @@ def update_yaml():
             if i:
                 fh.write(SEPARATOR)
             if fm and len(fm) == 2:
-                title = fm["title"]
+                try:
+                    title = fm["title"]
+                except:
+                    print("No title found in YAML file.")
+                    raise SystemExit()
                 slug = slugify(title)
                 fm["headline"] = oget(HEADLINESDB, slug)
                 fm["description"] = oget(DESCRIPTIONSDB, slug)
                 fm["keywords"] = oget(KEYWORDSDB, slug)
-                fields = ["title", "date", "headline", "description", "keywords"]
-                sequence = [{field: fm.get(field, "")} for field in fields]
-                ymlstr = yaml.dump(sequence)
+                fields = ["date", "title", "headline", "description", "keywords"]
+                ymlstr = ""
+                for field in fields:
+                    ymlstr += f"{field}: {sq(fm[field])}\n"
                 fh.write(ymlstr)
                 fh.write("---")
                 fh.write(body)
             else:
                 fh.write(post)
-
+    build_ydict()
+    print("updated!")
 
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
@@ -773,17 +782,16 @@ def update_yaml():
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-build_ydict()  # Builds global ydict (should always run)
 deletes()  # Deletes old posts
-categories()  # Builds global categories and builds category pages
-category_page()  # Builds category.md and include
-category_pages()  # Builds cat_*.md and cat_*.md includes
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 update_yaml()  # Updates YAMLESQUE file data from database
 new_source()  # Replaces YAMLESQUE input with syncronized output
 make_index()  # Builds index page of all posts (for blog page)
+categories()  # Builds global categories and builds category pages
+category_page()  # Builds category.md and include
+category_pages()  # Builds cat_*.md and cat_*.md includes
 yaml_chop()  # Writes out all Jekyll-style posts
-git_push()  # Pushes changes to Github (publishes)
+#git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
