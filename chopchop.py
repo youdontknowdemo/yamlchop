@@ -114,6 +114,7 @@ OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
 TEMP_OUTPUT = f"{REPO_DATA}{FILE}"
 KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
+CATEGORY_GRID = f"{INCLUDES}category_list.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
 CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default"]
 
@@ -770,6 +771,30 @@ def sq(text):
 # Put new stuff here                |___/ |___/
 
 
+def category_grid():
+    #   ____      _     ____
+    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___
+    # | |   / _` | __| | |_) / _` |/ _` |/ _ \
+    # | |__| (_| | |_  |  __/ (_| | (_| |  __/
+    #  \____\__,_|\__| |_|   \__,_|\__, |\___|
+    #                              |___/
+    # fig("Cat Page", "Building category page...")
+    """Build the category page (singular)"""
+    global cdict
+    if cdict:
+        rows = 20
+        cols = 5
+        with open(CATEGORY_GRID, "w") as fh:
+            for row in range(rows):
+                for col in range(cols):
+                    fh.write(f'Row {row + 1}, Column {col + 1 } | ')
+            # for i, row in enumerate(top_cats):
+            #     for col in range(cols):
+            #     print()
+            #     mkdn = f'Row {row + 1}, Column {col + 1}', end=' | '
+            #     fh2.write(f'{mkdn}\n')
+            # fh2.write("</ol>\n")
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -777,14 +802,15 @@ def sq(text):
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-deletes()  # Deletes old posts
-sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+# deletes()  # Deletes old posts
+# sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 update_yaml()  # Updates YAMLESQUE file data from database
-new_source()  # Replaces YAMLESQUE input with syncronized output
-make_index()  # Builds index page of all posts (for blog page)
-categories()  # Builds global categories and builds category pages
-yaml_chop()  # Writes out all Jekyll-style posts
+# new_source()  # Replaces YAMLESQUE input with syncronized output
+# make_index()  # Builds index page of all posts (for blog page)
+# categories()  # Builds global categories and builds category pages
+# yaml_chop()  # Writes out all Jekyll-style posts
 # git_push()  # Pushes changes to Github (publishes)
+category_grid()
 
 #  ____
 # |  _ \  ___  _ __   ___
