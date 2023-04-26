@@ -75,14 +75,14 @@ def fig(text, description=None):
 
 fig("Chop, Chop...", "A radical new YAMLesque blogging system based on 1-file for life")
 
-#  ____                          _
-# |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___
-# | |_) / _` | '__/ __|/ _ \   / _ \ | '__/ _` / __|
-# |  __/ (_| | |  \__ \  __/  / ___ \| | | (_| \__ \
-# |_|   \__,_|_|  |___/\___| /_/   \_\_|  \__, |___/
-#                                         |___/
-
-# Define command line arguments
+#  ____                          _ Command-line says ()   ,
+# |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___    O  \\  .
+# | |_) / _` | '__/ __|/ _ \   / _ \ | '__/ _` / __|    o |\\/|
+# |  __/ (_| | |  \__ \  __/  / ___ \| | | (_| \__ \      / " '\
+# |_|   \__,_|_|  |___/\___| /_/   \_\_|  \__, |___/     . .   .
+#                                         |___/         /    ) |
+#                                                      '  _.'  |
+# Define command line arguments                        '-'/    \
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
 
@@ -147,13 +147,13 @@ with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
 
 
 def chop_chop(full_path, reverse=False):
-    """Yields a stream of 3-tuples (YAML, post, YAML+post) from YAMLesque file.
-    If there's no YAML, None will be in position 0 and post in both 1 & 2."""
     # __   __ _    __  __ _        ____                           _
     # \ \ / // \  |  \/  | |      / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
     #  \ V // _ \ | |\/| | |     | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
     #   | |/ ___ \| |  | | |___  | |_| |  __/ | | |  __/ | | (_| | || (_) | |
     #   |_/_/   \_\_|  |_|_____|  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|
+    """Yields a stream of 3-tuples (YAML, post, YAML+post) from YAMLesque file.
+    If there's no YAML, None will be in position 0 and post in both 1 & 2."""
     with open(full_path, "r") as fh:
         posts = CHOP.split(fh.read())
         if reverse:
@@ -175,19 +175,19 @@ def chop_chop(full_path, reverse=False):
 
 
 def odb(DBNAME, afunc, slug, full_text):
+    #   ___                      _    ___   _   _ _ _
+    #  / _ \ _ __   ___ _ __    / \  |_ _| | | | (_) |_
+    # | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_| | | __|
+    # | |_| | |_) |  __/ | | |/ ___ \ | |  |  _  | | |_
+    #  \___/| .__/ \___|_| |_/_/   \_\___| |_| |_|_|\__|
+    #       |_|
     """Record OpenAI API hits in a database."""
     api_hit = False
     with sqldict(DBNAME) as db:
         if slug in db:
             result = db[slug]
         else:
-            #   ___                      _    ___   _   _ _ _
-            #  / _ \ _ __   ___ _ __    / \  |_ _| | | | (_) |_
-            # | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_| | | __|
-            # | |_| | |_) |  __/ | | |/ ___ \ | |  |  _  | | |_
-            #  \___/| .__/ \___|_| |_/_/   \_\___| |_| |_|_|\__|
-            #       |_|
-            fig("OpenAI Hit")
+            fig(f"OpenAI {DBNAME}")
             result = afunc(full_text)  # Hits OpenAI API
             db[slug] = result
             db.commit()
@@ -293,12 +293,351 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
-#  _          _
-# | |__   ___| |_ __   ___ _ __ ___
-# | '_ \ / _ \ | '_ \ / _ \ '__/ __|
-# | | | |  __/ | |_) |  __/ |  \__ \
-# |_| |_|\___|_| .__/ \___|_|  |___/
-#              |_|
+#  _____ _            ____  _
+# |_   _| |__   ___  / ___|| |_ ___ _ __  ___
+#   | | | '_ \ / _ \ \___ \| __/ _ \ '_ \/ __|
+#   | | | | | |  __/  ___) | ||  __/ |_) \__ \
+#   |_| |_| |_|\___| |____/ \__\___| .__/|___/
+#                                  |_|
+
+
+def deletes():
+    #  ____       _      _   _                     _     _
+    # |  _ \  ___| | ___| |_(_)_ __   __ _    ___ | | __| |
+    # | | | |/ _ \ |/ _ \ __| | '_ \ / _` |  / _ \| |/ _` |
+    # | |_| |  __/ |  __/ |_| | | | | (_| | | (_) | | (_| |
+    # |____/ \___|_|\___|\__|_|_| |_|\__, |  \___/|_|\__,_|
+    #                                |___/
+    fig("Deleting old", "Deleting auto-generated pages from site.")
+    for fh in os.listdir(OUTPUT_PATH):
+        delete_me = f"{OUTPUT_PATH}/{fh}"
+        os.remove(delete_me)
+    for fh in os.listdir(f"{PATH}{REPO}"):
+        if fh.startswith("cat_"):
+            delete_me = f"{PATH}{REPO}/{fh}"
+            os.remove(delete_me)
+    for fh in os.listdir(f"{INCLUDES}"):
+        if fh.startswith("cat_"):
+            delete_me = f"{INCLUDES}/{fh}"
+            os.remove(delete_me)
+    of = Path(TEMP_OUTPUT)
+    if of.exists():
+        of.unlink()
+
+
+def sync_check():
+    #  ______   ___   _  ____    ____ _               _
+    # / ___\ \ / / \ | |/ ___|  / ___| |__   ___  ___| | __
+    # \___ \\ V /|  \| | |     | |   | '_ \ / _ \/ __| |/ /
+    #  ___) || | | |\  | |___  | |___| | | |  __/ (__|   <
+    # |____/ |_| |_| \_|\____|  \____|_| |_|\___|\___|_|\_\
+    """Check for new posts needing AI-writing or YAMLESQUE source-file updating."""
+    fig("SYNC Check", "Checking for new posts needing AI-writing")
+    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+        if fm and len(fm) == 2 and "title" in fm and "date" in fm:
+            # Only 2 fields of YAML front matter asks for release.
+            title = fm["title"]
+            slug = slugify(title)
+            ydict[slug]["title"] = title
+
+            # Setting these values ALSO commits it to the databases
+            summary, api_hit = odb(SUMMARIESDB, write_summary, slug, apost)
+            headline, hit_headline = odb(HEADLINESDB, write_headline, slug, summary)
+            description, hit_description = odb(DESCRIPTIONSDB, write_description, slug, summary)
+            keywords, hit_keywords = odb(KEYWORDSDB, write_keywords, slug, summary)
+
+            # Give user a moment to review. Could always Ctrl+C.
+            if any([hit_description, hit_headline, hit_keywords]):
+                print(f"headline: {headline}\n")
+                print(f"description: {description}\n")
+                print(f"keywords: {keywords}\n")
+                input("Press enter to continue...")
+            print()
+    build_ydict()
+
+
+def update_yaml():
+    #  _   _           _       _        __   __ _    __  __ _
+    # | | | |_ __   __| | __ _| |_ ___  \ \ / // \  |  \/  | |
+    # | | | | '_ \ / _` |/ _` | __/ _ \  \ V // _ \ | |\/| | |
+    # | |_| | |_) | (_| | (_| | ||  __/   | |/ ___ \| |  | | |___
+    #  \___/| .__/ \__,_|\__,_|\__\___|   |_/_/   \_\_|  |_|_____|
+    #       |_|
+    """Updates the YAMLESQUE file data from the database"""
+    fig("Update YAML", "Updating YAMLESQUE file...")
+    with open(TEMP_OUTPUT, "w", encoding="utf-8") as fh:
+        for i, (fm, body, post) in enumerate(chop_chop(YAMLESQUE)):
+            if i:
+                fh.write(SEPARATOR)
+            if fm and len(fm) == 2:
+                try:
+                    title = fm["title"]
+                except:
+                    print("No title found in YAML file.")
+                    raise SystemExit()
+                slug = slugify(title)
+                fm["headline"] = oget(HEADLINESDB, slug)
+                fm["description"] = oget(DESCRIPTIONSDB, slug)
+                fm["keywords"] = oget(KEYWORDSDB, slug)
+                fields = ["date", "title", "headline", "description", "keywords"]
+                ymlstr = ""
+                for field in fields:
+                    ymlstr += f"{field}: {sq(fm[field])}\n"
+                fh.write(ymlstr)
+                fh.write("---")
+                fh.write(body)
+            else:
+                fh.write(post)
+    build_ydict()
+    print("updated!")
+
+
+def new_source():
+    #  _   _                 ____
+    # | \ | | _____      __ / ___|  ___  _   _ _ __ ___ ___
+    # |  \| |/ _ \ \ /\ / / \___ \ / _ \| | | | '__/ __/ _ \
+    # | |\  |  __/\ V  V /   ___) | (_) | |_| | | | (_|  __/
+    # |_| \_|\___| \_/\_/   |____/ \___/ \__,_|_|  \___\___|
+    """If there's a new source, copy it to the input file. It's meta."""
+    fig("Compare files")
+    files_are_same = compare_files(YAMLESQUE, TEMP_OUTPUT)
+    print(f"Are the input and output files the same? {files_are_same}")
+    if files_are_same:
+        print("Nothing's changed. Nothing to publish.")
+    else:
+        print("Something's changed. Copied output to input.")
+        # Put a copy of the current YAMLESQUE file into data folder:
+        shutil.copyfile(YAMLESQUE, f"{REPO_DATA}journal-prior.md")
+        # Replaces old journal.md with the new journal.md (AI content filled-in)
+        shutil.copyfile(TEMP_OUTPUT, YAMLESQUE)
+
+
+def make_index():
+    #  ___           _             ____
+    # |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___
+    #  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
+    #  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
+    # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
+    """Builds the index page"""  #            |___/
+    fig("Index Page", "Making blog index")
+    with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
+        num_posts = len(ydict) + 1
+        fh.write(f'<ol start="{num_posts}" reversed >\n')
+        for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+            if fm and "title" in fm and "date" in fm and "description" in fm:
+                title = fm["title"]
+                slug = slugify(title)
+                description = fm["description"]
+                # Neutralize pointy brackets for description:
+                description = description.replace("<", "&lt;")
+                description = description.replace(">", "&gt;")
+                adate = fm["date"]
+                fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
+        fh.write("</ol>\n")
+
+
+def categories():
+    #   ____      _                        _
+    #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
+    # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
+    # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
+    #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
+    #                     |___/
+    """Find the categories"""
+    fig("Categories", "Finding catgories...")
+    pwords = defaultdict(lambda x=None: x)
+    cat_dict = defaultdict(list)
+    words = defaultdict(list)
+    lemmatizer = WordNetLemmatizer()
+    with open(YAMLESQUE) as fh:
+        for post in CHOP.split(fh.read()):
+            ystr, body = post.split("---", 1)
+            if ystr:
+                yml = yaml.load(ystr, Loader=yaml.FullLoader)
+                if "title" in yml:
+                    slug = slugify(yml["title"])
+                if "keywords" in yml:
+                    keywords = yml["keywords"].split(", ")
+                    for keyword in keywords:
+                        keyword = lemmatizer.lemmatize(keyword)
+                        keyword_lower = keyword.lower().strip()
+                        words[keyword_lower].append(keyword)
+                        cat_dict[keyword_lower].append(slug)
+    for key in words:
+        alist = words[key]
+        pwords[key] = Counter(alist).most_common(1)[0][0]
+    for key in cat_dict:
+        cat_dict[key].reverse()
+    cat_counter = Counter()  # Create a counter object
+    for cat, slugs in cat_dict.items():
+        cat_counter[cat] = len(slugs)
+    common_cats = cat_counter.most_common()
+    common_cats = [x for x in common_cats if x[0] not in CATEGORY_FILTER]
+    show_cats = 15
+    for cat, count in common_cats:
+        cdict[cat]["slug"] = slugify(cat)
+        cdict[cat]["count"] = count
+        cdict[cat]["title"] = pwords[cat]
+    print(f"Found {len(cdict):,} categories.")
+    for i, acat in enumerate(cdict):
+        print(f"{i+1}. {cdict[acat]['title']} ({cdict[acat]['count']})")
+        if i + 1 >= show_cats:
+            break
+
+
+def category_page():
+    #   ____      _     ____
+    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___
+    # | |   / _` | __| | |_) / _` |/ _` |/ _ \
+    # | |__| (_| | |_  |  __/ (_| | (_| |  __/
+    #  \____\__,_|\__| |_|   \__,_|\__, |\___|
+    #                              |___/
+    """Build the category page (singular)"""
+    fig("Cat Page", "Building category page...")
+    global cdict
+    if cdict:
+        with open(CATEGORY_PAGE, "w") as fh:
+            with open(CATEGORY_INCLUDE, "w") as fh2:
+                fh.write("# Categories\n")  # This could be more frontmatter-y
+                fh.write("{% include category.md %}\n")  # Reference to include
+                fh2.write(f"<ol start='{NUMBER_OF_CATEGORIES}' reversed>\n")
+                top_cats = get_top_cats()
+                for i, cat in enumerate(top_cats):
+                    permalink = slugify(cat)
+                    title = cdict[cat]["title"]
+                    fh2.write(f'<li><a href="/{permalink}/">{title}</a></li>\n')
+                fh2.write("</ol>\n")
+
+
+def category_pages():
+    """Outputs the individual category pages and includes"""
+    #   ____      _     ____
+    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___  ___
+    # | |   / _` | __| | |_) / _` |/ _` |/ _ \/ __|
+    # | |__| (_| | |_  |  __/ (_| | (_| |  __/\__ \
+    #  \____\__,_|\__| |_|   \__,_|\__, |\___||___/
+    #                              |___/
+    fig("Cat Pages", "Building category pages (plural)...")
+    global cdict, ydict
+    build_ydict()
+    lemmatizer = WordNetLemmatizer()
+    top_cats = get_top_cats()
+    # Map every slug to a category:
+    slugcat = defaultdict(list)
+    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+        if fm:
+            if "keywords" in fm and "title" in fm:
+                slug = slugify(fm["title"])
+                keywords = fm["keywords"]
+                keyword_list = keywords.split(", ")
+                for keyword in keyword_list:
+                    keyword = keyword.lower()
+                    keyword = lemmatizer.lemmatize(keyword)
+                    keyword = keyword.lower()
+                    if keyword in top_cats:
+                        slugcat[keyword].append(slug)
+    # Create the category pages:
+    for cat in top_cats:
+        slug = slugify(cat)
+        filename = f"{PATH}{REPO}cat_{slug}.md"
+        include_file = f"cat_{slug}.md"
+        permalink = f"/{slug}/"
+        with open(filename, "w", encoding="utf-8") as fh:
+            cat_str = f"""---
+title: {cdict[cat]["title"]}
+permalink: {permalink}
+layout: default
+---
+
+# {cdict[cat]["title"]}
+"""
+            fh.write(cat_str)
+            fh.write(f"{{% include {include_file} %}}\n")
+    # Create the category includes:
+    for cat in top_cats:
+        slug = slugify(cat)
+        filename = f"{INCLUDES}cat_{slug}.md"
+        with open(filename, "w", encoding="utf-8") as fh:
+            posts_in_cat = len(slugcat[cat])
+            fh.write(f"<ol start='{posts_in_cat}' reversed>\n")
+            for slug in slugcat[cat]:
+                title = ydict[slug]["title"]
+                aslug = slugify(title)
+                adate = ydict[slug]["date"]
+                description = ydict[slug]["description"]
+                apermalink = f"{BLOG}{aslug}/"
+                alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
+                fh.write(alink)
+            fh.write("</ol>\n")
+
+
+def yaml_chop():
+    #      ____ _    DATA  |  BODY   _   _           __   __ _    __  __ _
+    #     / ___| |__   ___ | _ __   | |_| |__   ___  \ \ / // \  |  \/  | |
+    #    | |   | '_ \ / _ \|| '_ \  | __| '_ \ / _ \  \ V // _ \ | |\/| | |
+    #    | |___| | | | (_) || |_) | | |_| | | |  __/   | |/ ___ \| |  | | |___
+    #     \____|_| |_|\___/|| .__/   \__|_| |_|\___|   |_/_/   \_\_|  |_|_____|
+    fig("Chop the YAML!")  # |_|
+    """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
+    # Chop, chop YAMLESQUE, that's what we do as Python generator.
+    # That means it's memory efficient and can parse very large files.
+    for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
+        if fm and isinstance(fm, dict) and len(fm) > 2:
+            title = fm["title"]
+            stem = slugify(title)
+            if (i + 1) % 10 == 0:
+                print(f"{i+1} ", end="", flush=True)
+            adate = fm["date"]
+            description = sq(fm["description"])
+            headline = sq(fm["headline"])
+            keywords = sq(fm["keywords"])
+            keyword_list = keywords.split(", ")
+            categories = set()
+            top_cats = get_top_cats()
+            for keyword in keyword_list:
+                keyword = keyword.lower()
+                if keyword in top_cats:
+                    categories.add(keyword)
+            categories = ", ".join(categories)
+            permalink = f"{BLOG}{stem}/"
+            date_object = datetime.strptime(adate, "%a %b %d, %Y")
+            adate = date_object.strftime("%Y-%m-%d")
+            filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
+            with open(filename, "w", encoding="utf-8") as fh:
+                fh.write(
+                    f"""---
+date: {adate}
+title: {sq(title)}
+permalink: {permalink}
+headline: {sq(headline)}
+description: {sq(description)}
+keywords: {sq(keywords)}
+categories: {sq(categories)}
+author: {sq(AUTHOR)}
+layout: post
+---"""
+                )
+                fh.write(body)
+    print("chopped!")
+
+
+def git_push():
+    """Pushes the changes to Github"""
+    #   ____ _ _     ____            _
+    #  / ___(_) |_  |  _ \ _   _ ___| |__
+    # | |  _| | __| | |_) | | | / __| '_ \
+    # | |_| | | |_  |  __/| |_| \__ \ | | |
+    #  \____|_|\__| |_|    \__,_|___/_| |_|
+    # Git commands
+    fig("Git Push", "Releasing site changes...")
+    here = f"{PATH}{REPO}"
+    git(here, f"add cat_*")
+    git(here, "add _data/*")
+    git(here, "add _posts/*")
+    git(here, "add _includes/*")
+    git(here, "add assets/images/*")
+    git(here, f'commit -am "Pushing {REPO} to Github..."')
+    git(here, "push")
 
 
 def diagnose_yaml(yaml_str, YMLError):
@@ -389,7 +728,6 @@ def sq(text):
 
 
 def build_ydict(yamlesque=YAMLESQUE):
-    """Rebuilds ydict from _data/*.dbs, which may have more daata than the YAMLESQUE source."""
     #  ____        _ _     _                         _       _ _      _
     # | __ ) _   _(_) | __| |  _   _  __ _ _ __ ___ | |   __| (_) ___| |_
     # |  _ \| | | | | |/ _` | | | | |/ _` | '_ ` _ \| |  / _` | |/ __| __|
@@ -397,6 +735,7 @@ def build_ydict(yamlesque=YAMLESQUE):
     # |____/ \__,_|_|_|\__,_|  \__, |\__,_|_| |_| |_|_|  \__,_|_|\___|\__|
     #                          |___/
     # fig("YAML check", "Building dictionary of all YAML with slug.")
+    """Rebuilds ydict from _data/*.dbs, which may have more daata than the YAMLESQUE source."""
     global ydict
     ydict = defaultdict(dict)
     for i, (fm, _, _) in enumerate(chop_chop(YAMLESQUE)):
@@ -406,329 +745,6 @@ def build_ydict(yamlesque=YAMLESQUE):
                 fm["slug"] = slug
                 ydict[slug] = fm
     print(f"ydict has {len(ydict)} entries.")
-
-
-def deletes():
-    global INCLUDES
-    fig("Deleting old", "Deleting auto-generated pages from site.")
-    #  ____       _      _   _                     _     _
-    # |  _ \  ___| | ___| |_(_)_ __   __ _    ___ | | __| |
-    # | | | |/ _ \ |/ _ \ __| | '_ \ / _` |  / _ \| |/ _` |
-    # | |_| |  __/ |  __/ |_| | | | | (_| | | (_) | | (_| |
-    # |____/ \___|_|\___|\__|_|_| |_|\__, |  \___/|_|\__,_|
-    #                                |___/
-    for fh in os.listdir(OUTPUT_PATH):
-        delete_me = f"{OUTPUT_PATH}/{fh}"
-        os.remove(delete_me)
-    for fh in os.listdir(f"{PATH}{REPO}"):
-        if fh.startswith("cat_"):
-            delete_me = f"{PATH}{REPO}/{fh}"
-            os.remove(delete_me)
-    for fh in os.listdir(f"{INCLUDES}"):
-        if fh.startswith("cat_"):
-            delete_me = f"{INCLUDES}/{fh}"
-            os.remove(delete_me)
-    of = Path(TEMP_OUTPUT)
-    if of.exists():
-        of.unlink()
-
-
-def categories():
-    """Find the categories"""
-    #   ____      _                        _
-    #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
-    # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
-    # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
-    #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-    #                     |___/
-    # Category selection
-    fig("Categories", "Finding catgories...")
-    pwords = defaultdict(lambda x=None: x)
-    cat_dict = defaultdict(list)
-    words = defaultdict(list)
-    lemmatizer = WordNetLemmatizer()
-    with open(YAMLESQUE) as fh:
-        for post in CHOP.split(fh.read()):
-            ystr, body = post.split("---", 1)
-            if ystr:
-                yml = yaml.load(ystr, Loader=yaml.FullLoader)
-                if "title" in yml:
-                    slug = slugify(yml["title"])
-                if "keywords" in yml:
-                    keywords = yml["keywords"].split(", ")
-                    for keyword in keywords:
-                        keyword = lemmatizer.lemmatize(keyword)
-                        keyword_lower = keyword.lower().strip()
-                        words[keyword_lower].append(keyword)
-                        cat_dict[keyword_lower].append(slug)
-    for key in words:
-        alist = words[key]
-        pwords[key] = Counter(alist).most_common(1)[0][0]
-    for key in cat_dict:
-        cat_dict[key].reverse()
-    cat_counter = Counter()  # Create a counter object
-    for cat, slugs in cat_dict.items():
-        cat_counter[cat] = len(slugs)
-    common_cats = cat_counter.most_common()
-    common_cats = [x for x in common_cats if x[0] not in CATEGORY_FILTER]
-    show_cats = 15
-    for cat, count in common_cats:
-        cdict[cat]["slug"] = slugify(cat)
-        cdict[cat]["count"] = count
-        cdict[cat]["title"] = pwords[cat]
-    print(f"Found {len(cdict):,} categories.")
-    for i, acat in enumerate(cdict):
-        print(f"{i+1}. {cdict[acat]['title']} ({cdict[acat]['count']})")
-        if i + 1 >= show_cats:
-            break
-
-
-def category_page():
-    """Build the category page (singular)"""
-    #   ____      _     ____
-    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___
-    # | |   / _` | __| | |_) / _` |/ _` |/ _ \
-    # | |__| (_| | |_  |  __/ (_| | (_| |  __/
-    #  \____\__,_|\__| |_|   \__,_|\__, |\___|
-    #                              |___/
-    global cdict
-    fig("Cat Page", "Building category page...")
-    if cdict:
-        with open(CATEGORY_PAGE, "w") as fh:
-            with open(CATEGORY_INCLUDE, "w") as fh2:
-                fh.write("# Categories\n")  # This could be more frontmatter-y
-                fh.write("{% include category.md %}\n")  # Reference to include
-                fh2.write(f"<ol start='{NUMBER_OF_CATEGORIES}' reversed>\n")
-                top_cats = get_top_cats()
-                for i, cat in enumerate(top_cats):
-                    permalink = slugify(cat)
-                    title = cdict[cat]["title"]
-                    fh2.write(f'<li><a href="/{permalink}/">{title}</a></li>\n')
-                fh2.write("</ol>\n")
-
-
-def category_pages():
-    """Outputs the individual category pages and includes"""
-    #   ____      _     ____
-    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___  ___
-    # | |   / _` | __| | |_) / _` |/ _` |/ _ \/ __|
-    # | |__| (_| | |_  |  __/ (_| | (_| |  __/\__ \
-    #  \____\__,_|\__| |_|   \__,_|\__, |\___||___/
-    #                              |___/
-    fig("Cat Pages", "Building category pages (plural)...")
-    global cdict, ydict
-    build_ydict()
-    lemmatizer = WordNetLemmatizer()
-    top_cats = get_top_cats()
-
-    # Map every slug to a category:
-    slugcat = defaultdict(list)
-    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
-        if fm:
-            if "keywords" in fm and "title" in fm:
-                slug = slugify(fm["title"])
-                keywords = fm["keywords"]
-                keyword_list = keywords.split(", ")
-                for keyword in keyword_list:
-                    keyword = keyword.lower()
-                    keyword = lemmatizer.lemmatize(keyword)
-                    keyword = keyword.lower()
-                    if keyword in top_cats:
-                        slugcat[keyword].append(slug)
-    # Create the category pages:
-    for cat in top_cats:
-        slug = slugify(cat)
-        filename = f"{PATH}{REPO}cat_{slug}.md"
-        include_file = f"cat_{slug}.md"
-        permalink = f"/{slug}/"
-        with open(filename, "w", encoding="utf-8") as fh:
-            cat_str = f"""---
-title: {cdict[cat]["title"]}
-permalink: {permalink}
-layout: default
----
-
-# {cdict[cat]["title"]}
-"""
-            fh.write(cat_str)
-            fh.write(f"{{% include {include_file} %}}\n")
-
-            # EXPERIMENTING WITH USING JEKYLL FOR CATEGORIES (VS. PYTHON)
-            # <ol reversed start="{{{{ site.categories[page.category] | size }}}}">
-            # {{% for post in site.posts %}}
-            #   {{% if post.categories contains page.category %}}
-            #   <li>
-            #     <a href="{{ post.url }}"><h2>{{{{ post.title }}}}</h2></a>
-            #     <p>{{{{ post.date | date: "%b %-d, %Y" }}}}</p>
-            #   </li>
-            #   {{% endif %}}
-            # {{% endfor %}}
-            # </ol>
-
-    # Create the category includes:
-    for cat in top_cats:
-        slug = slugify(cat)
-        filename = f"{INCLUDES}cat_{slug}.md"
-        with open(filename, "w", encoding="utf-8") as fh:
-            posts_in_cat = len(slugcat[cat])
-            fh.write(f"<ol start='{posts_in_cat}' reversed>\n")
-            for slug in slugcat[cat]:
-                title = ydict[slug]["title"]
-                aslug = slugify(title)
-                adate = ydict[slug]["date"]
-                description = ydict[slug]["description"]
-                apermalink = f"{BLOG}{aslug}/"
-                alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
-                fh.write(alink)
-            fh.write("</ol>\n")
-
-
-def sync_check():
-    """Check for new posts needing AI-writing or YAMLESQUE source-file updating."""
-    #  ______   ___   _  ____    ____ _               _
-    # / ___\ \ / / \ | |/ ___|  / ___| |__   ___  ___| | __
-    # \___ \\ V /|  \| | |     | |   | '_ \ / _ \/ __| |/ /
-    #  ___) || | | |\  | |___  | |___| | | |  __/ (__|   <
-    # |____/ |_| |_| \_|\____|  \____|_| |_|\___|\___|_|\_\
-    fig("SYNC Check", "Checking for new posts needing AI-writing")
-    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
-        if fm and len(fm) == 2 and "title" in fm and "date" in fm:
-            # Only 2 fields of YAML front matter asks for release.
-            title = fm["title"]
-            slug = slugify(title)
-            ydict[slug]["title"] = title
-
-            # Setting these values ALSO commits it to the databases
-            summary, api_hit = odb(SUMMARIESDB, write_summary, slug, apost)
-            headline, hit_headline = odb(HEADLINESDB, write_headline, slug, summary)
-            description, hit_description = odb(DESCRIPTIONSDB, write_description, slug, summary)
-            keywords, hit_keywords = odb(KEYWORDSDB, write_keywords, slug, summary)
-
-            # Give user a moment to review. Could always Ctrl+C.
-            if any([hit_description, hit_headline, hit_keywords]):
-                print(f"headline: {headline}\n")
-                print(f"description: {description}\n")
-                print(f"keywords: {keywords}\n")
-                input("Press enter to continue...")
-            print()
-    build_ydict()
-
-
-def new_source():
-    """If there's a new source, copy it to the input file. It's meta."""
-    #  _   _                 ____
-    # | \ | | _____      __ / ___|  ___  _   _ _ __ ___ ___
-    # |  \| |/ _ \ \ /\ / / \___ \ / _ \| | | | '__/ __/ _ \
-    # | |\  |  __/\ V  V /   ___) | (_) | |_| | | | (_|  __/
-    # |_| \_|\___| \_/\_/   |____/ \___/ \__,_|_|  \___\___|
-    # Compare the input and output files. If same, there's been no changes.
-    fig("Compare files")
-    files_are_same = compare_files(YAMLESQUE, TEMP_OUTPUT)
-    print(f"Are the input and output files the same? {files_are_same}")
-    if files_are_same:
-        print("Nothing's changed. Nothing to publish.")
-    else:
-        print("Something's changed. Copied output to input.")
-        # Put a copy of the current YAMLESQUE file into data folder:
-        shutil.copyfile(YAMLESQUE, f"{REPO_DATA}journal-prior.md")
-        # Replaces old journal.md with the new journal.md (AI content filled-in)
-        shutil.copyfile(TEMP_OUTPUT, YAMLESQUE)
-
-
-def make_index():
-    """Builds the index page"""
-    #  ___           _             ____
-    # |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___
-    #  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
-    #  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
-    # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
-    fig("Index Page", "Making blog index")  # |___/
-    with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
-        num_posts = len(ydict) + 1
-        fh.write(f'<ol start="{num_posts}" reversed >\n')
-        for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
-            if fm and "title" in fm and "date" in fm and "description" in fm:
-                title = fm["title"]
-                slug = slugify(title)
-                description = fm["description"]
-                # Neutralize pointy brackets for description:
-                description = description.replace("<", "&lt;")
-                description = description.replace(">", "&gt;")
-                adate = fm["date"]
-                fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
-        fh.write("</ol>\n")
-
-
-def yaml_chop():
-    """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
-    #   ____ _                   _   _           __   __ _    __  __ _
-    #  / ___| |__   ___  _ __   | |_| |__   ___  \ \ / // \  |  \/  | |
-    # | |   | '_ \ / _ \| '_ \  | __| '_ \ / _ \  \ V // _ \ | |\/| | |
-    # | |___| | | | (_) | |_) | | |_| | | |  __/   | |/ ___ \| |  | | |___
-    #  \____|_| |_|\___/| .__/   \__|_| |_|\___|   |_/_/   \_\_|  |_|_____|
-    fig("Chop YAML...")  # |_|
-    # parsing text-files with embedded data.
-    # YAML's so popular because the moment you look at a file with YAML data, you
-
-    # Chop, chop YAMLESQUE, that's what we do as Python generator.
-    # That means it's memory efficient and can parse very large files.
-    for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
-        if fm and isinstance(fm, dict) and len(fm) > 2:
-            title = fm["title"]
-            stem = slugify(title)
-            if (i + 1) % 10 == 0:
-                print(f"{i+1} ", end="", flush=True)
-            adate = fm["date"]
-            description = sq(fm["description"])
-            headline = sq(fm["headline"])
-            keywords = sq(fm["keywords"])
-            keyword_list = keywords.split(", ")
-            categories = set()
-            top_cats = get_top_cats()
-            for keyword in keyword_list:
-                keyword = keyword.lower()
-                if keyword in top_cats:
-                    categories.add(keyword)
-            categories = ", ".join(categories)
-            permalink = f"{BLOG}{stem}/"
-            date_object = datetime.strptime(adate, "%a %b %d, %Y")
-            adate = date_object.strftime("%Y-%m-%d")
-            filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
-            with open(filename, "w", encoding="utf-8") as fh:
-                fh.write(
-                    f"""---
-date: {adate}
-title: {sq(title)}
-permalink: {permalink}
-headline: {sq(headline)}
-description: {sq(description)}
-keywords: {sq(keywords)}
-categories: {sq(categories)}
-author: {sq(AUTHOR)}
-layout: post
----"""
-                )
-                fh.write(body)
-    print("chopped!")
-
-
-def git_push():
-    """Pushes the changes to Github"""
-    #   ____ _ _     ____            _
-    #  / ___(_) |_  |  _ \ _   _ ___| |__
-    # | |  _| | __| | |_) | | | / __| '_ \
-    # | |_| | | |_  |  __/| |_| \__ \ | | |
-    #  \____|_|\__| |_|    \__,_|___/_| |_|
-    # Git commands
-    fig("Git Push", "Releasing site changes...")
-    here = f"{PATH}{REPO}"
-    git(here, f"add cat_*")
-    git(here, "add _data/*")
-    git(here, "add _posts/*")
-    git(here, "add _includes/*")
-    git(here, "add assets/images/*")
-    git(here, f'commit -am "Pushing {REPO} to Github..."')
-    git(here, "push")
 
 
 #  _____           _   _____                 _   _
@@ -747,35 +763,6 @@ def git_push():
 # Put new stuff here                |___/ |___/
 
 
-def update_yaml():
-    """Updates the YAMLESQUE file data from the database"""
-    fig("Update YAML", "Updating YAMLESQUE file...")
-    with open(TEMP_OUTPUT, "w", encoding="utf-8") as fh:
-        for i, (fm, body, post) in enumerate(chop_chop(YAMLESQUE)):
-            if i:
-                fh.write(SEPARATOR)
-            if fm and len(fm) == 2:
-                try:
-                    title = fm["title"]
-                except:
-                    print("No title found in YAML file.")
-                    raise SystemExit()
-                slug = slugify(title)
-                fm["headline"] = oget(HEADLINESDB, slug)
-                fm["description"] = oget(DESCRIPTIONSDB, slug)
-                fm["keywords"] = oget(KEYWORDSDB, slug)
-                fields = ["date", "title", "headline", "description", "keywords"]
-                ymlstr = ""
-                for field in fields:
-                    ymlstr += f"{field}: {sq(fm[field])}\n"
-                fh.write(ymlstr)
-                fh.write("---")
-                fh.write(body)
-            else:
-                fh.write(post)
-    build_ydict()
-    print("updated!")
-
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -792,11 +779,11 @@ categories()  # Builds global categories and builds category pages
 category_page()  # Builds category.md and include
 category_pages()  # Builds cat_*.md and cat_*.md includes
 yaml_chop()  # Writes out all Jekyll-style posts
-git_push()  # Pushes changes to Github (publishes)
+# git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
 # | | | |/ _ \| '_ \ / _ \
 # | |_| | (_) | | | |  __/
 # |____/ \___/|_| |_|\___|
-fig("Done!")
+fig("Done.")
