@@ -293,6 +293,14 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
+#  _          _                     
+# | |__   ___| |_ __   ___ _ __ ___ 
+# | '_ \ / _ \ | '_ \ / _ \ '__/ __|
+# | | | |  __/ | |_) |  __/ |  \__ \
+# |_| |_|\___|_| .__/ \___|_|  |___/
+#              |_|                  
+
+
 def diagnose_yaml(yaml_str, YMLError):
     fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
     for j, astr in enumerate(yaml_str.split("\n")):
@@ -353,6 +361,13 @@ def compare_files(file1, file2):
                 return False
             if not byte1:
                 return True
+
+
+def get_top_cats():
+    """Returns the top categories"""
+    global cdict
+    tcats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
+    return tcats
 
 
 def sq(text):
@@ -534,7 +549,10 @@ layout: default
 
 # {cdict[cat]["title"]}
 """
+            fh.write(cat_str)
+            fh.write(f"{{% include {include_file} %}}\n")
 
+            # EXPERIMENTING WITH USING JEKYLL FOR CATEGORIES (VS. PYTHON)
             # <ol reversed start="{{{{ site.categories[page.category] | size }}}}">
             # {{% for post in site.posts %}}
             #   {{% if post.categories contains page.category %}}
@@ -545,8 +563,6 @@ layout: default
             #   {{% endif %}}
             # {{% endfor %}}
             # </ol>
-            fh.write(cat_str)
-            fh.write(f"{{% include {include_file} %}}\n")
 
     # Create the category includes:
     for cat in top_cats:
@@ -603,7 +619,6 @@ def new_source():
     # |  \| |/ _ \ \ /\ / / \___ \ / _ \| | | | '__/ __/ _ \
     # | |\  |  __/\ V  V /   ___) | (_) | |_| | | | (_|  __/
     # |_| \_|\___| \_/\_/   |____/ \___/ \__,_|_|  \___\___|
-    #
     # Compare the input and output files. If same, there's been no changes.
     fig("Compare files")
     files_are_same = compare_files(YAMLESQUE, TEMP_OUTPUT)
@@ -623,8 +638,7 @@ def make_index():
     #  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
     #  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
     # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
-    #                                         |___/
-    fig("Index Page", "Making the index page")
+    fig("Index Page", "Making index page")  # |___/
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
         fh.write(f'<ol start="{num_posts}" reversed >\n')
@@ -643,13 +657,12 @@ def make_index():
 
 def yaml_chop():
     """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
-    #   ____ _                  __   __ _    __  __ _
-    #  / ___| |__   ___  _ __   \ \ / // \  |  \/  | |
-    # | |   | '_ \ / _ \| '_ \   \ V // _ \ | |\/| | |
-    # | |___| | | | (_) | |_) |   | |/ ___ \| |  | | |___
-    #  \____|_| |_|\___/| .__/    |_/_/   \_\_|  |_|_____|
-    #                   |_|
-    fig("Chop YAML", "Chopping pages...")
+    #  ____ _                   _   _           __   __ _    __  __ _     
+    # / ___| |__   ___  _ __   | |_| |__   ___  \ \ / // \  |  \/  | |    
+    #| |   | '_ \ / _ \| '_ \  | __| '_ \ / _ \  \ V // _ \ | |\/| | |    
+    #| |___| | | | (_) | |_) | | |_| | | |  __/   | |/ ___ \| |  | | |___ 
+    # \____|_| |_|\___/| .__/   \__|_| |_|\___|   |_/_/   \_\_|  |_|_____|
+    fig("Chop YAML")  #|_|                                                
     # parsing text-files with embedded data.
     # YAML's so popular because the moment you look at a file with YAML data, you
 
@@ -727,12 +740,6 @@ def git_push():
 #   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
 # Put new stuff here                |___/ |___/
-
-
-def get_top_cats():
-    global cdict
-    tcats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
-    return tcats
 
 
 #  _____ _                                 _             _
