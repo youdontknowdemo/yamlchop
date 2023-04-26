@@ -165,7 +165,8 @@ def chop_chop(full_path, reverse=False):
                 yaml_str, body = post.split("---", 1)
                 try:
                     parsed_yaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
-                    rv = parsed_yaml, body, f"{SEPARATOR}{yaml_str}---{body}"
+                    #rv = parsed_yaml, body, f"{SEPARATOR}{yaml_str}---{body}"
+                    rv = parsed_yaml, body, post
                 except yaml.YAMLError:
                     # This generator is for outputting pages with YAML.
                     # Passing silently here will cause the page to be
@@ -741,7 +742,16 @@ def git_push():
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
 # Put new stuff here                |___/ |___/
 
-
+def update_yaml():
+    """Updates the YAMLESQUE file data from the database"""
+    fig("Update YAML")
+    with open(TEMP_OUTPUT, "w", encoding="utf-8") as fh:
+        for i, (fm, body, post) in enumerate(chop_chop(YAMLESQUE)):
+            if i:
+                fh.write(SEPARATOR)
+            fh.write(post)
+            if fm and len(fm) > 2:
+                pass
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -750,14 +760,15 @@ def git_push():
 # This controls the entire (usually linear) flow. Edit for debugging.
 
 build_ydict()  # Builds global ydict (should always run)
-deletes()  # Deletes old posts
-categories()  # Builds global categories and builds category pages
-category_page()  # Builds category.md and include
-category_pages()  # Builds cat_*.md and cat_*.md includes
-sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
-# new_source()     # Replaces YAMLESQUE input with syncronized output
-make_index()  # Builds index page of all posts (for blog page)
-yaml_chop()  # Writes out all Jekyll-style posts
+# deletes()  # Deletes old posts
+# categories()  # Builds global categories and builds category pages
+# category_page()  # Builds category.md and include
+# category_pages()  # Builds cat_*.md and cat_*.md includes
+# sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+update_yaml()  # Updates YAMLESQUE file data from database
+# # new_source()     # Replaces YAMLESQUE input with syncronized output
+# make_index()  # Builds index page of all posts (for blog page)
+# yaml_chop()  # Writes out all Jekyll-style posts
 # git_push()  # Pushes changes to Github (publishes)
 
 #  ____
