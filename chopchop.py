@@ -516,7 +516,8 @@ def category_pages():
     #  \____\__,_|\__| |_|   \__,_|\__, |\___||___/
     #                              |___/
     fig("Cat Pages", "Building category pages (plural)...")
-    global cdict
+    global cdict, ydict
+    build_ydict()
     lemmatizer = WordNetLemmatizer()
     top_cats = get_top_cats()
 
@@ -721,7 +722,7 @@ def git_push():
     # Git commands
     fig("Git Push", "Releasing site changes...")
     here = f"{PATH}{REPO}"
-    git(here, f"add {here}cat_*")
+    git(here, f"add cat_*")
     git(here, "add _data/*")
     git(here, "add _posts/*")
     git(here, "add _includes/*")
