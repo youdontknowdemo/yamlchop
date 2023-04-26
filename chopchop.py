@@ -57,15 +57,15 @@ NUMBER_OF_CATEGORIES = 100
 GIT_EXE = "/usr/bin/git"
 
 
-# Load function early so we can start showing figlets.
+# Load function early so we can use it, pronto!
 def fig(text, description=None):
-    """Let Them See Text"""
     #  _____ _       _      _
     # |  ___(_) __ _| | ___| |_
     # | |_  | |/ _` | |/ _ \ __|
     # |  _| | | (_| | |  __/ |_
     # |_|   |_|\__, |_|\___|\__|
     #          |___/
+    """Let them see text!"""
     f = Figlet()
     print(f.renderText(text))
     if description:
@@ -73,7 +73,7 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("ChopChop", "A radical new YAMLesque blogging system based on 1-file for life")
+fig("Chop, Chop!", "A radical new YAMLesque blogging system based on 1-file for life")
 
 #  ____                          _
 # |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___
