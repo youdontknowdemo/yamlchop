@@ -73,7 +73,7 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("Chop, Chop!", "A radical new YAMLesque blogging system based on 1-file for life")
+fig("Chop, Chop...", "A radical new YAMLesque blogging system based on 1-file for life")
 
 #  ____                          _
 # |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___
@@ -666,7 +666,7 @@ def yaml_chop():
     # | |   | '_ \ / _ \| '_ \  | __| '_ \ / _ \  \ V // _ \ | |\/| | |
     # | |___| | | | (_) | |_) | | |_| | | |  __/   | |/ ___ \| |  | | |___
     #  \____|_| |_|\___/| .__/   \__|_| |_|\___|   |_/_/   \_\_|  |_|_____|
-    fig("Chop YAML")  # |_|
+    fig("Chop YAML...")  # |_|
     # parsing text-files with embedded data.
     # YAML's so popular because the moment you look at a file with YAML data, you
 
