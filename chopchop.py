@@ -146,14 +146,14 @@ with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
 
 
-def chop_chop(full_path, reverse=False):
+def yaml_generator(full_path, reverse=False):
     # __   __ _    __  __ _        ____                           _
     # \ \ / // \  |  \/  | |      / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
     #  \ V // _ \ | |\/| | |     | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
     #   | |/ ___ \| |  | | |___  | |_| |  __/ | | |  __/ | | (_| | || (_) | |
     #   |_/_/   \_\_|  |_|_____|  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|
-    """Yields a stream of 3-tuples (YAML, post, YAML+post) from YAMLesque file.
-    If there's no YAML, None will be in position 0 and post in both 1 & 2."""
+    """Yields a stream of 3-tuples (YAML, post, original) from YAMLesque file.
+    If there's no YAML, the yielded tuple will be (None, original, original)"""
     with open(full_path, "r") as fh:
         posts = CHOP.split(fh.read())
         if reverse:
@@ -167,9 +167,8 @@ def chop_chop(full_path, reverse=False):
                     parsed_yaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
                     rv = parsed_yaml, body, post
                 except yaml.YAMLError:
-                    # This generator is for outputting pages with YAML.
-                    # Passing silently here will cause the page to be
-                    # not be published (banner, to-do, no title, etc.)
+                    # Deliberately passing silently to prevent attempts
+                    # to create pages where there is no page to create.
                     ...
             yield rv
 
@@ -181,7 +180,7 @@ def odb(DBNAME, afunc, slug, full_text):
     # | |_| | |_) |  __/ | | |/ ___ \ | |  |  _  | | |_
     #  \___/| .__/ \___|_| |_/_/   \_\___| |_| |_|_|\__|
     #       |_|
-    """Record OpenAI API hits in a database."""
+    """Retreives and saves OpenAI request not already done."""
     api_hit = False
     with sqldict(DBNAME) as db:
         if slug in db:
@@ -333,7 +332,7 @@ def sync_check():
     # |____/ |_| |_| \_|\____|  \____|_| |_|\___|\___|_|\_\
     """Check for new posts needing AI-writing or YAMLESQUE source-file updating."""
     fig("SYNC Check", "Checking for new posts needing AI-writing")
-    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+    for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE)):
         if fm and len(fm) == 2 and "title" in fm and "date" in fm:
             # Only 2 fields of YAML front matter asks for release.
             title = fm["title"]
@@ -356,6 +355,26 @@ def sync_check():
     build_ydict()
 
 
+def build_ydict(yamlesque=YAMLESQUE):
+    #  ____        _ _     _                         _       _ _      _
+    # | __ ) _   _(_) | __| |  _   _  __ _ _ __ ___ | |   __| (_) ___| |_
+    # |  _ \| | | | | |/ _` | | | | |/ _` | '_ ` _ \| |  / _` | |/ __| __|
+    # | |_) | |_| | | | (_| | | |_| | (_| | | | | | | | | (_| | | (__| |_
+    # |____/ \__,_|_|_|\__,_|  \__, |\__,_|_| |_| |_|_|  \__,_|_|\___|\__|
+    #                          |___/
+    # fig("YAML check", "Building dictionary of all YAML with slug.")
+    """Rebuilds ydict from _data/*.dbs, which may have more daata than the YAMLESQUE source."""
+    global ydict
+    ydict = defaultdict(dict)
+    for i, (fm, _, _) in enumerate(yaml_generator(YAMLESQUE)):
+        if fm and isinstance(fm, dict):
+            if "title" in fm:
+                slug = slugify(fm["title"])
+                fm["slug"] = slug
+                ydict[slug] = fm
+    print(f"ydict has {len(ydict)} entries.")
+
+
 def update_yaml():
     #  _   _           _       _        __   __ _    __  __ _
     # | | | |_ __   __| | __ _| |_ ___  \ \ / // \  |  \/  | |
@@ -366,7 +385,7 @@ def update_yaml():
     """Updates the YAMLESQUE file data from the database"""
     fig("Update YAML", "Updating YAMLESQUE file...")
     with open(TEMP_OUTPUT, "w", encoding="utf-8") as fh:
-        for i, (fm, body, post) in enumerate(chop_chop(YAMLESQUE)):
+        for i, (fm, body, post) in enumerate(yaml_generator(YAMLESQUE)):
             if i:
                 fh.write(SEPARATOR)
             if fm and len(fm) == 2:
@@ -423,7 +442,7 @@ def make_index():
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
         fh.write(f'<ol start="{num_posts}" reversed >\n')
-        for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+        for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE)):
             if fm and "title" in fm and "date" in fm and "description" in fm:
                 title = fm["title"]
                 slug = slugify(title)
@@ -483,6 +502,8 @@ def categories():
         print(f"{i+1}. {cdict[acat]['title']} ({cdict[acat]['count']})")
         if i + 1 >= show_cats:
             break
+    category_page()  # Builds category.md and include
+    category_pages()  # Builds cat_*.md and cat_*.md includes
 
 
 def category_page():
@@ -492,8 +513,8 @@ def category_page():
     # | |__| (_| | |_  |  __/ (_| | (_| |  __/
     #  \____\__,_|\__| |_|   \__,_|\__, |\___|
     #                              |___/
+    # fig("Cat Page", "Building category page...")
     """Build the category page (singular)"""
-    fig("Cat Page", "Building category page...")
     global cdict
     if cdict:
         with open(CATEGORY_PAGE, "w") as fh:
@@ -510,21 +531,21 @@ def category_page():
 
 
 def category_pages():
-    """Outputs the individual category pages and includes"""
     #   ____      _     ____
     #  / ___|__ _| |_  |  _ \ __ _  __ _  ___  ___
     # | |   / _` | __| | |_) / _` |/ _` |/ _ \/ __|
     # | |__| (_| | |_  |  __/ (_| | (_| |  __/\__ \
     #  \____\__,_|\__| |_|   \__,_|\__, |\___||___/
     #                              |___/
-    fig("Cat Pages", "Building category pages (plural)...")
+    # fig("Cat Pages", "Building category pages (plural)...")
+    """Outputs the individual category pages and includes"""
     global cdict, ydict
     build_ydict()
     lemmatizer = WordNetLemmatizer()
     top_cats = get_top_cats()
     # Map every slug to a category:
     slugcat = defaultdict(list)
-    for i, (fm, apost, combined) in enumerate(chop_chop(YAMLESQUE)):
+    for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE)):
         if fm:
             if "keywords" in fm and "title" in fm:
                 slug = slugify(fm["title"])
@@ -561,16 +582,14 @@ layout: default
             posts_in_cat = len(slugcat[cat])
             fh.write(f"<ol start='{posts_in_cat}' reversed>\n")
             for slug in slugcat[cat]:
-                title = ydict[slug]["title"] aslug = slugify(title) adate = ydict[slug]["date"]
+                title = ydict[slug]["title"]
+                aslug = slugify(title)
+                adate = ydict[slug]["date"]
                 description = ydict[slug]["description"]
                 apermalink = f"{BLOG}{aslug}/"
                 alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
                 fh.write(alink)
             fh.write("</ol>\n")
-
-
-
-
 
 
 def yaml_chop():
@@ -581,9 +600,7 @@ def yaml_chop():
     #   |_/_/   \_\_|  |_|_____|| \____|_| |_|\___/| .__/ (_)(_)(_)
     fig("Chop the YAML!")  #    |                  |_|
     """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
-    # Chop, chop YAMLESQUE, that's what we do as Python generator.
-    # That means it's memory efficient and can parse very large files.
-    for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
+    for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE)):
         if fm and isinstance(fm, dict) and len(fm) > 2:
             title = fm["title"]
             stem = slugify(title)
@@ -640,6 +657,14 @@ def git_push():
     git(here, "add assets/images/*")
     git(here, f'commit -am "Pushing {REPO} to Github..."')
     git(here, "push")
+
+
+#  _   _      _                  __        __        _       _                 _
+# | | | | ___| |_ __   ___ _ __  \ \      / /_ _ ___| |_ ___| | __ _ _ __   __| |
+# | |_| |/ _ \ | '_ \ / _ \ '__|  \ \ /\ / / _` / __| __/ _ \ |/ _` | '_ \ / _` |
+# |  _  |  __/ | |_) |  __/ |      \ V  V / (_| \__ \ ||  __/ | (_| | | | | (_| |
+# |_| |_|\___|_| .__/ \___|_|       \_/\_/ \__,_|___/\__\___|_|\__,_|_| |_|\__,_|
+#              |_|
 
 
 def diagnose_yaml(yaml_str, YMLError):
@@ -729,26 +754,6 @@ def sq(text):
     return text
 
 
-def build_ydict(yamlesque=YAMLESQUE):
-    #  ____        _ _     _                         _       _ _      _
-    # | __ ) _   _(_) | __| |  _   _  __ _ _ __ ___ | |   __| (_) ___| |_
-    # |  _ \| | | | | |/ _` | | | | |/ _` | '_ ` _ \| |  / _` | |/ __| __|
-    # | |_) | |_| | | | (_| | | |_| | (_| | | | | | | | | (_| | | (__| |_
-    # |____/ \__,_|_|_|\__,_|  \__, |\__,_|_| |_| |_|_|  \__,_|_|\___|\__|
-    #                          |___/
-    # fig("YAML check", "Building dictionary of all YAML with slug.")
-    """Rebuilds ydict from _data/*.dbs, which may have more daata than the YAMLESQUE source."""
-    global ydict
-    ydict = defaultdict(dict)
-    for i, (fm, _, _) in enumerate(chop_chop(YAMLESQUE)):
-        if fm and isinstance(fm, dict):
-            if "title" in fm:
-                slug = slugify(fm["title"])
-                fm["slug"] = slug
-                ydict[slug] = fm
-    print(f"ydict has {len(ydict)} entries.")
-
-
 #  _____           _   _____                 _   _
 # | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
 # |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
@@ -778,8 +783,6 @@ update_yaml()  # Updates YAMLESQUE file data from database
 new_source()  # Replaces YAMLESQUE input with syncronized output
 make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
-category_page()  # Builds category.md and include
-category_pages()  # Builds cat_*.md and cat_*.md includes
 yaml_chop()  # Writes out all Jekyll-style posts
 # git_push()  # Pushes changes to Github (publishes)
 
