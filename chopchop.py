@@ -749,9 +749,10 @@ def update_yaml():
         for i, (fm, body, post) in enumerate(chop_chop(YAMLESQUE)):
             if i:
                 fh.write(SEPARATOR)
-            fh.write(post)
             if fm and len(fm) > 2:
-                pass
+                fh.write(post)
+            else:
+                fh.write(post)
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
