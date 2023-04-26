@@ -165,7 +165,7 @@ def chop_chop(full_path, reverse=False):
                 yaml_str, body = post.split("---", 1)
                 try:
                     parsed_yaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
-                    #rv = parsed_yaml, body, f"{SEPARATOR}{yaml_str}---{body}"
+                    # rv = parsed_yaml, body, f"{SEPARATOR}{yaml_str}---{body}"
                     rv = parsed_yaml, body, post
                 except yaml.YAMLError:
                     # This generator is for outputting pages with YAML.
@@ -294,12 +294,12 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
-#  _          _                     
-# | |__   ___| |_ __   ___ _ __ ___ 
+#  _          _
+# | |__   ___| |_ __   ___ _ __ ___
 # | '_ \ / _ \ | '_ \ / _ \ '__/ __|
 # | | | |  __/ | |_) |  __/ |  \__ \
 # |_| |_|\___|_| .__/ \___|_|  |___/
-#              |_|                  
+#              |_|
 
 
 def diagnose_yaml(yaml_str, YMLError):
@@ -639,7 +639,7 @@ def make_index():
     #  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
     #  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
     # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
-    fig("Index Page", "Making index page")  # |___/
+    fig("Index Page", "Making blog index page")  # |___/
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
         fh.write(f'<ol start="{num_posts}" reversed >\n')
@@ -658,19 +658,19 @@ def make_index():
 
 def yaml_chop():
     """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
-    #  ____ _                   _   _           __   __ _    __  __ _     
-    # / ___| |__   ___  _ __   | |_| |__   ___  \ \ / // \  |  \/  | |    
-    #| |   | '_ \ / _ \| '_ \  | __| '_ \ / _ \  \ V // _ \ | |\/| | |    
-    #| |___| | | | (_) | |_) | | |_| | | |  __/   | |/ ___ \| |  | | |___ 
-    # \____|_| |_|\___/| .__/   \__|_| |_|\___|   |_/_/   \_\_|  |_|_____|
-    fig("Chop YAML")  #|_|                                                
+    #   ____ _                   _   _           __   __ _    __  __ _
+    #  / ___| |__   ___  _ __   | |_| |__   ___  \ \ / // \  |  \/  | |
+    # | |   | '_ \ / _ \| '_ \  | __| '_ \ / _ \  \ V // _ \ | |\/| | |
+    # | |___| | | | (_) | |_) | | |_| | | |  __/   | |/ ___ \| |  | | |___
+    #  \____|_| |_|\___/| .__/   \__|_| |_|\___|   |_/_/   \_\_|  |_|_____|
+    fig("Chop YAML")  # |_|
     # parsing text-files with embedded data.
     # YAML's so popular because the moment you look at a file with YAML data, you
 
     # Chop, chop YAMLESQUE, that's what we do as Python generator.
     # That means it's memory efficient and can parse very large files.
     for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
-        if fm and len(fm) > 2:
+        if fm and isinstance(fm, dict) and len(fm) > 2:
             title = fm["title"]
             stem = slugify(title)
             if (i + 1) % 10 == 0:
@@ -742,9 +742,10 @@ def git_push():
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
 # Put new stuff here                |___/ |___/
 
+
 def update_yaml():
     """Updates the YAMLESQUE file data from the database"""
-    fig("Update YAML")
+    fig("Update YAML", "Updating YAMLESQUE file...")
     with open(TEMP_OUTPUT, "w", encoding="utf-8") as fh:
         for i, (fm, body, post) in enumerate(chop_chop(YAMLESQUE)):
             if i:
@@ -756,13 +757,15 @@ def update_yaml():
                 fm["description"] = oget(DESCRIPTIONSDB, slug)
                 fm["keywords"] = oget(KEYWORDSDB, slug)
                 fields = ["title", "date", "headline", "description", "keywords"]
-                sequence = [{field: fm.get(field, '')} for field in fields]
+                sequence = [{field: fm.get(field, "")} for field in fields]
                 ymlstr = yaml.dump(sequence)
                 fh.write(ymlstr)
                 fh.write("---")
                 fh.write(body)
             else:
                 fh.write(post)
+
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -777,10 +780,10 @@ category_page()  # Builds category.md and include
 category_pages()  # Builds cat_*.md and cat_*.md includes
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 update_yaml()  # Updates YAMLESQUE file data from database
-new_source()     # Replaces YAMLESQUE input with syncronized output
-# make_index()  # Builds index page of all posts (for blog page)
-# yaml_chop()  # Writes out all Jekyll-style posts
-# git_push()  # Pushes changes to Github (publishes)
+new_source()  # Replaces YAMLESQUE input with syncronized output
+make_index()  # Builds index page of all posts (for blog page)
+yaml_chop()  # Writes out all Jekyll-style posts
+git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
