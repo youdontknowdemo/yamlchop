@@ -1,37 +1,36 @@
 # Author: Mike Levin
 # Date: 2023-04-25
-# Description: Chop a journal.md file into individual blog posts.
-#   ____ _                  ____ _
-#  / ___| |__   ___  _ __  / ___| |__   ___  _ __    - I keep one journal.md file for life.
-# | |   | '_ \ / _ \| '_ \| |   | '_ \ / _ \| '_ \   - This is it. One place to look each day.
-# | |___| | | | (_) | |_) | |___| | | | (_) | |_) |  - I chop it up into individual blog posts.
-#  \____|_| |_|\___/| .__/ \____|_| |_|\___/| .__/   - I use this script to do it.
-#                   |_|                     |_|
+# Description: Chop a journal.md file into individual blog posts for Jekyll Github Pages.
 # USAGE: python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
-#                       ___
-#                      |   |         ____            This looks odd because it's a text-based UI
-#                      |_  |        /    \           and I'm using a monospace font.
-#                        \ |       |      \
-#                        |  \      |       \         I'm able to edit it so easily because I use
-#                         \  \____ \_      |         a text-based editor called Vim. Actually, it's
-#                          \      \_/     _|         NeoVim, which is a fork of Vim. Same thing.
-#                    __     \_           /
-#   .-,             /  \      |          |           I'll spend a little time designing this odd
-#   |  \            |   `----_|          |           bit of space here next to Alice, who really
-#    \  \_________,-`                /\   \          isn't necessary either for this chop chop
-#    |                              /  \_  \         script to work. But I like to make references
-#    `-----------,                  |    \  \        to it all the time, so here she is.
-#                |                  /     \  |
-#                |                 |       | \       Monospace text is good. Don't unterestimate
-#                /                 |       \__|      its power, no matter what direction tech goes.
-#               /   _              |                 It takes awhile to get used to the fact that
-#              /   / \_             \                text can be a UI. But once you do, you'll
-#              |  /    \__      __--`                never go back. It's so much more powerful.
-#             _/ /        \   _/
-#         ___/  /          \_/                       That's Wonderland! It's a Linux wonder land.
-#        /     /                                     Get used to stringing up the output of commands
-#        `----`                                      and piping them into other commands.
-
+# __   __ _    __  __ _
+# \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _
+#  \ V // _ \ | |\/| | |   / _ \/ __|/ _` | | | |/ _ \     | |
+#   | |/ ___ \| |  | | |__|  __/\__ \ (_| | |_| |  __/  _  | | ___
+#   |_/_/   \_\_|  |_|_____\___||___/\__, |\__,_|\___| | |_| |/ _ \ _   _
+#                                       |_|             \___/| (_) | | | |_ __
+#                                       ___                   \___/| |_| | '__|_ __
+#    - What's going on here?           |   |         ____           \__,_| |  | '_ \  __ _ _
+#    - Old school text editing.        |_  |        /    \               |_|  | | | |/ _` ( )
+#    - But why would anyone do that?     \ |       |      \                   |_| |_| (_| | |
+#      (in 2023 / fill_in_the_year)      |  \      |       \                         \__,_| |
+#                                         \  \____ \_      |                              |_|
+#                                          \      \_/     _|
+#                                    ___.   \_           /          - Daily writing
+#                   .-,             /    \    |          |          - One file for life
+#                   |  \          _/      `--_/          |          - Auto-formats to blog
+#                    \  \________/                   /\   \         - You need vim/NeoVim
+#                    |                              /  \_  \          in your life.
+#                    `-----------,                  |    \  \
+#                                |                  /     \  |
+#                                |                 |       | \
+#                                /                 |       \__|
+#                               /   _              |
+#                              /   / \_             \
+#                              |  /    \__      __--`
+#                             _/ /        \   _/
+#                         ___/  /          \_/
+#                        /     /
+#                        `----`
 import os
 import re
 import sys
@@ -55,13 +54,18 @@ from collections import Counter, defaultdict
 AUTHOR = "Mike Levin"
 ENGINE = "text-davinci-003"
 NUMBER_OF_CATEGORIES = 100
+GIT_EXE = "/usr/bin/git"
 
 
 # Load function early so we can start showing figlets.
 def fig(text, description=None):
-    """Print a figlet and optional description with momentary delay.
-    This is good to explain something qick before it scrolls across
-    console output."""
+    """Let Them See Text"""
+    #  _____ _       _      _
+    # |  ___(_) __ _| | ___| |_
+    # | |_  | |/ _` | |/ _ \ __|
+    # |  _| | | (_| | |  __/ |_
+    # |_|   |_|\__, |_|\___|\__|
+    #          |___/
     f = Figlet()
     print(f.renderText(text))
     if description:
@@ -104,7 +108,6 @@ parts = YAMLESQUE.split("/")
 REPO = parts[-2] + "/"
 FILE = parts[-1]
 PATH = "/".join(parts[:-2]) + "/"
-GIT_EXE = "/usr/bin/git"
 INCLUDES = f"{PATH}{REPO}_includes/"
 REPO_DATA = f"{PATH}{REPO}_data/"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
@@ -144,15 +147,14 @@ with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
 
 
 def chop_chop(full_path, reverse=False):
-    """Yields 3-tuples of YAMLESQUE source-file as (YAML, post, YAML+post).
-    If there's no YAML, position 0 will be None and position 2 will be post."""
-    #   ____                           _
-    #  / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
-    # | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
-    # | |_| |  __/ | | |  __/ | | (_| | || (_) | |
-    #  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|
+    """Yields a stream of 3-tuples (YAML, post, YAML+post) from YAMLesque file.
+    If there's no YAML, None will be in position 0 and post in both 1 & 2."""
+    # __   __ _    __  __ _        ____                           _
+    # \ \ / // \  |  \/  | |      / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
+    #  \ V // _ \ | |\/| | |     | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
+    #   | |/ ___ \| |  | | |___  | |_| |  __/ | | |  __/ | | (_| | || (_) | |
+    #   |_/_/   \_\_|  |_|_____|  \____|\___|_| |_|\___|_|  \__,_|\__\___/|_|
     with open(full_path, "r") as fh:
-        global SEPARATOR
         posts = CHOP.split(fh.read())
         if reverse:
             posts.reverse()  # Reverse so article indexes don't change.
@@ -172,20 +174,6 @@ def chop_chop(full_path, reverse=False):
             yield rv
 
 
-def diagnose_yaml(yaml_str, YMLError):
-    fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
-    for j, astr in enumerate(yaml_str.split("\n")):
-        print(f"LINE {j + 1}--> {astr}")
-    print()
-    print("And here's the error:")
-    print(f"YMLError.context_mark: {YMLError.context_mark}")
-    print()
-    print("And the breakdown of the error:")
-    print(f"exec.context_mark: {YMLError.context_mark}")
-    print(f"exec.problem_mark: {YMLError.problem_mark}")
-    raise SystemExit()
-
-
 def odb(DBNAME, afunc, slug, full_text):
     """Record OpenAI API hits in a database."""
     api_hit = False
@@ -193,15 +181,16 @@ def odb(DBNAME, afunc, slug, full_text):
         if slug in db:
             result = db[slug]
         else:
-            #     _    ____ ___   _     _ _
-            #    / \  |  _ \_ _| | |__ (_) |_
-            #   / _ \ | |_) | |  | '_ \| | __|
-            #  / ___ \|  __/| |  | | | | | |_
-            # /_/   \_\_|  |___| |_| |_|_|\__|
+            #   ___                      _    ___   _   _ _ _
+            #  / _ \ _ __   ___ _ __    / \  |_ _| | | | (_) |_
+            # | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_| | | __|
+            # | |_| | |_) |  __/ | | |/ ___ \ | |  |  _  | | |_
+            #  \___/| .__/ \___|_| |_/_/   \_\___| |_| |_|_|\__|
+            #       |_|
+            fig("OpenAI Hit")
             result = afunc(full_text)  # Hits OpenAI API
             db[slug] = result
             db.commit()
-            fig("Hit API", f"Hit OpenAI API and saved to {DBNAME}")
             api_hit = True
     return result, api_hit
 
@@ -209,7 +198,6 @@ def odb(DBNAME, afunc, slug, full_text):
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def write_keywords(data):
     """Returns top keywords and main category for text."""
-    print("Hitting OpenAI API for: keywords")
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
@@ -279,10 +267,7 @@ def write_summary(text):
     for chunk in chunks:
         response = openai.Completion.create(
             engine=ENGINE,
-            prompt=(
-                f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n"
-                "Summary:"
-            ),
+            prompt=(f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n" "Summary:"),
             temperature=0.5,
             max_tokens=100,
             n=1,
@@ -306,6 +291,20 @@ def chunk_text(text, chunk_size=4000):
         chunks.append(chunk)
         start_idx = end_idx
     return chunks
+
+
+def diagnose_yaml(yaml_str, YMLError):
+    fig("YAML ERROR", "READ THE YAML LINE-BY-LINE UNTIL KAPUT...")
+    for j, astr in enumerate(yaml_str.split("\n")):
+        print(f"LINE {j + 1}--> {astr}")
+    print()
+    print("And here's the error:")
+    print(f"YMLError.context_mark: {YMLError.context_mark}")
+    print()
+    print("And the breakdown of the error:")
+    print(f"exec.context_mark: {YMLError.context_mark}")
+    print(f"exec.problem_mark: {YMLError.problem_mark}")
+    raise SystemExit()
 
 
 def oget(DBNAME, slug):
@@ -534,8 +533,18 @@ layout: default
 ---
 
 # {cdict[cat]["title"]}
-
 """
+
+            # <ol reversed start="{{{{ site.categories[page.category] | size }}}}">
+            # {{% for post in site.posts %}}
+            #   {{% if post.categories contains page.category %}}
+            #   <li>
+            #     <a href="{{ post.url }}"><h2>{{{{ post.title }}}}</h2></a>
+            #     <p>{{{{ post.date | date: "%b %-d, %Y" }}}}</p>
+            #   </li>
+            #   {{% endif %}}
+            # {{% endfor %}}
+            # </ol>
             fh.write(cat_str)
             fh.write(f"{{% include {include_file} %}}\n")
 
@@ -575,11 +584,10 @@ def sync_check():
             # Setting these values ALSO commits it to the databases
             summary, api_hit = odb(SUMMARIESDB, write_summary, slug, apost)
             headline, hit_headline = odb(HEADLINESDB, write_headline, slug, summary)
-            description, hit_description = odb(
-                DESCRIPTIONSDB, write_description, slug, summary
-            )
+            description, hit_description = odb(DESCRIPTIONSDB, write_description, slug, summary)
             keywords, hit_keywords = odb(KEYWORDSDB, write_keywords, slug, summary)
 
+            # Give user a moment to review. Could always Ctrl+C.
             if any([hit_description, hit_headline, hit_keywords]):
                 print(f"headline: {headline}\n")
                 print(f"description: {description}\n")
@@ -629,29 +637,30 @@ def make_index():
                 description = description.replace("<", "&lt;")
                 description = description.replace(">", "&gt;")
                 adate = fm["date"]
-                fh.write(
-                    f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n'
-                )
+                fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
         fh.write("</ol>\n")
 
 
-def write_posts():
-    """Chop YAMLESQUE up into posts"""
-    #   ____ _                   ____           _
-    #  / ___| |__   ___  _ __   |  _ \ ___  ___| |_ ___
-    # | |   | '_ \ / _ \| '_ \  | |_) / _ \/ __| __/ __|
-    # | |___| | | | (_) | |_) | |  __/ (_) \__ \ |_\__ \
-    #  \____|_| |_|\___/| .__/  |_|   \___/|___/\__|___/
+def yaml_chop():
+    """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
+    #   ____ _                  __   __ _    __  __ _
+    #  / ___| |__   ___  _ __   \ \ / // \  |  \/  | |
+    # | |   | '_ \ / _ \| '_ \   \ V // _ \ | |\/| | |
+    # | |___| | | | (_) | |_) |   | |/ ___ \| |  | | |___
+    #  \____|_| |_|\___/| .__/    |_/_/   \_\_|  |_|_____|
     #                   |_|
-    fig("Chop Pages", "Chop, chop, chop...")
-    # This is a YAMLesque system, so we need to be able to parse YAMLesque.
+    fig("Chop YAML", "Chopping pages...")
+    # parsing text-files with embedded data.
+    # YAML's so popular because the moment you look at a file with YAML data, you
+
     # Chop, chop YAMLESQUE, that's what we do as Python generator.
     # That means it's memory efficient and can parse very large files.
     for i, (fm, body, combined) in enumerate(chop_chop(YAMLESQUE)):
         if fm and len(fm) > 2:
             title = fm["title"]
             stem = slugify(title)
-            print(f"{i+1} ", end="", flush=True)
+            if (i + 1) % 10 == 0:
+                print(f"{i+1} ", end="", flush=True)
             adate = fm["date"]
             description = sq(fm["description"])
             headline = sq(fm["headline"])
@@ -683,7 +692,7 @@ layout: post
 ---"""
                 )
                 fh.write(body)
-    print()
+    print("chopped!")
 
 
 def git_push():
@@ -709,15 +718,15 @@ def git_push():
 # |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
 # | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
 # |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-# This is a YAMLesque system, so we need to be able to parse YAMLesque.
+# And now for something completely different.
+
 
 #  _____ _            ____  _                                             _
 # |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
 #   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
 #   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
-#                                   |___/ |___/
-# Doing so has a distinct Python generator look to it, where we yield chunks:
+# Put new stuff here                |___/ |___/
 
 
 def get_top_cats():
@@ -741,13 +750,12 @@ category_pages()  # Builds cat_*.md and cat_*.md includes
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 # new_source()     # Replaces YAMLESQUE input with syncronized output
 make_index()  # Builds index page of all posts (for blog page)
-write_posts()  # Writes out all Jekyll-style posts
-git_push()  # Pushes changes to Github (publishes)
-
+yaml_chop()  # Writes out all Jekyll-style posts
+# git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
 # | | | |/ _ \| '_ \ / _ \
 # | |_| | (_) | | | |  __/
 # |____/ \___/|_| |_|\___|
-fig("Done!", "All done!")
+fig("Done!")
