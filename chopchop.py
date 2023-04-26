@@ -561,9 +561,7 @@ layout: default
             posts_in_cat = len(slugcat[cat])
             fh.write(f"<ol start='{posts_in_cat}' reversed>\n")
             for slug in slugcat[cat]:
-                title = ydict[slug]["title"]
-                aslug = slugify(title)
-                adate = ydict[slug]["date"]
+                title = ydict[slug]["title"] aslug = slugify(title) adate = ydict[slug]["date"]
                 description = ydict[slug]["description"]
                 apermalink = f"{BLOG}{aslug}/"
                 alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
@@ -571,13 +569,17 @@ layout: default
             fh.write("</ol>\n")
 
 
+
+
+
+
 def yaml_chop():
-    #      ____ _    DATA  |  BODY   _   _           __   __ _    __  __ _
-    #     / ___| |__   ___ | _ __   | |_| |__   ___  \ \ / // \  |  \/  | |
-    #    | |   | '_ \ / _ \|| '_ \  | __| '_ \ / _ \  \ V // _ \ | |\/| | |
-    #    | |___| | | | (_) || |_) | | |_| | | |  __/   | |/ ___ \| |  | | |___
-    #     \____|_| |_|\___/|| .__/   \__|_| |_|\___|   |_/_/   \_\_|  |_|_____|
-    fig("Chop the YAML!")  # |_|
+    # __   __ _    __  __ _     |  ____ _                  _  _  _
+    # \ \ / // \  |  \/  | |    | / ___| |__   ___  _ __  | || || |
+    #  \ V // _ \ | |\/| | |    || |   | '_ \ / _ \| '_ \ | || || |
+    #   | |/ ___ \| |  | | |___ || |___| | | | (_) | |_) ||_||_||_|
+    #   |_/_/   \_\_|  |_|_____|| \____|_| |_|\___/| .__/ (_)(_)(_)
+    fig("Chop the YAML!")  #    |                  |_|
     """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
     # Chop, chop YAMLESQUE, that's what we do as Python generator.
     # That means it's memory efficient and can parse very large files.
