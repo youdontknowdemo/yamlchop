@@ -749,8 +749,18 @@ def update_yaml():
         for i, (fm, body, post) in enumerate(chop_chop(YAMLESQUE)):
             if i:
                 fh.write(SEPARATOR)
-            if fm and len(fm) > 2:
-                fh.write(post)
+            if fm and len(fm) == 2:
+                title = fm["title"]
+                slug = slugify(title)
+                fm["headline"] = oget(HEADLINESDB, slug)
+                fm["description"] = oget(DESCRIPTIONSDB, slug)
+                fm["keywords"] = oget(KEYWORDSDB, slug)
+                fields = ["title", "date", "headline", "description", "keywords"]
+                sequence = [{field: fm.get(field, '')} for field in fields]
+                ymlstr = yaml.dump(sequence)
+                fh.write(ymlstr)
+                fh.write("---")
+                fh.write(body)
             else:
                 fh.write(post)
 #  _____ _                                 _             _
@@ -761,13 +771,13 @@ def update_yaml():
 # This controls the entire (usually linear) flow. Edit for debugging.
 
 build_ydict()  # Builds global ydict (should always run)
-# deletes()  # Deletes old posts
-# categories()  # Builds global categories and builds category pages
-# category_page()  # Builds category.md and include
-# category_pages()  # Builds cat_*.md and cat_*.md includes
-# sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+deletes()  # Deletes old posts
+categories()  # Builds global categories and builds category pages
+category_page()  # Builds category.md and include
+category_pages()  # Builds cat_*.md and cat_*.md includes
+sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 update_yaml()  # Updates YAMLESQUE file data from database
-# # new_source()     # Replaces YAMLESQUE input with syncronized output
+new_source()     # Replaces YAMLESQUE input with syncronized output
 # make_index()  # Builds index page of all posts (for blog page)
 # yaml_chop()  # Writes out all Jekyll-style posts
 # git_push()  # Pushes changes to Github (publishes)
