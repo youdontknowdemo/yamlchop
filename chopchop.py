@@ -187,7 +187,7 @@ def odb(DBNAME, afunc, slug, full_text):
         if slug in db:
             result = db[slug]
         else:
-            fig(f"OpenAI {DBNAME}")
+            fig(f"OpenAI", DBNAME)
             result = afunc(full_text)  # Hits OpenAI API
             db[slug] = result
             db.commit()
@@ -373,7 +373,7 @@ def build_ydict(yamlesque=YAMLESQUE):
                 slug = slugify(fm["title"])
                 fm["slug"] = slug
                 ydict[slug] = fm
-    print(f"ydict has {len(ydict)} entries.")
+    print(f"Source has {len(ydict)} posts.")
 
 
 def update_yaml():
@@ -454,6 +454,7 @@ def make_index():
                 adate = fm["date"]
                 fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
         fh.write("</ol>\n")
+        fh.write("{% include category_list.md %}")
 
 
 def categories():
@@ -638,6 +639,14 @@ layout: post
 ---"""
                 )
                 fh.write(body)
+                fh.write("## Categories\n")
+                fh.write("\n<ul>")
+                for asubcat in categories.split(", "):
+                    asubcat = asubcat.strip().lower()
+                    if asubcat in top_cats:
+                        fh.write(f"\n<li><h4><a href='/{slugify(asubcat)}/'>{cdict[asubcat]['title']}</a></h4></li>")
+                fh.write("</ul>")
+                # fh.write("\n{% include category_list.md %}")
     print("chopped!")
 
 
@@ -781,13 +790,22 @@ def category_grid():
     # fig("Cat Page", "Building category page...")
     """Build the category page (singular)"""
     global cdict
-    if cdict:
-        rows = 20
-        cols = 5
-        with open(CATEGORY_GRID, "w") as fh:
+    rows = 20
+    cols = 5
+    counter = 0
+    top_cats = get_top_cats()
+    with open(CATEGORY_GRID, "w") as fh:
+        if cdict:
             for row in range(rows):
+                fh.write("\n")
                 for col in range(cols):
-                    fh.write(f'Row {row + 1}, Column {col + 1 } | ')
+                    # fh.write(f'Row {row + 1}, Column {col + 1 } | ')
+                    cat = top_cats[counter]
+                    title = cdict[cat]["title"]
+                    slug = slugify(title)
+                    markdown_link = f"[{title}](/{slug}/)"
+                    fh.write(f'{markdown_link} | ')
+                    counter += 1
             # for i, row in enumerate(top_cats):
             #     for col in range(cols):
             #     print()
@@ -802,15 +820,15 @@ def category_grid():
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-# deletes()  # Deletes old posts
-# sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+deletes()  # Deletes old posts
+sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 update_yaml()  # Updates YAMLESQUE file data from database
-# new_source()  # Replaces YAMLESQUE input with syncronized output
-# make_index()  # Builds index page of all posts (for blog page)
-# categories()  # Builds global categories and builds category pages
-# yaml_chop()  # Writes out all Jekyll-style posts
-# git_push()  # Pushes changes to Github (publishes)
+new_source()  # Replaces YAMLESQUE input with syncronized output
+make_index()  # Builds index page of all posts (for blog page)
+categories()  # Builds global categories and builds category pages
 category_grid()
+yaml_chop()  # Writes out all Jekyll-style posts
+git_push()  # Pushes changes to Github (publishes)
 
 #  ____
 # |  _ \  ___  _ __   ___
