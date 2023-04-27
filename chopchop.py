@@ -53,17 +53,17 @@ from collections import Counter, defaultdict
 
 AUTHOR = "Mike Levin"
 ENGINE = "text-davinci-003"
-NUMBER_OF_CATEGORIES = 100
 GIT_EXE = "/usr/bin/git"
+NUMBER_OF_CATEGORIES = 100
 
 
 # Load function early so we can use it, pronto!
 def fig(text, description=None):
     #  _____ _       _      _
-    # |  ___(_) __ _| | ___| |_
-    # | |_  | |/ _` | |/ _ \ __|
-    # |  _| | | (_| | |  __/ |_
-    # |_|   |_|\__, |_|\___|\__|
+    # |  ___(_) __ _| | ___| |_    Once upon a programming session
+    # | |_  | |/ _` | |/ _ \ __|   Something that you'll need
+    # |  _| | | (_| | |  __/ |_    Is a way to make your text
+    # |_|   |_|\__, |_|\___|\__|   Something you can read.
     #          |___/
     """Let them see text!"""
     f = Figlet()
@@ -73,23 +73,20 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("Chop, Chop...", "A radical new YAMLesque blogging system based on 1-file for life")
+fig("Chop, Chop...", "A clear way to journal using 1-file for life.")
 
-#  ____                          _ Command-line says ()   ,
-# |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___    O  \\  .
-# | |_) / _` | '__/ __|/ _ \   / _ \ | '__/ _` / __|    o |\\/|
-# |  __/ (_| | |  \__ \  __/  / ___ \| | | (_| \__ \      / " '\
-# |_|   \__,_|_|  |___/\___| /_/   \_\_|  \__, |___/     . .   .
-#                                         |___/         /    ) |
-#                                                      '  _.'  |
-# Define command line arguments                        '-'/    \
+#  ____                          _         Command-line says  ()   ,
+# |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___   do this   O  \\  .
+# | |_) / _` | '__/ __|/ _ \   / _ \ | '__/ _` / __|   to that.  o |\\/|
+# |  __/ (_| | |  \__ \  __/  / ___ \| | | (_| \__ \               / " '\
+# |_|   \__,_|_|  |___/\___| /_/   \_\_|  \__, |___/              . .   .
+#                                         |___/                  /    ) |
+# Define command line arguments.                                '  _.'  |
+# Use in your .vimrc or inti.vim like this:                     '-'/    \
+# let @p = ":terminal python ~/repos/skite/chopchop.py -f " . expand('%:p')
+
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
-
-# Use in a vim or NeoVim macro from .vimrc or init.vim like this:
-# let @p = ":execute '!python ~/repos/skite/chopchop.py -f ' . expand('%:p')"
-# Or in interactive mode in NeoVim using it's :terminal command:
-# let @p = ":terminal 'python ~/repos/skite/chopchop.py -f ' .expand('%:p')"
 
 add_arg("-f", "--full_path", required=True)
 add_arg("-a", "--author", default=AUTHOR)
@@ -142,10 +139,10 @@ with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
     openai.api_key = fh.readline()
 
 #  _____                 _   _
-# |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
-# | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
-# |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
-# |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
+# |  ___|   _ _ __   ___| |_(_) ___  _ __  ___    Above this is configuration
+# | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|   And setting CONSTANTS.
+# |  _|| |_| | | | | (__| |_| | (_) | | | \__ \   Below functions is a Playground.
+# |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/   And finally, Flow Control.
 
 
 def yaml_generator(full_path, reverse=False):
@@ -316,13 +313,12 @@ def chunk_text(text, chunk_size=4000):
     return chunks
 
 
-#  _____ _            ____  _
-# |_   _| |__   ___  / ___|| |_ ___ _ __  ___
-#   | | | '_ \ / _ \ \___ \| __/ _ \ '_ \/ __|
-#   | | | | | |  __/  ___) | ||  __/ |_) \__ \
-#   |_| |_| |_|\___| |____/ \__\___| .__/|___/
-#                                  |_|
-
+#  _____ _                 _ _                     
+# |  ___| | _____      __ (_) |_ ___ _ __ ___  ___ 
+# | |_  | |/ _ \ \ /\ / / | | __/ _ \ '_ ` _ \/ __|
+# |  _| | | (_) \ V  V /  | | ||  __/ | | | | \__ \
+# |_|   |_|\___/ \_/\_/   |_|\__\___|_| |_| |_|___/
+                                                 
 
 def deletes():
     #  ____       _      _   _                     _     _
@@ -763,9 +759,16 @@ def oget(DBNAME, slug):
 
 
 def git(cwd, line_command):
+    #        _ _ 
+    #   __ _(_) |_   This is it. This is git.
+    #  / _` | | __|  It does the simple deed.
+    # | (_| | | |_   From a shell what it does well
+    #  \__, |_|\__|  Is move things where you need.
+    #  |___/       
     """Run a Linux git command."""
     cmd = [GIT_EXE] + shlex.split(line_command)
-    print(f"{cmd}")
+    show_cmd = " ".join(cmd)
+    print(f"Running: {show_cmd}")
     process = Popen(
         args=cmd,
         cwd=cwd,
@@ -824,14 +827,6 @@ def sq(text):
     return text
 
 
-#  _____           _   _____                 _   _
-# | ____|_ __   __| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___
-# |  _| | '_ \ / _` | | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|
-# | |___| | | | (_| | |  _|| |_| | | | | (__| |_| | (_) | | | \__ \
-# |_____|_| |_|\__,_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
-# And now for something completely different.
-
-
 #  _____ _            ____  _                                             _
 # |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
 #   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
@@ -854,12 +849,7 @@ new_source()  # Replaces YAMLESQUE input with syncronized output
 make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
-# git_push()  # Pushes changes to Github (publishes)
+git_push()  # Pushes changes to Github (publishes)
 print("If run from NeoVim, :bdel closes this buffer.")
 
-#  ____
-# |  _ \  ___  _ __   ___
-# | | | |/ _ \| '_ \ / _ \
-# | |_| | (_) | | | |  __/
-# |____/ \___/|_| |_|\___|
 fig("Done.")
