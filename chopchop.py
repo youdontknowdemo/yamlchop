@@ -504,8 +504,37 @@ def categories():
         print(f"{i+1}. {cdict[acat]['title']} ({cdict[acat]['count']})")
         if i + 1 >= show_cats:
             break
+    category_grid()  # Builds category_list.md include
     category_page()  # Builds category.md and include
     category_pages()  # Builds cat_*.md and cat_*.md includes
+
+
+def category_grid():
+    #   ____      _      ____      _     _
+    #  / ___|__ _| |_   / ___|_ __(_) __| |
+    # | |   / _` | __| | |  _| '__| |/ _` |
+    # | |__| (_| | |_  | |_| | |  | | (_| |
+    #  \____\__,_|\__|  \____|_|  |_|\__,_|
+    #
+    # fig("Cat Page", "Building category page...")
+    """Build the 100-cell grid of categories."""
+    global cdict
+    rows = 20
+    cols = 5
+    counter = 0
+    top_cats = get_top_cats()
+    with open(CATEGORY_GRID, "w") as fh:
+        if cdict:
+            for row in range(rows):
+                fh.write("\n")
+                for col in range(cols):
+                    # fh.write(f'Row {row + 1}, Column {col + 1 } | ')
+                    cat = top_cats[counter]
+                    title = cdict[cat]["title"]
+                    slug = slugify(title)
+                    markdown_link = f"[{title}](/{slug}/)"
+                    fh.write(f"{markdown_link} | ")
+                    counter += 1
 
 
 def category_page():
@@ -780,39 +809,6 @@ def sq(text):
 # Put new stuff here                |___/ |___/
 
 
-def category_grid():
-    #   ____      _     ____
-    #  / ___|__ _| |_  |  _ \ __ _  __ _  ___
-    # | |   / _` | __| | |_) / _` |/ _` |/ _ \
-    # | |__| (_| | |_  |  __/ (_| | (_| |  __/
-    #  \____\__,_|\__| |_|   \__,_|\__, |\___|
-    #                              |___/
-    # fig("Cat Page", "Building category page...")
-    """Build the category page (singular)"""
-    global cdict
-    rows = 20
-    cols = 5
-    counter = 0
-    top_cats = get_top_cats()
-    with open(CATEGORY_GRID, "w") as fh:
-        if cdict:
-            for row in range(rows):
-                fh.write("\n")
-                for col in range(cols):
-                    # fh.write(f'Row {row + 1}, Column {col + 1 } | ')
-                    cat = top_cats[counter]
-                    title = cdict[cat]["title"]
-                    slug = slugify(title)
-                    markdown_link = f"[{title}](/{slug}/)"
-                    fh.write(f'{markdown_link} | ')
-                    counter += 1
-            # for i, row in enumerate(top_cats):
-            #     for col in range(cols):
-            #     print()
-            #     mkdn = f'Row {row + 1}, Column {col + 1}', end=' | '
-            #     fh2.write(f'{mkdn}\n')
-            # fh2.write("</ol>\n")
-
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -826,9 +822,9 @@ update_yaml()  # Updates YAMLESQUE file data from database
 new_source()  # Replaces YAMLESQUE input with syncronized output
 make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
-category_grid()
 yaml_chop()  # Writes out all Jekyll-style posts
 git_push()  # Pushes changes to Github (publishes)
+print("If run from NeoVim, :bdel closes this buffer.")
 
 #  ____
 # |  _ \  ___  _ __   ___
