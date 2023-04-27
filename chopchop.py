@@ -347,6 +347,7 @@ def sync_check():
             keywords, hit_keywords = odb(KEYWORDSDB, write_keywords, slug, summary)
 
             # Give user a moment to review. Could always Ctrl+C.
+            print()
             if any([hit_description, hit_headline, hit_keywords]):
                 print(f"headline: {headline}\n")
                 print(f"description: {description}\n")
