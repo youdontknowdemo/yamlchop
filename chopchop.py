@@ -120,6 +120,7 @@ CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default"]
 
 # Databases
 SUMMARIESDB = REPO_DATA + "summaries.db"
+ADVICEDB = REPO_DATA + "advice.db"
 HEADLINESDB = REPO_DATA + "headlines.db"
 DESCRIPTIONSDB = REPO_DATA + "descriptions.db"
 KEYWORDSDB = REPO_DATA + "keywords.db"
@@ -223,9 +224,9 @@ def write_description(data):
         engine=ENGINE,
         prompt=(
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
-            "...that will entice readers to click through to the blog post. "
-            "You wrote this. Write from the first person perspective. Never say 'The author'. '"
-            "Keep it short to just like a few sentences, but always finish your sentences."
+            "...that will work well as summary-text in website navigation. "
+            "You are the author, but never say 'The author'. Write from the first person perspective. "
+            "Keep it short."
             "\nSummary:\n\n"
         ),
         temperature=0.5,
@@ -277,6 +278,30 @@ def write_summary(text):
         summarized_text += summary
         summarized_text = " ".join(summarized_text.splitlines())
     return summarized_text.strip()
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def give_advice(data):
+    """Write a meta description for a post."""
+
+
+    response = openai.Completion.create(
+        engine=ENGINE,
+        prompt=(
+            f"You are my work advisor and life-coach. "
+            "Read what I have written in the context of everything else at "
+            "https://mikelev.in/blog/ "
+            "and tell me what I should do next:\n{data}\n\n"
+            "My goal is financial independence and achieving my ikigai. "
+            "\nAdvice:\n\n"
+        ),
+        temperature=0.5,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+    advice = response.choices[0].text.strip()
+    return advice
 
 
 def chunk_text(text, chunk_size=4000):
@@ -342,17 +367,20 @@ def sync_check():
 
             # Setting these values ALSO commits it to the databases
             summary, api_hit = odb(SUMMARIESDB, write_summary, slug, apost)
+            advice, hit_advice = odb(ADVICEDB, write_summary, slug, apost)
             headline, hit_headline = odb(HEADLINESDB, write_headline, slug, summary)
             description, hit_description = odb(DESCRIPTIONSDB, write_description, slug, summary)
             keywords, hit_keywords = odb(KEYWORDSDB, write_keywords, slug, summary)
 
             # Give user a moment to review. Could always Ctrl+C.
             print()
-            if any([hit_description, hit_headline, hit_keywords]):
+            if any([hit_description, hit_headline, hit_keywords, hit_advice]):
                 print(f"headline: {headline}\n")
                 print(f"description: {description}\n")
                 print(f"keywords: {keywords}\n")
-                input("Press enter to continue...")
+                print(f"advice: {advice}\n")
+                sleep(20)
+                # input("Press enter to continue...")
             print()
     build_ydict()
 
@@ -400,10 +428,15 @@ def update_yaml():
                 fm["headline"] = oget(HEADLINESDB, slug)
                 fm["description"] = oget(DESCRIPTIONSDB, slug)
                 fm["keywords"] = oget(KEYWORDSDB, slug)
-                fields = ["date", "title", "headline", "description", "keywords"]
+                fm["advice"] = oget(ADVICEDB, slug)
+                fields = ["date", "title", "headline", "description", "keywords", "advice"]
                 ymlstr = ""
                 for field in fields:
-                    ymlstr += f"{field}: {sq(fm[field])}\n"
+                    try:
+                        ymlstr += f"{field}: {sq(fm[field])}\n"
+                    except:
+                        # Advice field won't be there for most.
+                        ...
                 fh.write(ymlstr)
                 fh.write("---")
                 fh.write(body)
@@ -466,7 +499,7 @@ def categories():
     #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
     #                     |___/
     """Find the categories"""
-    fig("Categories", "Finding catgories...")
+    fig("Categories", "Finding categories...")
     pwords = defaultdict(lambda x=None: x)
     cat_dict = defaultdict(list)
     words = defaultdict(list)
