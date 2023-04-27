@@ -289,10 +289,8 @@ def give_advice(data):
         engine=ENGINE,
         prompt=(
             f"You are my work advisor and life-coach. "
-            "Read what I have written in the context of everything else at "
-            "https://mikelev.in/blog/ "
-            "and tell me what I should do next:\n{data}\n\n"
-            "My goal is financial independence and achieving my ikigai. "
+            "Read what I have written and tell me what I should do next:\n{data}\n\n"
+            "I am trying to achieve my ikigai."
             "\nAdvice:\n\n"
         ),
         temperature=0.5,
@@ -367,7 +365,7 @@ def sync_check():
 
             # Setting these values ALSO commits it to the databases
             summary, api_hit = odb(SUMMARIESDB, write_summary, slug, apost)
-            advice, hit_advice = odb(ADVICEDB, write_summary, slug, apost)
+            advice, hit_advice = odb(ADVICEDB, give_advice, slug, apost)
             headline, hit_headline = odb(HEADLINESDB, write_headline, slug, summary)
             description, hit_description = odb(DESCRIPTIONSDB, write_description, slug, summary)
             keywords, hit_keywords = odb(KEYWORDSDB, write_keywords, slug, summary)
@@ -857,7 +855,7 @@ new_source()  # Replaces YAMLESQUE input with syncronized output
 make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
-git_push()  # Pushes changes to Github (publishes)
+# git_push()  # Pushes changes to Github (publishes)
 print("If run from NeoVim, :bdel closes this buffer.")
 
 #  ____
