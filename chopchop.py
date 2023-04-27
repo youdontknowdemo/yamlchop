@@ -776,7 +776,6 @@ def git(cwd, line_command):
         universal_newlines=True,
     )
     flush(process.stdout)
-    flush(process.stderr)
 
 
 def flush(std):
