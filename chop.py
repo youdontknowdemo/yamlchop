@@ -1,7 +1,7 @@
 # Author: Mike Levin
 # Date: 2023-04-25
 # Description: Chop a journal.md file into individual blog posts for Jekyll Github Pages.
-# USAGE: python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
+# USAGE: python ~/repos/yamlchop/chop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
 # __   __ _    __  __ _
 # \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _ test 6
 #  \ V // _ \ | |\/| | |   / _ \/ __|/ _` | | | |/ _ \     | |
@@ -87,7 +87,7 @@ fig("Chop, Chop...", "A way to journal using 1-file for life.")
 #                                         |___/                  /    ) |
 # Define command line arguments.                                '  _.'  |
 # Use in your .vimrc or inti.vim like this:                     '-'/    \
-# let @p = ":terminal python ~/repos/skite/chopchop.py -f " . expand('%:p')
+# let @p = ":terminal python ~/repos/yamlchop/chop.py -f " . expand('%:p')
 
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
@@ -140,7 +140,7 @@ cdict = defaultdict(dict)  # A dict of category Capitalization & counts
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
 
-with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
+with open("/home/ubuntu/repos/yamlchop/openai.txt", "r") as fh:
     openai.api_key = fh.readline()
 
 #  _____                 _   _
