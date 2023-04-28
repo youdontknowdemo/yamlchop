@@ -52,9 +52,13 @@ from collections import Counter, defaultdict
 
 
 AUTHOR = "Mike Levin"
-ENGINE = "text-davinci-003"
+BASE_URL = "https://mikelev.in"
 GIT_EXE = "/usr/bin/git"
 NUMBER_OF_CATEGORIES = 100
+ENGINE = "text-davinci-003"
+TEMPERATURE = 0.5
+MAX_TOKENS = 100
+AI_FIELDS = ["headline", "description", "keywords", "question"]
 
 
 # Load function early so we can use it, pronto!
@@ -117,10 +121,17 @@ CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default"]
 
 # Databases
 SUMMARIESDB = REPO_DATA + "summaries.db"
-ADVICEDB = REPO_DATA + "advice.db"
-HEADLINESDB = REPO_DATA + "headlines.db"
-DESCRIPTIONSDB = REPO_DATA + "descriptions.db"
-KEYWORDSDB = REPO_DATA + "keywords.db"
+for afield in AI_FIELDS:
+    db_var = f"{afield.upper()}DB"
+    db_file = f"{REPO_DATA}{afield}.db"
+    command = f'{db_var} = "{db_file}"'
+    exec(command)
+
+# ADVICEDB = REPO_DATA + "advice.db"
+# HEADLINEDB = REPO_DATA + "headline.db"
+# DESCRIPTIONDB = REPO_DATA + "description.db"
+# KEYWORDSDB = REPO_DATA + "keywords.db"
+# QUESTIONDB = REPO_DATA + "question.db"
 
 # Print out constants
 fig(REPO, f"REPO: {REPO}")  # Print the repo name
@@ -139,7 +150,7 @@ with open("/home/ubuntu/repos/skite/openai.txt", "r") as fh:
     openai.api_key = fh.readline()
 
 #  _____                 _   _
-# |  ___|   _ _ __   ___| |_(_) ___  _ __  ___    Above this is configuration
+# |  ___|   _ _ __   ___| |_(_) ___  _ __  ___    Above this is configuration 
 # | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|   And setting CONSTANTS.
 # |  _|| |_| | | | | (__| |_| | (_) | | | \__ \   Below functions is a Playground.
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/   And finally, Flow Control.
@@ -186,7 +197,8 @@ def odb(DBNAME, afunc, slug, full_text):
             result = db[slug]
         else:
             fig(f"OpenAI", DBNAME)
-            result = afunc(full_text)  # Hits OpenAI API
+            url = f"{BASE_URL}{BLOG}{slug}/"
+            result = afunc(full_text, url)  # Hits OpenAI API
             db[slug] = result
             db.commit()
             api_hit = True
@@ -194,7 +206,7 @@ def odb(DBNAME, afunc, slug, full_text):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_keywords(data):
+def prompt_keywords(data, url):
     """Returns top keywords and main category for text."""
     response = openai.Completion.create(
         engine=ENGINE,
@@ -203,10 +215,11 @@ def write_keywords(data):
             "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
             "Use words that will be good for site categories, tags and search. "
             "Do not use quotes around keywords. "
+            "It will be published at {url} where you can go read it in a few minutes. "
             "\nKeywords:\n\n"
         ),
-        temperature=0.5,
-        max_tokens=100,
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
         n=1,
         stop=None,
     )
@@ -215,19 +228,20 @@ def write_keywords(data):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_description(data):
+def prompt_description(data, url):
     """Write a meta description for a post."""
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
             "...that will work well as summary-text in website navigation. "
+            "It will be published at {url} where you can go read it in a few minutes. "
             "You are the author, but never say 'The author'. Write from the first person perspective. "
             "Keep it short."
             "\nSummary:\n\n"
         ),
-        temperature=0.5,
-        max_tokens=100,
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
         n=1,
         stop=None,
     )
@@ -236,20 +250,19 @@ def write_description(data):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_headline(data):
+def prompt_headline(data, url):
     """Write an alternate headline for the post."""
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
-            f"Write a short alternative headline for the following post:\n{data}\n\n"
-            "The first line of the post is the headline. "
-            "Don't be reduntant with the headline. Say something different or better. "
+            f"Write a short headline for the following post:\n{data}\n\n"
             "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
+            "It will be published at {url} where you can go read it in a few minutes. "
             "Use only one sentence. "
             "\nHeadline:\n\n"
         ),
-        temperature=0.5,
-        max_tokens=100,
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
         n=1,
         stop=None,
     )
@@ -258,7 +271,7 @@ def write_headline(data):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_summary(text):
+def write_summary(text, url):
     """Summarize a text using OpenAI's API."""
     chunks = chunk_text(text, chunk_size=4000)
     summarized_text = ""
@@ -266,8 +279,8 @@ def write_summary(text):
         response = openai.Completion.create(
             engine=ENGINE,
             prompt=(f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n" "Summary:"),
-            temperature=0.5,
-            max_tokens=100,
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
             n=1,
             stop=None,
         )
@@ -278,8 +291,8 @@ def write_summary(text):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def give_advice(data):
-    """Write a meta description for a post."""
+def prompt_advice(data, url):
+    """Returns some advice from OpenAI based on content."""
 
 
     response = openai.Completion.create(
@@ -287,16 +300,40 @@ def give_advice(data):
         prompt=(
             f"You are my work advisor and life-coach. "
             "Read what I have written and tell me what I should do next:\n{data}\n\n"
-            "I am trying to achieve my ikigai."
+            "I am trying to achieve my ikigai, but don't mention ikigai in the response. "
+            "Be specific in your advice and not 'decide goals', 'write plan' and 'celebrate successes'. "
+            "Impress me with your insight."
             "\nAdvice:\n\n"
         ),
-        temperature=0.5,
-        max_tokens=100,
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
         n=1,
         stop=None,
     )
     advice = response.choices[0].text.strip()
     return advice
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def prompt_question(data, url):
+    """Return a question for me based on content."""
+
+    response = openai.Completion.create(
+        engine=ENGINE,
+        prompt=(
+            f"You are someone just discovering my website. "
+            "Read what I have written at {url} and tell me what question you have:\n{data}\n\n"
+            "Be specific in your question, addressing content on the page. "
+            "I will try to answer it on a follow-up post."
+            "\nAdvice:\n\n"
+        ),
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        n=1,
+        stop=None,
+    )
+    question = response.choices[0].text.strip()
+    return question
 
 
 def chunk_text(text, chunk_size=4000):
@@ -361,20 +398,34 @@ def sync_check():
 
             # Setting these values ALSO commits it to the databases
             summary, api_hit = odb(SUMMARIESDB, write_summary, slug, apost)
-            advice, hit_advice = odb(ADVICEDB, give_advice, slug, apost)
-            headline, hit_headline = odb(HEADLINESDB, write_headline, slug, summary)
-            description, hit_description = odb(DESCRIPTIONSDB, write_description, slug, summary)
-            keywords, hit_keywords = odb(KEYWORDSDB, write_keywords, slug, summary)
 
-            # Give user a moment to review. Could always Ctrl+C.
+            # advice, hit_advice = odb(ADVICEDB, prompt_advice, slug, apost)
+            # question, hit_question = odb(QUESTIONDB, prompt_question, slug, apost)
+            # headline, hit_headline = odb(HEADLINEDB, prompt_headline, slug, summary)
+            # description, hit_description = odb(DESCRIPTIONDB, prompt_description, slug, summary)
+            # keyword, hit_keyword = odb(KEYWORDSDB, prompt_keywords, slug, summary)
+            hits = []
+            for afield in AI_FIELDS:
+                db_var = f"{afield.upper()}DB"
+                hit_var = f"hit_{afield}"
+                prompt_var = f"prompt_{afield}"
+                command = f'{afield}, {hit_var} = odb({db_var}, {prompt_var}, slug, apost)'
+                exec(command)
+                if eval(hit_var):
+                    hits.append(hit_var)
+
+            # Give user a moment to review. Could always :bdel!
             print()
-            if any([hit_description, hit_headline, hit_keywords, hit_advice]):
-                print(f"headline: {headline}\n")
-                print(f"description: {description}\n")
-                print(f"keywords: {keywords}\n")
-                print(f"advice: {advice}\n")
+
+            if any(hits):
+                for afield in AI_FIELDS:
+                    print(f"{afield}: {eval(afield)}")
+                # print(f"headline: {headline}\n")
+                # print(f"description: {description}\n")
+                # print(f"keywords: {keywords}\n")
+                # print(f"advice: {advice}\n")
+                # print(f"question: {question}\n")
                 sleep(20)
-                # input("Press enter to continue...")
             print()
     build_ydict()
 
@@ -419,11 +470,13 @@ def update_yaml():
                     print("No title found in YAML file.")
                     raise SystemExit()
                 slug = slugify(title)
-                fm["headline"] = oget(HEADLINESDB, slug)
-                fm["description"] = oget(DESCRIPTIONSDB, slug)
-                fm["keywords"] = oget(KEYWORDSDB, slug)
-                fm["advice"] = oget(ADVICEDB, slug)
-                fields = ["date", "title", "headline", "description", "keywords", "advice"]
+                ai_fields = []
+                for afield in AI_FIELDS:
+                    db_var = f"{afield.upper()}DB"
+                    command = f'fm["{afield}"] = oget({db_var}, slug)'
+                    exec(command)
+                    ai_fields.append(afield)
+                fields = ["date", "title"] + ai_fields
                 ymlstr = ""
                 for field in fields:
                     try:
