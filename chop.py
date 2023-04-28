@@ -3,7 +3,7 @@
 # Description: Chop a journal.md file into individual blog posts for Jekyll Github Pages.
 # USAGE: python ~/repos/skite/chopchop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
 # __   __ _    __  __ _
-# \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _
+# \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _ test 6
 #  \ V // _ \ | |\/| | |   / _ \/ __|/ _` | | | |/ _ \     | |
 #   | |/ ___ \| |  | | |__|  __/\__ \ (_| | |_| |  __/  _  | | ___
 #   |_/_/   \_\_|  |_|_____\___||___/\__, |\__,_|\___| | |_| |/ _ \ _   _
