@@ -77,7 +77,7 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("Chop, Chop...", "A clear way to journal using 1-file for life.")
+fig("Chop, Chop...", "A way to journal using 1-file for life.")
 
 #  ____                          _         Command-line says  ()   ,
 # |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___   do that   O  \\  .
@@ -119,7 +119,7 @@ CATEGORY_GRID = f"{INCLUDES}category_list.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
 CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default"]
 
-# Databases
+# Set database constant names
 SUMMARIESDB = REPO_DATA + "summaries.db"
 for afield in AI_FIELDS:
     db_var = f"{afield.upper()}DB"
@@ -127,20 +127,14 @@ for afield in AI_FIELDS:
     command = f'{db_var} = "{db_file}"'
     exec(command)
 
-# ADVICEDB = REPO_DATA + "advice.db"
-# HEADLINEDB = REPO_DATA + "headline.db"
-# DESCRIPTIONDB = REPO_DATA + "description.db"
-# KEYWORDSDB = REPO_DATA + "keywords.db"
-# QUESTIONDB = REPO_DATA + "question.db"
-
 # Print out constants
 fig(REPO, f"REPO: {REPO}")  # Print the repo name
 print(f"PATH: {PATH}")
 print(f"FILE: {FILE}")
 
-# globals
-ydict = defaultdict(dict)
-cdict = defaultdict(dict)
+# global variables
+ydict = defaultdict(dict)  # A dict of all journal entry front matter
+cdict = defaultdict(dict)  # A dict of category Capitalization & counts
 
 # Create output path if it doesn't exist
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
@@ -206,25 +200,58 @@ def odb(DBNAME, afunc, slug, full_text):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_keywords(data, url):
-    """Returns top keywords and main category for text."""
+def prompt_summary(text, url):
+    """Summarize a text using OpenAI's API."""
+    chunks = chunk_text(text, chunk_size=4000)
+    summarized_text = ""
+    for chunk in chunks:
+        response = openai.Completion.create(
+            engine=ENGINE,
+            prompt=(f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n" "Summary:"),
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            n=1,
+            stop=None,
+        )
+        summary = response.choices[0].text.strip()
+        summarized_text += summary
+        summarized_text = " ".join(summarized_text.splitlines())
+    return summarized_text.strip()
+
+
+def chunk_text(text, chunk_size=4000):
+    """Split a text into chunks of a given size."""
+    chunks = []
+    start_idx = 0
+    while start_idx < len(text):
+        end_idx = start_idx + chunk_size
+        if end_idx >= len(text):
+            end_idx = len(text)
+        chunk = text[start_idx:end_idx]
+        chunks.append(chunk)
+        start_idx = end_idx
+    return chunks
+
+
+@retry(Exception, delay=1, backoff=2, max_delay=60)
+def prompt_headline(data, url):
+    """Write an alternate headline for the post."""
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
-            f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
-            "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
-            "Use words that will be good for site categories, tags and search. "
-            "Do not use quotes around keywords. "
+            f"Write a short headline for the following post:\n{data}\n\n"
+            "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
             "It will be published at {url} where you can go read it in a few minutes. "
-            "\nKeywords:\n\n"
+            "Use only one sentence. "
+            "\nHeadline:\n\n"
         ),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
         stop=None,
     )
-    keywords = response.choices[0].text.strip()
-    return keywords
+    headline = response.choices[0].text.strip()
+    return headline
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
@@ -250,50 +277,30 @@ def prompt_description(data, url):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_headline(data, url):
-    """Write an alternate headline for the post."""
+def prompt_keywords(data, url):
+    """Returns top keywords and main category for text."""
     response = openai.Completion.create(
         engine=ENGINE,
         prompt=(
-            f"Write a short headline for the following post:\n{data}\n\n"
-            "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
+            f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
+            "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
+            "Use words that will be good for site categories, tags and search. "
+            "Do not use quotes around keywords. "
             "It will be published at {url} where you can go read it in a few minutes. "
-            "Use only one sentence. "
-            "\nHeadline:\n\n"
+            "\nKeywords:\n\n"
         ),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
         stop=None,
     )
-    headline = response.choices[0].text.strip()
-    return headline
-
-
-@retry(Exception, delay=1, backoff=2, max_delay=60)
-def write_summary(text, url):
-    """Summarize a text using OpenAI's API."""
-    chunks = chunk_text(text, chunk_size=4000)
-    summarized_text = ""
-    for chunk in chunks:
-        response = openai.Completion.create(
-            engine=ENGINE,
-            prompt=(f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n" "Summary:"),
-            temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS,
-            n=1,
-            stop=None,
-        )
-        summary = response.choices[0].text.strip()
-        summarized_text += summary
-        summarized_text = " ".join(summarized_text.splitlines())
-    return summarized_text.strip()
+    keywords = response.choices[0].text.strip()
+    return keywords
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def prompt_advice(data, url):
     """Returns some advice from OpenAI based on content."""
-
 
     response = openai.Completion.create(
         engine=ENGINE,
@@ -322,8 +329,7 @@ def prompt_question(data, url):
         engine=ENGINE,
         prompt=(
             f"You are someone just discovering my website. "
-            "Read what I have written at {url} and tell me what question you have:\n{data}\n\n"
-            "Be specific in your question, addressing content on the page. "
+            "Read this post and tell me what question you have:\n{data}\n\n"
             "I will try to answer it on a follow-up post."
             "\nAdvice:\n\n"
         ),
@@ -334,20 +340,6 @@ def prompt_question(data, url):
     )
     question = response.choices[0].text.strip()
     return question
-
-
-def chunk_text(text, chunk_size=4000):
-    """Split a text into chunks of a given size."""
-    chunks = []
-    start_idx = 0
-    while start_idx < len(text):
-        end_idx = start_idx + chunk_size
-        if end_idx >= len(text):
-            end_idx = len(text)
-        chunk = text[start_idx:end_idx]
-        chunks.append(chunk)
-        start_idx = end_idx
-    return chunks
 
 
 #  _____ _                 _ _                     
@@ -397,13 +389,7 @@ def sync_check():
             ydict[slug]["title"] = title
 
             # Setting these values ALSO commits it to the databases
-            summary, api_hit = odb(SUMMARIESDB, write_summary, slug, apost)
-
-            # advice, hit_advice = odb(ADVICEDB, prompt_advice, slug, apost)
-            # question, hit_question = odb(QUESTIONDB, prompt_question, slug, apost)
-            # headline, hit_headline = odb(HEADLINEDB, prompt_headline, slug, summary)
-            # description, hit_description = odb(DESCRIPTIONDB, prompt_description, slug, summary)
-            # keyword, hit_keyword = odb(KEYWORDSDB, prompt_keywords, slug, summary)
+            summary, api_hit = odb(SUMMARIESDB, prompt_summary, slug, apost)
             hits = []
             for afield in AI_FIELDS:
                 db_var = f"{afield.upper()}DB"
