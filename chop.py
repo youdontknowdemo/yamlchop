@@ -1,36 +1,36 @@
 # Author: Mike Levin
-# Date: 2023-04-25
+# Date: 2023-04-29
 # Description: Chop a journal.md file into individual blog posts for Jekyll Github Pages.
 # USAGE: python ~/repos/yamlchop/chop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
 # __   __ _    __  __ _
-# \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _ test 6
+# \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _ 
 #  \ V // _ \ | |\/| | |   / _ \/ __|/ _` | | | |/ _ \     | |
 #   | |/ ___ \| |  | | |__|  __/\__ \ (_| | |_| |  __/  _  | | ___
 #   |_/_/   \_\_|  |_|_____\___||___/\__, |\__,_|\___| | |_| |/ _ \ _   _
 #                                       |_|             \___/| (_) | | | |_ __
-#                                       ___                   \___/| |_| | '__|_ __
-#    - What's going on here?           |   |         ____           \__,_| |  | '_ \  __ _ _
-#    - Old school text editing.        |_  |        /    \               |_|  | | | |/ _` ( )
-#    - But why would anyone do that?     \ |       |      \                   |_| |_| (_| | |
-#      (in 2023 / fill_in_the_year)      |  \      |       \                         \__,_| |
-#                                         \  \____ \_      |                              |_|
-#                                          \      \_/     _|
-#                                    ___.   \_           /          - Daily writing
-#                   .-,             /    \    |          |          - One file for life
-#                   |  \          _/      `--_/          |          - Auto-formats to blog
-#                    \  \________/                   /\   \         - You need vim/NeoVim
-#                    |                              /  \_  \          in your life.
-#                    `-----------,                  |    \  \
-#                                |                  /     \  |
-#                                |                 |       | \
-#                                /                 |       \__|
-#                               /   _              |
-#                              /   / \_             \
-#                              |  /    \__      __--`
-#                             _/ /        \   _/
-#                         ___/  /          \_/
-#                        /     /
-#                        `----`                                       
+#                                         ___                 \___/| |_| | '__|_ __
+#   - What's going on here?              |   |         _____        \__,_| |  | '_ \  __ _ _
+#   - Old school text editing.           |_  |        /     \            |_|  | | | |/ _` ( )
+#   - But why would anyone do that?        \ |       |       \                |_| |_| (_| | |
+#     (in 2023 / fill_in_the_year)         |  \      |       |                       \__,_| |
+#                                           \  \____ \_      |                            |_|
+#                                            \      \_/      |     
+#                                      ___.   \_            _/                                       
+#                     .-,             /    \    |          |      What's going on here?            
+#                     |  \          _/      `--_/           \_    Old school text editing.         
+#                      \  \________/                     /\   \   But why would anyone do that?    
+#                      |                                /  \_  \  (in 2023 / fill_in_the_year)     
+#                      `-----------,                   |     \  \                                    
+#                                  |                  /       \  | 
+#                                  |                 |         | \ 
+#                                  /                 |         \__|
+#                                 /   _              |             
+#                                /   / \_             \            
+#                                |  /    \__      __--`            
+#                               _/ /        \   _/                 
+#                           ___/  /          \_/                    
+#                          /     /                                  
+#                          `----`                                   
 import os
 import re
 import sys
@@ -58,7 +58,7 @@ NUMBER_OF_CATEGORIES = 100
 ENGINE = "text-davinci-003"
 TEMPERATURE = 0.5
 MAX_TOKENS = 100
-AI_FIELDS = ["headline", "description", "keywords", "question"]
+AI_FIELDS = ["headline", "description", "keywords"]
 
 
 # Load function early so we can use it, pronto!
@@ -250,7 +250,7 @@ def prompt_headline(data, url):
         prompt=(
             f"Write a short headline for the following post:\n{data}\n\n"
             "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
-            "Don't reuse the title as the headline. Write something new. Use only one sentence. "
+            "Do not reuse the title in the headline. Write something new. Use only one sentence. "
             "\nHeadline:\n\n"
         ),
         temperature=TEMPERATURE,
@@ -395,7 +395,7 @@ def sync_check():
             ydict[slug]["title"] = title
 
             # Setting these values ALSO commits it to the databases
-            summary, api_hit = odb(SUMMARIESDB, prompt_summary, slug, apost)
+            # summary, api_hit = odb(SUMMARIESDB, prompt_summary, slug, apost)
             hits = []
             for afield in AI_FIELDS:
                 db_var = f"{afield.upper()}DB"
@@ -412,9 +412,12 @@ def sync_check():
             if any(hits):
                 for afield in AI_FIELDS:
                     print(f"{afield}: {eval(afield)}")
-                sleep(20)
-            print()
-    build_ydict()
+                    print()
+            build_ydict()  # Rebuilds ydict from database
+            update_yaml()  # Updates YAMLESQUE file data from database
+            new_source()  # Replaces YAMLESQUE input with synchronized output
+            if any(hits):
+                raise SystemExit("Review changes in source and re-release.")
 
 
 def build_ydict(yamlesque=YAMLESQUE):
@@ -902,8 +905,6 @@ def normalize_key(keyword):
 
 deletes()  # Deletes old posts
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
-update_yaml()  # Updates YAMLESQUE file data from database
-new_source()  # Replaces YAMLESQUE input with synchronized output
 make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
