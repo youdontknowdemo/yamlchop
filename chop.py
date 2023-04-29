@@ -609,13 +609,9 @@ def category_grid():
                 for col in range(cols):
                     cat = top_cats[counter]
                     title = cdict[cat]["title"]
-                    try:
-                        slug = slugify(title)
-                    except:
-                        print(cat)
-                        raise SystemExit()
+                    slug = slugify(cat)
                     markdown_link = f"[{title}](/{slug}/)"
-                    fh.write(f"{markdown_link} ({cdict[cat]['count']}) | ")
+                    fh.write(f"{markdown_link} | ")
                     counter += 1
 
 
