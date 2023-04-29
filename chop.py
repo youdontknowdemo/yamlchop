@@ -686,7 +686,7 @@ layout: default
         filename = f"{INCLUDES}cat_{slug}.md"
         with open(filename, "w", encoding="utf-8") as fh:
             posts_in_cat = len(slugcat[cat])
-            fh.write(f"<ol start='{posts_in_cat}' reversed>\n")
+            fh.write(f"<ol>\n")
             for slug in slugcat[cat]:
                 title = ydict[slug]["title"]
                 aslug = slugify(title)
