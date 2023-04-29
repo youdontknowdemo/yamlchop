@@ -107,6 +107,8 @@ AUTHOR = ARGS.author
 YAMLESQUE = ARGS.full_path
 parts = YAMLESQUE.split("/")
 REPO = parts[-2] + "/"
+print(REPO)
+raise SystemExit()
 FILE = parts[-1]
 PATH = "/".join(parts[:-2]) + "/"
 INCLUDES = f"{PATH}{REPO}_includes/"
