@@ -119,7 +119,7 @@ CATEGORY_GRID = f"{INCLUDES}category_list.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
 CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default",
         "window", "project", "software", "list", "fo", "title", "tech", "na",
-        "challenge", "function", "mike levin", "mikelev.in", "task"]
+        "challenge", "function", "mike levin", "mikelev.in", "task", "file"]
 
 # Set database constant names
 SUMMARIESDB = REPO_DATA + "summaries.db"
