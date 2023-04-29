@@ -30,7 +30,7 @@
 #                             _/ /        \   _/
 #                         ___/  /          \_/
 #                        /     /
-#                        `----`
+#                        `----`                                       
 import os
 import re
 import sys
@@ -117,7 +117,9 @@ KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 CATEGORY_GRID = f"{INCLUDES}category_list.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
-CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default"]
+CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default",
+        "window", "project", "software", "list", "fo", "title", "tech", "na",
+        "challenge", "function", "mike levin", "mikelev.in", "task"]
 
 # Set database constant names
 SUMMARIESDB = REPO_DATA + "summaries.db"
@@ -139,6 +141,9 @@ cdict = defaultdict(dict)  # A dict of category Capitalization & counts
 # Create output path if it doesn't exist
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
+
+# Assure consistent keyword variation usage
+LEMMATIZER = WordNetLemmatizer()
 
 with open("/home/ubuntu/repos/yamlchop/openai.txt", "r") as fh:
     openai.api_key = fh.readline()
@@ -241,7 +246,6 @@ def prompt_headline(data, url):
         prompt=(
             f"Write a short headline for the following post:\n{data}\n\n"
             "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
-            "It will be published at {url} where you can go read it in a few minutes. "
             "Use only one sentence. "
             "\nHeadline:\n\n"
         ),
@@ -262,7 +266,6 @@ def prompt_description(data, url):
         prompt=(
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
             "...that will work well as summary-text in website navigation. "
-            "It will be published at {url} where you can go read it in a few minutes. "
             "You are the author, but never say 'The author'. Write from the first person perspective. "
             "Keep it short."
             "\nSummary:\n\n"
@@ -286,7 +289,6 @@ def prompt_keywords(data, url):
             "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
             "Use words that will be good for site categories, tags and search. "
             "Do not use quotes around keywords. "
-            "It will be published at {url} where you can go read it in a few minutes. "
             "\nKeywords:\n\n"
         ),
         temperature=TEMPERATURE,
@@ -406,11 +408,6 @@ def sync_check():
             if any(hits):
                 for afield in AI_FIELDS:
                     print(f"{afield}: {eval(afield)}")
-                # print(f"headline: {headline}\n")
-                # print(f"description: {description}\n")
-                # print(f"keywords: {keywords}\n")
-                # print(f"advice: {advice}\n")
-                # print(f"question: {question}\n")
                 sleep(20)
             print()
     build_ydict()
@@ -500,12 +497,13 @@ def new_source():
 
 
 def make_index():
-    #  ___           _             ____
-    # |_ _|_ __   __| | _____  __ |  _ \ __ _  __ _  ___
-    #  | || '_ \ / _` |/ _ \ \/ / | |_) / _` |/ _` |/ _ \
-    #  | || | | | (_| |  __/>  <  |  __/ (_| | (_| |  __/
-    # |___|_| |_|\__,_|\___/_/\_\ |_|   \__,_|\__, |\___|
-    """Builds the index page"""  #            |___/
+    #  ___           _                                         
+    # |_ _|_ __   __| | _____  __  _ __   __ _  __ _  ___  ___ 
+    #  | || '_ \ / _` |/ _ \ \/ / | '_ \ / _` |/ _` |/ _ \/ __|
+    #  | || | | | (_| |  __/>  <  | |_) | (_| | (_| |  __/\__ \
+    # |___|_| |_|\__,_|\___/_/\_\ | .__/ \__,_|\__, |\___||___/
+    #                             |_|          |___/           
+    """Builds the index pages"""
     fig("Index Page", "Making blog index")
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
@@ -521,7 +519,22 @@ def make_index():
                 adate = fm["date"]
                 fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
         fh.write("</ol>\n")
-        fh.write("{% include category_list.md %}")
+    with open(f"{INCLUDES}post_short_list.html", "w", encoding="utf-8") as fh:
+        num_posts = len(ydict) + 1
+        fh.write(f'<ol>\n')
+        for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE)):
+            if fm and "title" in fm and "date" in fm and "description" in fm:
+                title = fm["title"]
+                slug = slugify(title)
+                description = fm["description"]
+                # Neutralize pointy brackets for description:
+                description = description.replace("<", "&lt;")
+                description = description.replace(">", "&gt;")
+                adate = fm["date"]
+                fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
+                if i >= 10:
+                    break
+        fh.write("</ol>\n")
 
 
 def categories():
@@ -533,10 +546,9 @@ def categories():
     #                     |___/
     """Find the categories"""
     fig("Categories", "Finding categories...")
-    pwords = defaultdict(lambda x=None: x)
     cat_dict = defaultdict(list)
     words = defaultdict(list)
-    lemmatizer = WordNetLemmatizer()
+    pwords = defaultdict(lambda x=None: x)
     with open(YAMLESQUE) as fh:
         for post in CHOP.split(fh.read()):
             ystr, body = post.split("---", 1)
@@ -547,13 +559,13 @@ def categories():
                 if "keywords" in yml:
                     keywords = yml["keywords"].split(", ")
                     for keyword in keywords:
-                        keyword = lemmatizer.lemmatize(keyword)
-                        keyword_lower = keyword.lower().strip()
-                        words[keyword_lower].append(keyword)
-                        cat_dict[keyword_lower].append(slug)
+                        words[keyword].append(keyword)
+                        keyword = normalize_key(keyword)
+                        cat_dict[keyword].append(slug)
     for key in words:
         alist = words[key]
-        pwords[key] = Counter(alist).most_common(1)[0][0]
+        lkey = normalize_key(key)
+        pwords[lkey] = Counter(alist).most_common(1)[0][0]
     for key in cat_dict:
         cat_dict[key].reverse()
     cat_counter = Counter()  # Create a counter object
@@ -568,7 +580,7 @@ def categories():
         cdict[cat]["title"] = pwords[cat]
     print(f"Found {len(cdict):,} categories.")
     for i, acat in enumerate(cdict):
-        print(f"{i+1}. {cdict[acat]['title']} ({cdict[acat]['count']})")
+        print(f"{i+1}. {pwords[acat]} ({cdict[acat]['count']})")
         if i + 1 >= show_cats:
             break
     category_grid()  # Builds category_list.md include
@@ -595,12 +607,15 @@ def category_grid():
             for row in range(rows):
                 fh.write("\n")
                 for col in range(cols):
-                    # fh.write(f'Row {row + 1}, Column {col + 1 } | ')
                     cat = top_cats[counter]
                     title = cdict[cat]["title"]
-                    slug = slugify(title)
+                    try:
+                        slug = slugify(title)
+                    except:
+                        print(cat)
+                        raise SystemExit()
                     markdown_link = f"[{title}](/{slug}/)"
-                    fh.write(f"{markdown_link} | ")
+                    fh.write(f"{markdown_link} ({cdict[cat]['count']}) | ")
                     counter += 1
 
 
@@ -639,7 +654,6 @@ def category_pages():
     """Outputs the individual category pages and includes"""
     global cdict, ydict
     build_ydict()
-    lemmatizer = WordNetLemmatizer()
     top_cats = get_top_cats()
     # Map every slug to a category:
     slugcat = defaultdict(list)
@@ -650,9 +664,7 @@ def category_pages():
                 keywords = fm["keywords"]
                 keyword_list = keywords.split(", ")
                 for keyword in keyword_list:
-                    keyword = keyword.lower()
-                    keyword = lemmatizer.lemmatize(keyword)
-                    keyword = keyword.lower()
+                    keyword = normalize_key(keyword)
                     if keyword in top_cats:
                         slugcat[keyword].append(slug)
     # Create the category pages:
@@ -874,6 +886,13 @@ def sq(text):
 # Put new stuff here                |___/ |___/
 
 
+def normalize_key(keyword):
+    """Returns normalized key for keyword dictionaries."""
+    keyword = keyword.lower()
+    keyword = LEMMATIZER.lemmatize(keyword)
+    keyword = keyword.lower()
+    return keyword
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -884,7 +903,7 @@ def sq(text):
 deletes()  # Deletes old posts
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 update_yaml()  # Updates YAMLESQUE file data from database
-new_source()  # Replaces YAMLESQUE input with syncronized output
+new_source()  # Replaces YAMLESQUE input with synchronized output
 make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
