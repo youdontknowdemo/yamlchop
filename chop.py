@@ -108,12 +108,11 @@ YAMLESQUE = ARGS.full_path
 parts = YAMLESQUE.split("/")
 if parts[-2] == "_drafts":
     REPO = parts[-3] + "/"
+    PATH = "/".join(parts[:-3]) + "/"
 else:
     REPO = parts[-2] + "/"
-print(REPO)
-raise SystemExit()
+    PATH = "/".join(parts[:-2]) + "/"
 FILE = parts[-1]
-PATH = "/".join(parts[:-2]) + "/"
 INCLUDES = f"{PATH}{REPO}_includes/"
 REPO_DATA = f"{PATH}{REPO}_data/"
 OUTPUT_PATH = f"{PATH}{REPO}{OUTPUT}"
@@ -251,7 +250,7 @@ def prompt_headline(data, url):
         prompt=(
             f"Write a short headline for the following post:\n{data}\n\n"
             "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
-            "Use only one sentence. "
+            "Don't reuse the title as the headline. Write something new. Use only one sentence. "
             "\nHeadline:\n\n"
         ),
         temperature=TEMPERATURE,
@@ -402,7 +401,7 @@ def sync_check():
                 db_var = f"{afield.upper()}DB"
                 hit_var = f"hit_{afield}"
                 prompt_var = f"prompt_{afield}"
-                command = f'{afield}, {hit_var} = odb({db_var}, {prompt_var}, slug, apost)'
+                command = f'{afield}, {hit_var} = odb({db_var}, {prompt_var}, slug, combined)'
                 exec(command)
                 if eval(hit_var):
                     hits.append(hit_var)
