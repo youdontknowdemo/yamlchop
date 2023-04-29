@@ -106,7 +106,10 @@ OUTPUT = ARGS.output
 AUTHOR = ARGS.author
 YAMLESQUE = ARGS.full_path
 parts = YAMLESQUE.split("/")
-REPO = parts[-2] + "/"
+if parts[-2] == "_drafts":
+    REPO = parts[-3] + "/"
+else:
+    REPO = parts[-2] + "/"
 print(REPO)
 raise SystemExit()
 FILE = parts[-1]
