@@ -1006,7 +1006,9 @@ def arrow_maker(i, length, href_title_list):
         next_arrow = '<span class="arrow">&nbsp;</span>'
 
     # Build the arrows:
-    arrow_link = f'<div class="post-nav"><div class="arrows">{prev_arrow}{next_arrow}</div></div>'
+    prev_link = f'<div class="post-nav-prev">{prev_arrow}</div>'
+    next_link = f'<div class="post-nav-next">{next_arrow}</div>'
+    arrow_link = f'<div class="post-nav">{prev_link}{next_link}</div>'
     return arrow_link
 
 #  _____ _                                 _             _
