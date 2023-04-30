@@ -14,8 +14,8 @@
 #   - Combine prompt functions           |_  |        /     \            |    |_| |_| (_| (_)
 #   - Global config to _config.yml         \ |       |       \           |    |     |\__,_| |
 #   - Arrows from Liquid to Python         |  \      |       |                |     |     | |
-#                                           \  \____ \_      |                      |     |_|
-#                                            \      \_/      |                            |  
+#   - Blend in YouTube videos               \  \____ \_      |                      |     |_|
+#   - Shrink mikelev.in                      \      \_/      |                            |  
 #                                      ___.   \_            _/           
 #                     .-,             /    \    |          |       
 #                     |  \          _/      `--_/           \_     
@@ -57,7 +57,10 @@ AUTHOR = "Mike Levin"
 BASE_URL = "https://mikelev.in"
 CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default",
         "window", "project", "software", "list", "fo", "title", "tech", "na",
-        "challenge", "function", "mike levin", "mikelev.in", "task", "file"]
+        "challenge", "function", "mike levin", "mikelev.in", "task", "file",
+        "repo", "programming", "system", "folder", "code", "post", "program",
+        "editing", "result", "data", "research", "program", "tool", "video",
+        "life"]
 
 # OpenAI CONSTANTS - Adjust these to your liking
 ENGINE = "text-davinci-003"
@@ -528,6 +531,7 @@ def make_index():
     #                             |_|          |___/           
     """Builds the index pages"""
     fig("Index Page", "Making blog index")
+    build_ydict()
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
         fh.write(f'<ol start="{num_posts}" reversed >\n')
@@ -589,6 +593,8 @@ def categories():
         alist = words[key]
         lkey = normalize_key(key)
         pwords[lkey] = Counter(alist).most_common(1)[0][0]
+    print(pwords)
+    raise SystemExit()
     for key in cat_dict:
         cat_dict[key].reverse()
     cat_counter = Counter()  # Create a counter object
@@ -651,7 +657,7 @@ def category_page():
     if cdict:
         with open(CATEGORY_PAGE, "w") as fh:
             with open(CATEGORY_INCLUDE, "w") as fh2:
-                fh.write("# Categories\n")  # This could be more frontmatter-y
+                fh.write("# Categories [(All)](/categories/)\n")  # This could be more frontmatter-y
                 fh.write("{% include category.md %}\n")  # Reference to include
                 fh2.write(f"<ol start='{NUMBER_OF_CATEGORIES}' reversed>\n")
                 top_cats = get_top_cats()
@@ -671,7 +677,6 @@ def category_pages():
     #                              |___/
     # fig("Cat Pages", "Building category pages (plural)...")
     """Outputs the individual category pages and includes"""
-    global cdict, ydict
     build_ydict()
     top_cats = get_top_cats()
     # Map every slug to a category:
@@ -962,12 +967,12 @@ def normalize_key(keyword):
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-deletes()  # Deletes old posts
-sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
-make_index()  # Builds index page of all posts (for blog page)
+#deletes()  # Deletes old posts
+#sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+#make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
-yaml_chop()  # Writes out all Jekyll-style posts
-git_push()  # Pushes changes to Github (publishes)
+# yaml_chop()  # Writes out all Jekyll-style posts
+# git_push()  # Pushes changes to Github (publishes)
 print("If run from NeoVim, :bdel closes this buffer.")
 
 fig("Done.")
