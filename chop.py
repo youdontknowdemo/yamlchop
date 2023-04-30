@@ -58,6 +58,7 @@ CATEGORY_FILTER = [
     "article",
     "blog",
     "blog post",
+    "browser",
     "category",
     "challenge",
     "code",
@@ -79,6 +80,7 @@ CATEGORY_FILTER = [
     "index",
     "journal",
     "language",
+    "laptop",
     "library",
     "life",
     "link",
@@ -157,7 +159,7 @@ add_arg = aparser.add_argument
 
 # Only 1 required argument: the full path to the YAMLesque file.
 add_arg("-f", "--full_path", required=True)
-add_arg("-a", "--author", default="default")
+add_arg("-a", "--author", default="site.author")
 add_arg("-b", "--blog", default="blog")
 add_arg("-o", "--output", default="_posts")
 
@@ -818,7 +820,6 @@ headline: {sq(headline)}
 description: {sq(description)}
 keywords: {sq(keywords)}
 categories: {sq(categories)}
-author: {sq(AUTHOR)}
 layout: post
 ---"""
                 )
