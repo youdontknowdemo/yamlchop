@@ -78,21 +78,26 @@ CATEGORY_FILTER = [
     "idea",
     "index",
     "journal",
+    "language",
     "library",
     "life",
+    "link",
     "list",
     "mike levin",
     "mikelev.in",
     "na",
     "none",
+    "page",
     "post",
     "program",
     "program",
     "programming",
     "project",
     "repo",
+    "repository",
     "research",
     "result",
+    "server",
     "software",
     "system",
     "task",
@@ -101,8 +106,12 @@ CATEGORY_FILTER = [
     "testing",
     "title",
     "tool",
+    "upgrade",
+    "user",
     "video",
+    "website",
     "window",
+    "world",
     "writing",
 ]
 
@@ -710,18 +719,22 @@ def category_pages():
             aprev = top_cats[i - 1]
             prev_slug = slugify(aprev)
             prev_title = cdict[aprev]["title"]
+            prev_arrow = f'<span class="arrow">&larr;&nbsp;</span><a href="/{prev_slug}/">{prev_title}</a>'
         else:
             aprev = None
             prev_slug = None
             prev_title = None
+            prev_arrow = '<span class="arrow">&nbsp;</span>'
         if i < len(top_cats) - 1:
             anext = top_cats[i + 1]
             next_slug = slugify(anext)
             next_title = cdict[anext]["title"]
+            next_arrow = f'<a href="/{next_slug}/">{next_title}</a><span class="arrow">&nbsp;&rarr;</span>'
         else:
             anext = None
             next_slug = None
             next_title = None
+            next_arrow = f'<span class="arrow">&nbsp;</span>'
         slug = slugify(cat)
         filename = f"{PATH}{REPO}cat_{slug}.md"
         include_file = f"cat_{slug}.md"
@@ -740,12 +753,8 @@ layout: default
             fh.write(f"{{% include {include_file} %}}\n")
             arrow_link = f"""
 <div class="post-nav">
-  <div class="post-nav-prev">
-    <span class="arrow">&larr;&nbsp;</span><a href="/{prev_slug}/">{prev_title}</a>
-  </div>
-  <div class="post-nav-next">
-    <a href="/{next_slug}/">{next_title}</a><span class="arrow">&nbsp;&rarr;</span>
-  </div>
+  <div class="post-nav-prev"> {prev_arrow} </div>
+  <div class="post-nav-next"> {next_arrow} </div>
 </div>
 """
             fh.write(arrow_link)
