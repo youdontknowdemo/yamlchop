@@ -1,26 +1,27 @@
 # Author: Mike Levin
-# Date: 2023-04-29
-# Description: Chop a journal.md file into individual blog posts for Jekyll Github Pages.
+# Description: Chop up a YAMLesque file into individual posts.
 # USAGE: python ~/repos/yamlchop/chop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
-# __   __ _    __  __ _
-# \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _ 
-#  \ V // _ \ | |\/| | |   / _ \/ __|/ _` | | | |/ _ \     | |
-#   | |/ ___ \| |  | | |__|  __/\__ \ (_| | |_| |  __/  _  | | ___
-#   |_/_/   \_\_|  |_|_____\___||___/\__, |\__,_|\___| | |_| |/ _ \ _   _
-#                                       |_|             \___/| (_) | | | |_ __
-#                                         ___                 \___/| |_| | '__|_ __
-#   - What's going on here?              |   |         _____        \__,_| |  | '_ \  __ _ _
-#   - Old school text editing.           |_  |        /     \            |_|  | | | |/ _` ( )
-#   - But why would anyone do that?        \ |       |       \                |_| |_| (_| | |
-#     (in 2023 / fill_in_the_year)         |  \      |       |                       \__,_| |
-#                                           \  \____ \_      |                            |_|
-#                                            \      \_/      |     
-#                                      ___.   \_            _/                                       
-#                     .-,             /    \    |          |      What's going on here?            
-#                     |  \          _/      `--_/           \_    Old school text editing.         
-#                      \  \________/                     /\   \   But why would anyone do that?    
-#                      |                                /  \_  \  (in 2023 / fill_in_the_year)     
-#                      `-----------,                   |     \  \                                    
+
+# __   __ _    __  __ _                                    chop
+# \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _|   chop
+#  \ V // _ \ | |\/| | |   / _ \/ __|/ _` | | | |/ _ \     | |     |   chop
+#   | |/ ___ \| |  | | |__|  __/\__ \ (_| | |_| |  __/  _  | | ___ |     |  chop
+#   |_/_/   \_\_|  |_|_____\___||___/\__, |\__,_|\___| | |_| |/ _ \|_   _|    |   chop
+#                                       |_|             \___/| (_) | | | |_ __|     |   chop
+#                                                            |\___/| |_| | '__|_ __ |     |                                 
+#                                         ___                |     |\__,_| |  | '_ \| __ _|
+#   - Beware of rabbit holes!      TO DO |   |         _____       |     |_|  | | | |/ _` |_
+#   - Combine prompt functions           |_  |        /     \            |    |_| |_| (_| (_)
+#   - Global config to _config.yml         \ |       |       \           |    |     |\__,_| |
+#   - Arrows from Liquid to Python         |  \      |       |                |     |     | |
+#                                           \  \____ \_      |                      |     |_|
+#                                            \      \_/      |                            |  
+#                                      ___.   \_            _/           
+#                     .-,             /    \    |          |       
+#                     |  \          _/      `--_/           \_     
+#                      \  \________/                     /\   \    
+#                      |                                /  \_  \   
+#                      `-----------,                   |     \  \  
 #                                  |                  /       \  | 
 #                                  |                 |         | \ 
 #                                  /                 |         \__|
@@ -51,17 +52,23 @@ from sqlitedict import SqliteDict as sqldict
 from collections import Counter, defaultdict
 
 
+# CONSTANTS - These should be externalized (_config.yml?)
 AUTHOR = "Mike Levin"
 BASE_URL = "https://mikelev.in"
-GIT_EXE = "/usr/bin/git"
-NUMBER_OF_CATEGORIES = 100
+CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default",
+        "window", "project", "software", "list", "fo", "title", "tech", "na",
+        "challenge", "function", "mike levin", "mikelev.in", "task", "file"]
+
+# OpenAI CONSTANTS - Adjust these to your liking
 ENGINE = "text-davinci-003"
 TEMPERATURE = 0.5
 MAX_TOKENS = 100
+
+# Activate the fields that should be filled-in by OpenAI 
 AI_FIELDS = ["headline", "description", "keywords"]
+NUMBER_OF_CATEGORIES = 100
 
 
-# Load function early so we can use it, pronto!
 def fig(text, description=None):
     #  _____ _       _      _
     # |  ___(_) __ _| | ___| |_    Once upon a programming session
@@ -69,7 +76,7 @@ def fig(text, description=None):
     # |  _| | | (_| | |  __/ |_    Is a way to make your text
     # |_|   |_|\__, |_|\___|\__|   Something you can read.
     #          |___/
-    """Let them see text!"""
+    """Let them see text! Load this function early in the script."""
     f = Figlet()
     print(f.renderText(text))
     if description:
@@ -77,7 +84,7 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("Chop, Chop...", "A way to journal using 1-file for life.")
+fig("YAMLchop...", "A way to journal using 1-file for life.")
 
 #  ____                          _         Command-line says  ()   ,
 # |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___   do that   O  \\  .
@@ -92,6 +99,7 @@ fig("Chop, Chop...", "A way to journal using 1-file for life.")
 aparser = argparse.ArgumentParser()
 add_arg = aparser.add_argument
 
+# Only 1 required argument: the full path to the YAMLesque file.
 add_arg("-f", "--full_path", required=True)
 add_arg("-a", "--author", default=AUTHOR)
 add_arg("-b", "--blog", default="blog")
@@ -106,12 +114,18 @@ OUTPUT = ARGS.output
 AUTHOR = ARGS.author
 YAMLESQUE = ARGS.full_path
 parts = YAMLESQUE.split("/")
+
+# Your source YAMLesque file can be in 1 of 2 places:
 if parts[-2] == "_drafts":
+    # The long-version remains in draft and is never published directly.
     REPO = parts[-3] + "/"
     PATH = "/".join(parts[:-3]) + "/"
 else:
+    # The long-version is in Jekyll publishing-space and auto-publishes.
     REPO = parts[-2] + "/"
     PATH = "/".join(parts[:-2]) + "/"
+
+# Set up the rest of the constants
 FILE = parts[-1]
 INCLUDES = f"{PATH}{REPO}_includes/"
 REPO_DATA = f"{PATH}{REPO}_data/"
@@ -121,9 +135,6 @@ KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 CATEGORY_GRID = f"{INCLUDES}category_list.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
-CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default",
-        "window", "project", "software", "list", "fo", "title", "tech", "na",
-        "challenge", "function", "mike levin", "mikelev.in", "task", "file"]
 
 # Set database constant names
 SUMMARIESDB = REPO_DATA + "summaries.db"
@@ -133,24 +144,24 @@ for afield in AI_FIELDS:
     command = f'{db_var} = "{db_file}"'
     exec(command)
 
-# Print out constants
+# Print the pertinents to the user
 fig(REPO, f"REPO: {REPO}")  # Print the repo name
 print(f"PATH: {PATH}")
 print(f"FILE: {FILE}")
 
-# global variables
+# global variables (yes, this is fine in Python)
 ydict = defaultdict(dict)  # A dict of all journal entry front matter
 cdict = defaultdict(dict)  # A dict of category Capitalization & counts
 
-# Create output path if it doesn't exist
-Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
-Path(REPO_DATA).mkdir(parents=True, exist_ok=True)
+# Create _posts, _data, etc. if they don't exist
+for make_loc in [OUTPUT_PATH, REPO_DATA]:
+    Path(make_loc).mkdir(parents=True, exist_ok=True)
 
 # Assure consistent keyword variation usage
 LEMMATIZER = WordNetLemmatizer()
 
 with open("/home/ubuntu/repos/yamlchop/openai.txt", "r") as fh:
-    openai.api_key = fh.readline()
+    openai.api_key = fh.readline()  # Read in your OpenAI API key
 
 #  _____                 _   _
 # |  ___|   _ _ __   ___| |_(_) ___  _ __  ___    Above this is configuration 
@@ -193,7 +204,8 @@ def odb(DBNAME, afunc, slug, full_text):
     # | |_| | |_) |  __/ | | |/ ___ \ | |  |  _  | | |_
     #  \___/| .__/ \___|_| |_/_/   \_\___| |_| |_|_|\__|
     #       |_|
-    """Retreives and saves OpenAI request not already done."""
+    """Retrieves and saves OpenAI request not already done.
+    It checks if the data is there first, so safe to re-run."""
     api_hit = False
     with sqldict(DBNAME) as db:
         if slug in db:
@@ -211,6 +223,10 @@ def odb(DBNAME, afunc, slug, full_text):
 @retry(Exception, delay=1, backoff=2, max_delay=60)
 def prompt_summary(text, url):
     """Summarize a text using OpenAI's API."""
+    # This is the only one that requires chunking.
+    # See if you can eliminate this by making a main prompt function
+    # which takes prompt as an input and conditionally chunks.
+    # Then you can unify all the other prompt functions.
     chunks = chunk_text(text, chunk_size=4000)
     summarized_text = ""
     for chunk in chunks:
@@ -671,7 +687,24 @@ def category_pages():
                     if keyword in top_cats:
                         slugcat[keyword].append(slug)
     # Create the category pages:
-    for cat in top_cats:
+    for i, cat in enumerate(top_cats):
+        # Set arrow-key navigation:
+        if i:
+            aprev = top_cats[i - 1]
+            prev_slug = slugify(aprev)
+            prev_title = cdict[aprev]["title"]
+        else:
+            aprev = None
+            prev_slug = None
+            prev_title = None
+        if i < len(top_cats) - 1:
+            anext = top_cats[i + 1]
+            next_slug = slugify(anext)
+            next_title = cdict[anext]["title"]
+        else:
+            anext = None
+            next_slug = None
+            next_title = None
         slug = slugify(cat)
         filename = f"{PATH}{REPO}cat_{slug}.md"
         include_file = f"cat_{slug}.md"
@@ -684,9 +717,21 @@ layout: default
 ---
 
 # {cdict[cat]["title"]}
+
 """
             fh.write(cat_str)
             fh.write(f"{{% include {include_file} %}}\n")
+            arrow_link = f"""
+<div class="post-nav">
+  <div class="post-nav-prev">
+    <span class="arrow">&larr;&nbsp;</span><a href="/{prev_slug}/">{prev_title}</a>
+  </div>
+  <div class="post-nav-next">
+    <a href="/{next_slug}/">{next_title}</a><span class="arrow">&nbsp;&rarr;</span>
+  </div>
+</div>
+"""
+            fh.write(arrow_link)
     # Create the category includes:
     for cat in top_cats:
         slug = slugify(cat)
@@ -804,6 +849,8 @@ def diagnose_yaml(yaml_str, YMLError):
 
 def oget(DBNAME, slug):
     """Return a value from a database."""
+    # There's a fancier version that will set the data too, but when you
+    # want to just safely (no chance of writing) fetch db data, use this.
     with sqldict(DBNAME) as db:
         if slug in db:
             result = db[slug]
@@ -820,7 +867,7 @@ def git(cwd, line_command):
     #  \__, |_|\__|  Is move things where you need.
     #  |___/       
     """Run a Linux git command."""
-    cmd = [GIT_EXE] + shlex.split(line_command)
+    cmd = ["/usr/bin/git"] + shlex.split(line_command)
     show_cmd = " ".join(cmd)
     print(f"Running: {show_cmd}")
     process = Popen(
@@ -837,6 +884,8 @@ def git(cwd, line_command):
 
 def flush(std):
     """Flush a stream."""
+    # The console is great for watching programs run, but sometimes
+    # the "streaming" effect you want doesn't work. This makes it work.
     for line in std:
         line = line.strip()
         if line:
@@ -846,6 +895,8 @@ def flush(std):
 
 def compare_files(file1, file2):
     """Compare two files. Return true of they are the same."""
+    # If your source and destination files haven't even changed,
+    # why re-publish? To-do: cut off the git push using this.
     with open(file1, "rb") as f1, open(file2, "rb") as f2:
         while True:
             byte1 = f1.read(1)
@@ -858,6 +909,8 @@ def compare_files(file1, file2):
 
 def get_top_cats():
     """Returns the top categories"""
+    # Sure global category dictionary (cdict) has keyword count statistics,
+    # but which keywords are most popular, minus the meta-data? This shows!
     global cdict
     tcats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
     return tcats
@@ -865,6 +918,8 @@ def get_top_cats():
 
 def sq(text):
     """Safely return a quoted string."""
+    # Do you put quotes around that YAML data or not?
+    # Why decide when a function can decide for you.
     if not text:
         return text
     text = text.strip()
@@ -881,6 +936,17 @@ def sq(text):
     return text
 
 
+def normalize_key(keyword):
+    """Returns normalized key for keyword dictionaries."""
+    # Keywords appear in a lot of capitalization variations.
+    # This function ensures that all variations will return
+    # the same form for use as dictionary keys.
+    keyword = keyword.lower()
+    keyword = LEMMATIZER.lemmatize(keyword)
+    keyword = keyword.lower()
+    return keyword
+
+
 #  _____ _            ____  _                                             _
 # |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
 #   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
@@ -888,13 +954,6 @@ def sq(text):
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
 # Put new stuff here                |___/ |___/
 
-
-def normalize_key(keyword):
-    """Returns normalized key for keyword dictionaries."""
-    keyword = keyword.lower()
-    keyword = LEMMATIZER.lemmatize(keyword)
-    keyword = keyword.lower()
-    return keyword
 
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
