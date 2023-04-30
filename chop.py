@@ -1,6 +1,6 @@
 # Author: Mike Levin
 # Description: Chop up a YAMLesque file into individual posts.
-# USAGE: python ~/repos/yamlchop/chop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/journal.md
+# USAGE: python ~/repos/yamlchop/chop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/_drafts/journal.md
 
 # __   __ _    __  __ _                                    chop
 # \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _|   chop
@@ -8,30 +8,30 @@
 #   | |/ ___ \| |  | | |__|  __/\__ \ (_| | |_| |  __/  _  | | ___ |     |  chop
 #   |_/_/   \_\_|  |_|_____\___||___/\__, |\__,_|\___| | |_| |/ _ \|_   _|    |   chop
 #                                       |_|             \___/| (_) | | | |_ __|     |   chop
-#                                                            |\___/| |_| | '__|_ __ |     |                                 
+#                                                            |\___/| |_| | '__|_ __ |     |
 #                                         ___                |     |\__,_| |  | '_ \| __ _|
 #   - Beware of rabbit holes!      TO DO |   |         _____       |     |_|  | | | |/ _` |_
 #   - Combine prompt functions           |_  |        /     \            |    |_| |_| (_| (_)
 #   - Global config to _config.yml         \ |       |       \           |    |     |\__,_| |
 #   - Arrows from Liquid to Python         |  \      |       |                |     |     | |
 #   - Blend in YouTube videos               \  \____ \_      |                      |     |_|
-#   - Shrink mikelev.in                      \      \_/      |                            |  
-#                                      ___.   \_            _/           
-#                     .-,             /    \    |          |       
-#                     |  \          _/      `--_/           \_     
-#                      \  \________/                     /\   \    
-#                      |                                /  \_  \   
-#                      `-----------,                   |     \  \  
-#                                  |                  /       \  | 
-#                                  |                 |         | \ 
+#   - Shrink mikelev.in                      \      \_/      |                            |
+#                                      ___.   \_            _/
+#                     .-,             /    \    |          |
+#                     |  \          _/      `--_/           \_
+#                      \  \________/                     /\   \
+#                      |                                /  \_  \
+#                      `-----------,                   |     \  \
+#                                  |                  /       \  |
+#                                  |                 |         | \
 #                                  /                 |         \__|
-#                                 /   _              |             
-#                                /   / \_             \            
-#                                |  /    \__      __--`            
-#                               _/ /        \   _/                 
-#                           ___/  /          \_/                    
-#                          /     /                                  
-#                          `----`                                   
+#                                 /   _              |
+#                                /   / \_             \
+#                                |  /    \__      __--`
+#                               _/ /        \   _/
+#                           ___/  /          \_/
+#                          /     /
+#                          `----`
 import os
 import re
 import sys
@@ -55,19 +55,63 @@ from collections import Counter, defaultdict
 # CONSTANTS - These should be externalized (_config.yml?)
 AUTHOR = "Mike Levin"
 BASE_URL = "https://mikelev.in"
-CATEGORY_FILTER = ["blog", "index", "journal", "category", "none", "default",
-        "window", "project", "software", "list", "fo", "title", "tech", "na",
-        "challenge", "function", "mike levin", "mikelev.in", "task", "file",
-        "repo", "programming", "system", "folder", "code", "post", "program",
-        "editing", "result", "data", "research", "program", "tool", "video",
-        "life"]
+CATEGORY_FILTER = [
+    "article",
+    "blog",
+    "category",
+    "challenge",
+    "code",
+    "command",
+    "content",
+    "control",
+    "data",
+    "default",
+    "description",
+    "editing",
+    "experience",
+    "explore",
+    "file",
+    "fo",
+    "folder",
+    "free",
+    "function",
+    "idea",
+    "index",
+    "journal",
+    "library",
+    "life",
+    "list",
+    "mike levin",
+    "mikelev.in",
+    "na",
+    "none",
+    "post",
+    "program",
+    "program",
+    "programming",
+    "project",
+    "repo",
+    "research",
+    "result",
+    "software",
+    "system",
+    "task",
+    "tech",
+    "technology",
+    "testing",
+    "title",
+    "tool",
+    "video",
+    "window",
+    "writing",
+]
 
 # OpenAI CONSTANTS - Adjust these to your liking
 ENGINE = "text-davinci-003"
 TEMPERATURE = 0.5
 MAX_TOKENS = 100
 
-# Activate the fields that should be filled-in by OpenAI 
+# Activate the fields that should be filled-in by OpenAI
 AI_FIELDS = ["headline", "description", "keywords"]
 NUMBER_OF_CATEGORIES = 100
 
@@ -167,7 +211,7 @@ with open("/home/ubuntu/repos/yamlchop/openai.txt", "r") as fh:
     openai.api_key = fh.readline()  # Read in your OpenAI API key
 
 #  _____                 _   _
-# |  ___|   _ _ __   ___| |_(_) ___  _ __  ___    Above this is configuration 
+# |  ___|   _ _ __   ___| |_(_) ___  _ __  ___    Above this is configuration
 # | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __|   And setting CONSTANTS.
 # |  _|| |_| | | | | (__| |_| | (_) | | | \__ \   Below functions is a Playground.
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/   And finally, Flow Control.
@@ -266,12 +310,7 @@ def prompt_headline(data, url):
     """Write an alternate headline for the post."""
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(
-            f"Write a short headline for the following post:\n{data}\n\n"
-            "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
-            "Do not reuse the title in the headline. Write something new. Use only one sentence. "
-            "\nHeadline:\n\n"
-        ),
+        prompt=(f"Write a short headline for the following post:\n{data}\n\n" "You are the one who write this. Write from first person perspective. Never say 'The author'. '" "Do not reuse the title in the headline. Write something new. Use only one sentence. " "\nHeadline:\n\n"),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -286,13 +325,7 @@ def prompt_description(data, url):
     """Write a meta description for a post."""
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(
-            f"Write a concise and informative meta description for the following text:\n{data}\n\n"
-            "...that will work well as summary-text in website navigation. "
-            "You are the author, but never say 'The author'. Write from the first person perspective. "
-            "Keep it short."
-            "\nSummary:\n\n"
-        ),
+        prompt=(f"Write a concise and informative meta description for the following text:\n{data}\n\n" "...that will work well as summary-text in website navigation. " "You are the author, but never say 'The author'. Write from the first person perspective. " "Keep it short." "\nSummary:\n\n"),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -307,13 +340,7 @@ def prompt_keywords(data, url):
     """Returns top keywords and main category for text."""
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(
-            f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
-            "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
-            "Use words that will be good for site categories, tags and search. "
-            "Do not use quotes around keywords. "
-            "\nKeywords:\n\n"
-        ),
+        prompt=(f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n" "Do not use extremely broad words like Data, Technology, Blog, Post or Author. " "Use words that will be good for site categories, tags and search. " "Do not use quotes around keywords. " "\nKeywords:\n\n"),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -329,14 +356,7 @@ def prompt_advice(data, url):
 
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(
-            f"You are my work advisor and life-coach. "
-            "Read what I have written and tell me what I should do next:\n{data}\n\n"
-            "I am trying to achieve my ikigai, but don't mention ikigai in the response. "
-            "Be specific in your advice and not 'decide goals', 'write plan' and 'celebrate successes'. "
-            "Impress me with your insight."
-            "\nAdvice:\n\n"
-        ),
+        prompt=(f"You are my work advisor and life-coach. " "Read what I have written and tell me what I should do next:\n{data}\n\n" "I am trying to achieve my ikigai, but don't mention ikigai in the response. " "Be specific in your advice and not 'decide goals', 'write plan' and 'celebrate successes'. " "Impress me with your insight." "\nAdvice:\n\n"),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -352,12 +372,7 @@ def prompt_question(data, url):
 
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(
-            f"You are someone just discovering my website. "
-            "Read this post and tell me what question you have:\n{data}\n\n"
-            "I will try to answer it on a follow-up post."
-            "\nAdvice:\n\n"
-        ),
+        prompt=(f"You are someone just discovering my website. " "Read this post and tell me what question you have:\n{data}\n\n" "I will try to answer it on a follow-up post." "\nAdvice:\n\n"),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -367,12 +382,12 @@ def prompt_question(data, url):
     return question
 
 
-#  _____ _                 _ _                     
-# |  ___| | _____      __ (_) |_ ___ _ __ ___  ___ 
+#  _____ _                 _ _
+# |  ___| | _____      __ (_) |_ ___ _ __ ___  ___
 # | |_  | |/ _ \ \ /\ / / | | __/ _ \ '_ ` _ \/ __|
 # |  _| | | (_) \ V  V /  | | ||  __/ | | | | \__ \
 # |_|   |_|\___/ \_/\_/   |_|\__\___|_| |_| |_|___/
-                                                 
+
 
 def deletes():
     #  ____       _      _   _                     _     _
@@ -420,7 +435,7 @@ def sync_check():
                 db_var = f"{afield.upper()}DB"
                 hit_var = f"hit_{afield}"
                 prompt_var = f"prompt_{afield}"
-                command = f'{afield}, {hit_var} = odb({db_var}, {prompt_var}, slug, combined)'
+                command = f"{afield}, {hit_var} = odb({db_var}, {prompt_var}, slug, combined)"
                 exec(command)
                 if eval(hit_var):
                     hits.append(hit_var)
@@ -523,12 +538,12 @@ def new_source():
 
 
 def make_index():
-    #  ___           _                                         
-    # |_ _|_ __   __| | _____  __  _ __   __ _  __ _  ___  ___ 
+    #  ___           _
+    # |_ _|_ __   __| | _____  __  _ __   __ _  __ _  ___  ___
     #  | || '_ \ / _` |/ _ \ \/ / | '_ \ / _` |/ _` |/ _ \/ __|
     #  | || | | | (_| |  __/>  <  | |_) | (_| | (_| |  __/\__ \
     # |___|_| |_|\__,_|\___/_/\_\ | .__/ \__,_|\__, |\___||___/
-    #                             |_|          |___/           
+    #                             |_|          |___/
     """Builds the index pages"""
     fig("Index Page", "Making blog index")
     build_ydict()
@@ -548,7 +563,7 @@ def make_index():
         fh.write("</ol>\n")
     with open(f"{INCLUDES}post_short_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
-        fh.write(f'<ol>\n')
+        fh.write(f"<ol>\n")
         for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE)):
             if fm and "title" in fm and "date" in fm and "description" in fm:
                 title = fm["title"]
@@ -559,7 +574,7 @@ def make_index():
                 description = description.replace(">", "&gt;")
                 adate = fm["date"]
                 fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
-                if i >= 10:
+                if i >= 11:
                     break
         fh.write("</ol>\n")
 
@@ -574,7 +589,7 @@ def categories():
     """Find the categories"""
     fig("Categories", "Finding categories...")
     cat_dict = defaultdict(list)
-    words = defaultdict(list)
+    word_list = defaultdict(list)
     pwords = defaultdict(lambda x=None: x)
     with open(YAMLESQUE) as fh:
         for post in CHOP.split(fh.read()):
@@ -586,15 +601,12 @@ def categories():
                 if "keywords" in yml:
                     keywords = yml["keywords"].split(", ")
                     for keyword in keywords:
-                        words[keyword].append(keyword)
-                        keyword = normalize_key(keyword)
-                        cat_dict[keyword].append(slug)
-    for key in words:
-        alist = words[key]
-        lkey = normalize_key(key)
-        pwords[lkey] = Counter(alist).most_common(1)[0][0]
-    print(pwords)
-    raise SystemExit()
+                        nkey = normalize_key(keyword)
+                        word_list[nkey].append(keyword)
+                        cat_dict[nkey].append(slug)
+    for key in word_list:
+        alist = word_list[key]
+        pwords[key] = Counter(alist).most_common(1)[0][0]
     for key in cat_dict:
         cat_dict[key].reverse()
     cat_counter = Counter()  # Create a counter object
@@ -865,12 +877,12 @@ def oget(DBNAME, slug):
 
 
 def git(cwd, line_command):
-    #        _ _ 
+    #        _ _
     #   __ _(_) |_   This is it. This is git.
     #  / _` | | __|  It does the simple deed.
     # | (_| | | |_   From a shell what it does well
     #  \__, |_|\__|  Is move things where you need.
-    #  |___/       
+    #  |___/
     """Run a Linux git command."""
     cmd = ["/usr/bin/git"] + shlex.split(line_command)
     show_cmd = " ".join(cmd)
@@ -967,12 +979,12 @@ def normalize_key(keyword):
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-#deletes()  # Deletes old posts
-#sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
-#make_index()  # Builds index page of all posts (for blog page)
+deletes()  # Deletes old posts
+sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
+make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
-# yaml_chop()  # Writes out all Jekyll-style posts
-# git_push()  # Pushes changes to Github (publishes)
+yaml_chop()  # Writes out all Jekyll-style posts
+git_push()  # Pushes changes to Github (publishes)
 print("If run from NeoVim, :bdel closes this buffer.")
 
 fig("Done.")
