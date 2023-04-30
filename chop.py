@@ -1,21 +1,22 @@
-# Author: Mike Levin
-# Description: Chop up a YAMLesque file into individual posts.
-# USAGE: python ~/repos/yamlchop/chop.py -f /mnt/c/Users/mikle/repos/hide/MikeLev.in/_drafts/journal.md
-
-# __   __ _    __  __ _                                    chop
-# \ \ / // \  |  \/  | |    ___  ___  __ _ _   _  ___       _|   chop
-#  \ V // _ \ | |\/| | |   / _ \/ __|/ _` | | | |/ _ \     | |     |   chop
-#   | |/ ___ \| |  | | |__|  __/\__ \ (_| | |_| |  __/  _  | | ___ |     |  chop
-#   |_/_/   \_\_|  |_|_____\___||___/\__, |\__,_|\___| | |_| |/ _ \|_   _|    |   chop
-#                                       |_|             \___/| (_) | | | |_ __|     |   chop
-#                                                            |\___/| |_| | '__|_ __ |     |
-#                                         ___                |     |\__,_| |  | '_ \| __ _|
-#   - Beware of rabbit holes!      TO DO |   |         _____       |     |_|  | | | |/ _` |_
-#   - Combine prompt functions           |_  |        /     \            |    |_| |_| (_| (_)
-#   - Global config to _config.yml         \ |       |       \           |    |     |\__,_| |
-#   - Arrows from Liquid to Python         |  \      |       |                |     |     | |
-#   - Blend in YouTube videos               \  \____ \_      |                      |     |_|
-#   - Shrink mikelev.in                      \      \_/      |                            |
+# Author: Mike Levin, SEO in NYC
+# Description: Chop up a YAMLesque (journal.md) file into individual posts.
+# USAGE: python ~/repos/yamlchop/chop.py -f ~/repos/hide/MikeLev.in/_drafts/journal.md
+# PURPOSE: Continual refinement and constant improvement.
+#
+# __   __ _    __  __ _         _                      chop
+# \ \ / // \  |  \/  | |    ___| |__   ___  _ __        _|   chop
+#  \ V // _ \ | |\/| | |   / __| '_ \ / _ \| '_ \      | |     |   chop
+#   | |/ ___ \| |  | | |__| (__| | | | (_) | |_) |  _  | | ___ |     |  chop
+#   |_/_/   \_\_|  |_|_____\___|_| |_|\___/| .__/  | |_| |/ _ \|_   _|    |   chop
+#                                          |_|      \___/| (_) | | | |_ __|     |   chop
+#   TO DO:                                               |\___/| |_| | '__|_ __ |     |
+#   - Beware of rabbit holes!             ___            |     |\__,_| |  | '_ \| __ _|
+#   - Combine prompt functions           |   |         _____   |     |_|  | | | |/ _` |_
+#   - Global config to _config.yml       |_  |        /     \        |    |_| |_| (_| | |
+#   - Blend in YouTube videos              \ |       |       \       |    |     |\__,_| |
+#   - Shrink mikelev.in repo               |  \      |       |            |     |     | |
+#                                           \  \____ \_      |                  |     |_|
+#                                            \      \_/      |                        |
 #                                      ___.   \_            _/
 #                     .-,             /    \    |          |
 #                     |  \          _/      `--_/           \_
@@ -53,11 +54,10 @@ from collections import Counter, defaultdict
 
 
 # CONSTANTS - These should be externalized (_config.yml?)
-AUTHOR = "Mike Levin"
-BASE_URL = "https://mikelev.in"
 CATEGORY_FILTER = [
     "article",
     "blog",
+    "blog post",
     "category",
     "challenge",
     "code",
@@ -157,7 +157,7 @@ add_arg = aparser.add_argument
 
 # Only 1 required argument: the full path to the YAMLesque file.
 add_arg("-f", "--full_path", required=True)
-add_arg("-a", "--author", default=AUTHOR)
+add_arg("-a", "--author", default="default")
 add_arg("-b", "--blog", default="blog")
 add_arg("-o", "--output", default="_posts")
 
@@ -253,7 +253,7 @@ def yaml_generator(full_path, reverse=False):
             yield rv
 
 
-def odb(DBNAME, afunc, slug, full_text):
+def odb(DBNAME, slug, afunc, full_text):
     #   ___                      _    ___   _   _ _ _
     #  / _ \ _ __   ___ _ __    / \  |_ _| | | | (_) |_
     # | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_| | | __|
@@ -268,8 +268,7 @@ def odb(DBNAME, afunc, slug, full_text):
             result = db[slug]
         else:
             fig(f"OpenAI", DBNAME)
-            url = f"{BASE_URL}{BLOG}{slug}/"
-            result = afunc(full_text, url)  # Hits OpenAI API
+            result = afunc(full_text)  # Hits OpenAI API
             db[slug] = result
             db.commit()
             api_hit = True
@@ -277,7 +276,7 @@ def odb(DBNAME, afunc, slug, full_text):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_summary(text, url):
+def prompt_summary(text):
     """Summarize a text using OpenAI's API."""
     # This is the only one that requires chunking.
     # See if you can eliminate this by making a main prompt function
@@ -315,7 +314,7 @@ def chunk_text(text, chunk_size=4000):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_headline(data, url):
+def prompt_headline(data):
     """Write an alternate headline for the post."""
     response = openai.Completion.create(
         engine=ENGINE,
@@ -330,7 +329,7 @@ def prompt_headline(data, url):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_description(data, url):
+def prompt_description(data):
     """Write a meta description for a post."""
     response = openai.Completion.create(
         engine=ENGINE,
@@ -345,7 +344,7 @@ def prompt_description(data, url):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_keywords(data, url):
+def prompt_keywords(data):
     """Returns top keywords and main category for text."""
     response = openai.Completion.create(
         engine=ENGINE,
@@ -360,7 +359,7 @@ def prompt_keywords(data, url):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_advice(data, url):
+def prompt_advice(data):
     """Returns some advice from OpenAI based on content."""
 
     response = openai.Completion.create(
@@ -376,7 +375,7 @@ def prompt_advice(data, url):
 
 
 @retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_question(data, url):
+def prompt_question(data):
     """Return a question for me based on content."""
 
     response = openai.Completion.create(
@@ -438,13 +437,12 @@ def sync_check():
             ydict[slug]["title"] = title
 
             # Setting these values ALSO commits it to the databases
-            # summary, api_hit = odb(SUMMARIESDB, prompt_summary, slug, apost)
             hits = []
             for afield in AI_FIELDS:
                 db_var = f"{afield.upper()}DB"
                 hit_var = f"hit_{afield}"
                 prompt_var = f"prompt_{afield}"
-                command = f"{afield}, {hit_var} = odb({db_var}, {prompt_var}, slug, combined)"
+                command = f"{afield}, {hit_var} = odb({db_var}, slug, {prompt_var}, combined)"
                 exec(command)
                 if eval(hit_var):
                     hits.append(hit_var)
@@ -604,7 +602,10 @@ def categories():
         for post in CHOP.split(fh.read()):
             ystr, body = post.split("---", 1)
             if ystr:
-                yml = yaml.load(ystr, Loader=yaml.FullLoader)
+                try:
+                    yml = yaml.load(ystr, Loader=yaml.FullLoader)
+                except yaml.scanner.ScannerError as e:
+                    diagnose_yaml(ystr, e)
                 if "title" in yml:
                     slug = slugify(yml["title"])
                 if "keywords" in yml:
@@ -712,29 +713,35 @@ def category_pages():
                     keyword = normalize_key(keyword)
                     if keyword in top_cats:
                         slugcat[keyword].append(slug)
+
+    # Make the list of tuples for build_arrow():
+    href_title_list = [(f"/{x}/", cdict[x]["title"]) for x in top_cats]
+
     # Create the category pages:
     for i, cat in enumerate(top_cats):
+
         # Set arrow-key navigation:
-        if i:
-            aprev = top_cats[i - 1]
-            prev_slug = slugify(aprev)
-            prev_title = cdict[aprev]["title"]
-            prev_arrow = f'<span class="arrow">&larr;&nbsp;</span><a href="/{prev_slug}/">{prev_title}</a>'
-        else:
-            aprev = None
-            prev_slug = None
-            prev_title = None
-            prev_arrow = '<span class="arrow">&nbsp;</span>'
-        if i < len(top_cats) - 1:
-            anext = top_cats[i + 1]
-            next_slug = slugify(anext)
-            next_title = cdict[anext]["title"]
-            next_arrow = f'<a href="/{next_slug}/">{next_title}</a><span class="arrow">&nbsp;&rarr;</span>'
-        else:
-            anext = None
-            next_slug = None
-            next_title = None
-            next_arrow = f'<span class="arrow">&nbsp;</span>'
+        # if i:
+        #     aprev = top_cats[i - 1]
+        #     prev_slug = slugify(aprev)
+        #     prev_title = cdict[aprev]["title"]
+        #     prev_arrow = f'<span class="arrow">&larr;&nbsp;</span><a href="/{prev_slug}/">{prev_title}</a>'
+        # else:
+        #     aprev = None
+        #     prev_slug = None
+        #     prev_title = None
+        #     prev_arrow = '<span class="arrow">&nbsp;</span>'
+        # if i < len(top_cats) - 1:
+        #     anext = top_cats[i + 1]
+        #     next_slug = slugify(anext)
+        #     next_title = cdict[anext]["title"]
+        #     next_arrow = f'<a href="/{next_slug}/">{next_title}</a><span class="arrow">&nbsp;&rarr;</span>'
+        # else:
+        #     anext = None
+        #     next_slug = None
+        #     next_title = None
+        #     next_arrow = f'<span class="arrow">&nbsp;</span>'
+
         slug = slugify(cat)
         filename = f"{PATH}{REPO}cat_{slug}.md"
         include_file = f"cat_{slug}.md"
@@ -751,15 +758,8 @@ layout: default
 """
             fh.write(cat_str)
             fh.write(f"{{% include {include_file} %}}\n")
-            arrow_link = f"""
-<div class="post-nav">
-  <div class="post-nav-prev"> {prev_arrow} </div>
-  <div class="post-nav-next"> {next_arrow} </div>
-</div>
-"""
-            fh.write(arrow_link)
     # Create the category includes:
-    for cat in top_cats:
+    for i, cat in enumerate(top_cats):
         slug = slugify(cat)
         filename = f"{INCLUDES}cat_{slug}.md"
         with open(filename, "w", encoding="utf-8") as fh:
@@ -774,6 +774,8 @@ layout: default
                 alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
                 fh.write(alink)
             fh.write("</ol>\n")
+            arrow_link = arrow_maker(i, len(top_cats), href_title_list)
+            fh.write(arrow_link)
 
 
 def yaml_chop():
@@ -980,6 +982,32 @@ def normalize_key(keyword):
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
 # Put new stuff here                |___/ |___/
 
+def arrow_maker(i, length, href_title_list):
+    """Returns the prev/next arrows for a page. It must be given a list of
+    tuples containing the hrefs and titles of the pages in the sequence. It
+    must also be given the index of the current page in the sequence. It will
+    return the HTML for the prev/next arrows. Path issues must be dealt with
+    beforehand in the tuple sequence."""
+
+    # Get the prev/next slugs and titles:
+    larr = '<span class="arrow">&larr;&nbsp;</span>'
+    rarr = '<span class="arrow">&nbsp;&rarr;</span>'
+
+    # Detect if we're at the beginning or end of the sequence:
+    if i:
+        prev_slug, prev_title = href_title_list[i - 1]
+        prev_arrow = f'{larr}<a href="{prev_slug}">{prev_title}</a>'
+    else:
+        prev_arrow = '<span class="arrow">&nbsp;</span>'
+    if i < length - 1:
+        next_slug, next_title = href_title_list[i + 1]
+        next_arrow = f'<a href="{next_slug}">{next_title}</a>{rarr}'
+    else:
+        next_arrow = '<span class="arrow">&nbsp;</span>'
+
+    # Build the arrows:
+    arrow_link = f'<div class="post-nav"><div class="arrows">{prev_arrow}{next_arrow}</div></div>'
+    return arrow_link
 
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
@@ -994,6 +1022,6 @@ make_index()  # Builds index page of all posts (for blog page)
 categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
 git_push()  # Pushes changes to Github (publishes)
-print("If run from NeoVim, :bdel closes this buffer.")
 
 fig("Done.")
+print("If run from NeoVim, :bdel closes this buffer.")
