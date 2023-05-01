@@ -11,19 +11,19 @@
 #                                          |_|      \___/| (_) | | | |_ __|     |   chop
 #   TO DO:                                               |\___/| |_| | '__|_ __ |     |
 #   - Beware of rabbit holes!             ___            |     |\__,_| |  | '_ \| __ _|
-#   - Combine prompt functions           |   |         _____   |     |_|  | | | |/ _` |_
-#   - Global config to _config.yml       |_  |        /     \        |    |_| |_| (_| | |
-#   - Blend in YouTube videos              \ |       |       \       |    |     |\__,_| |
-#   - Shrink mikelev.in repo               |  \      |       /            |     |     | |
-#                                           \  \____ \_      \                  |     |_|
+#   - Combine prompt functions           |   |         _____   |     |_|  | | | |/ _` |
+#   - Global config to _config.yml       |_  |        /     \        |    |_| |_| (_| |
+#   - Blend in YouTube videos              \ |       |       \       |    |     |\__,_|
+#   - Shrink mikelev.in repo               |  \      |       /            |     |     |
+#   - Stop Prev/Next from abutting          \  \____ \_      \                  |     |
 #                                            \      \_/      |                        |
-#                                      ___.   \_            _/
-#                     .-,             /    \    |          |
-#                     |  \          _/      `--_/           \_
-#                      \  \________/                     /\   \
-#                      |                                /  \_  \
-#                      `-----------,                   |     \  \
-#                                  |                  /       \  |
+#                                      ___.   \_            _/                         _
+#                     .-,             /    \    |          |                           _
+#                     |  \          _/      `--_/           \_                         _
+#                      \  \________/                     /\   \                       | |
+#                      |                                /  \_  \                      | |
+#                      `-----------,                   |     \  \                     | |
+#                                  |                  /       \  |                    |_|
 #                                  |                 |         | \
 #                                  /                 |         \__|
 #                                 /   _              |
@@ -61,6 +61,7 @@ CATEGORY_FILTER = [
     "browser",
     "category",
     "challenge",
+    "cloud",
     "code",
     "command",
     "content",
@@ -68,6 +69,7 @@ CATEGORY_FILTER = [
     "data",
     "default",
     "description",
+    "dictionary",
     "editing",
     "experience",
     "explore",
@@ -78,6 +80,7 @@ CATEGORY_FILTER = [
     "function",
     "idea",
     "index",
+    "job",
     "journal",
     "language",
     "laptop",
@@ -88,20 +91,25 @@ CATEGORY_FILTER = [
     "markdown",
     "mike levin",
     "mikelev.in",
+    "money",
     "na",
     "none",
+    "package",
     "page",
+    "path",
     "post",
     "program",
     "program",
     "programming",
     "project",
+    "release",
     "repo",
     "repository",
     "research",
     "result",
     "server",
     "software",
+    "subsystem",
     "system",
     "task",
     "tech",
@@ -118,14 +126,14 @@ CATEGORY_FILTER = [
     "writing",
 ]
 
+# Activate the fields that should be filled-in by OpenAI
+NUMBER_OF_CATEGORIES = 150
+AI_FIELDS = ["headline", "description", "keywords"]
+
 # OpenAI CONSTANTS - Adjust these to your liking
 ENGINE = "text-davinci-003"
 TEMPERATURE = 0.5
 MAX_TOKENS = 100
-
-# Activate the fields that should be filled-in by OpenAI
-AI_FIELDS = ["headline", "description", "keywords"]
-NUMBER_OF_CATEGORIES = 100
 
 
 def fig(text, description=None):
