@@ -14,8 +14,8 @@
 #   - Combine prompt functions           |   |         _____   |     |_|  | | | |/ _` |_
 #   - Global config to _config.yml       |_  |        /     \        |    |_| |_| (_| | |
 #   - Blend in YouTube videos              \ |       |       \       |    |     |\__,_| |
-#   - Shrink mikelev.in repo               |  \      |       |            |     |     | |
-#                                           \  \____ \_      |                  |     |_|
+#   - Shrink mikelev.in repo               |  \      |       /            |     |     | |
+#                                           \  \____ \_      \                  |     |_|
 #                                            \      \_/      |                        |
 #                                      ___.   \_            _/
 #                     .-,             /    \    |          |
@@ -85,6 +85,7 @@ CATEGORY_FILTER = [
     "life",
     "link",
     "list",
+    "markdown",
     "mike levin",
     "mikelev.in",
     "na",
