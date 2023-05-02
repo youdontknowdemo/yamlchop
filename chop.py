@@ -14,8 +14,8 @@
 #   - Combine prompt functions          |   |         _____    |     |_|  | | | |/ _` |
 #   - Global config to _config.yml      |_  |        /     \         |    |_| |_| (_| |
 #   - Blend in YouTube videos             \ |       |       \        |    |     |\__,_|
-#   - Shrink mikelev.in repo              |  \      |       /             |     |     |
-#   - Stop Prev/Next from abutting         \  \____ \_      \                   |     |
+#   - Stop Prev/Next from abutting        |  \      |       /             |     |     |
+#                                          \  \____ \_      \                   |     |
 #                                           \      \_/      |                         |
 #                                     ___.   \_            _/                          _
 #                    .-,             /    \    |          |                            _
@@ -41,8 +41,8 @@ import shlex
 import openai
 import shutil
 import argparse
+import tiktoken
 from time import sleep
-from retry import retry
 from pathlib import Path
 from slugify import slugify
 from pyfiglet import Figlet
@@ -56,8 +56,9 @@ from collections import Counter, defaultdict
 # CONSTANTS - These should be externalized (_config.yml?)
 CATEGORY_FILTER = [
     "article",
-    "blog",
     "blog post",
+    "blog",
+    "book",
     "browser",
     "category",
     "challenge",
@@ -69,8 +70,11 @@ CATEGORY_FILTER = [
     "data",
     "default",
     "description",
+    "documentation",
     "dictionary",
     "editing",
+    "education",
+    "environment",
     "experience",
     "explore",
     "file",
@@ -79,9 +83,11 @@ CATEGORY_FILTER = [
     "free",
     "function",
     "idea",
+    "image",
     "index",
     "job",
     "journal",
+    "labels",
     "language",
     "laptop",
     "library",
@@ -264,7 +270,7 @@ def yaml_generator(full_path, reverse=False):
             yield rv
 
 
-def odb(DBNAME, slug, afunc, full_text):
+def odb(DBNAME, slug, afunc, prompt):
     #   ___                      _    ___   _   _ _ _
     #  / _ \ _ __   ___ _ __    / \  |_ _| | | | (_) |_
     # | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_| | | __|
@@ -279,52 +285,21 @@ def odb(DBNAME, slug, afunc, full_text):
             result = db[slug]
         else:
             fig(f"OpenAI", DBNAME)
-            result = afunc(full_text)  # Hits OpenAI API
+            chop_at = 4000
+            # Chop the article down to a summarize able length
+            required_tokens = num_tokens_from_string(prompt, "cl100k_base")
+            if required_tokens > chop_at:
+                while required_tokens > chop_at:
+                    prompt = prompt.rsplit(" ", 1)[0]
+                    required_tokens = num_tokens_from_string(prompt, "cl100k_base")
+
+            result = afunc(prompt)  # Hits OpenAI API
             db[slug] = result
             db.commit()
             api_hit = True
     return result, api_hit
 
 
-@retry(Exception, delay=1, backoff=2, max_delay=60)
-def prompt_summary(text):
-    """Summarize a text using OpenAI's API."""
-    # This is the only one that requires chunking.
-    # See if you can eliminate this by making a main prompt function
-    # which takes prompt as an input and conditionally chunks.
-    # Then you can unify all the other prompt functions.
-    chunks = chunk_text(text, chunk_size=4000)
-    summarized_text = ""
-    for chunk in chunks:
-        response = openai.Completion.create(
-            engine=ENGINE,
-            prompt=(f"You wrote this. Write from first person perspective. Please summarize the following text:\n{chunk}\n\n" "Summary:"),
-            temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS,
-            n=1,
-            stop=None,
-        )
-        summary = response.choices[0].text.strip()
-        summarized_text += summary
-        summarized_text = " ".join(summarized_text.splitlines())
-    return summarized_text.strip()
-
-
-def chunk_text(text, chunk_size=4000):
-    """Split a text into chunks of a given size."""
-    chunks = []
-    start_idx = 0
-    while start_idx < len(text):
-        end_idx = start_idx + chunk_size
-        if end_idx >= len(text):
-            end_idx = len(text)
-        chunk = text[start_idx:end_idx]
-        chunks.append(chunk)
-        start_idx = end_idx
-    return chunks
-
-
-@retry(Exception, delay=1, backoff=2, max_delay=60)
 def prompt_headline(data):
     """Write an alternate headline for the post."""
     response = openai.Completion.create(
@@ -339,7 +314,6 @@ def prompt_headline(data):
     return headline
 
 
-@retry(Exception, delay=1, backoff=2, max_delay=60)
 def prompt_description(data):
     """Write a meta description for a post."""
     response = openai.Completion.create(
@@ -354,7 +328,6 @@ def prompt_description(data):
     return description
 
 
-@retry(Exception, delay=1, backoff=2, max_delay=60)
 def prompt_keywords(data):
     """Returns top keywords and main category for text."""
     response = openai.Completion.create(
@@ -369,7 +342,6 @@ def prompt_keywords(data):
     return keywords
 
 
-@retry(Exception, delay=1, backoff=2, max_delay=60)
 def prompt_advice(data):
     """Returns some advice from OpenAI based on content."""
 
@@ -385,7 +357,6 @@ def prompt_advice(data):
     return advice
 
 
-@retry(Exception, delay=1, backoff=2, max_delay=60)
 def prompt_question(data):
     """Return a question for me based on content."""
 
@@ -409,13 +380,13 @@ def prompt_question(data):
 
 
 def deletes():
-    #  ____       _      _   _                     _     _
-    # |  _ \  ___| | ___| |_(_)_ __   __ _    ___ | | __| |
-    # | | | |/ _ \ |/ _ \ __| | '_ \ / _` |  / _ \| |/ _` |
-    # | |_| |  __/ |  __/ |_| | | | | (_| | | (_) | | (_| |
-    # |____/ \___|_|\___|\__|_|_| |_|\__, |  \___/|_|\__,_|
-    #                                |___/
-    fig("Deleting old", "Deleting auto-generated pages from site.")
+    #  ____       _      _                    _            
+    # |  _ \  ___| | ___| |_ ___   _ __  _ __(_) ___  _ __ 
+    # | | | |/ _ \ |/ _ \ __/ _ \ | '_ \| '__| |/ _ \| '__|
+    # | |_| |  __/ |  __/ ||  __/ | |_) | |  | | (_) | |   
+    # |____/ \___|_|\___|\__\___| | .__/|_|  |_|\___/|_|   
+    #                             |_|                      
+    fig("Delete prior", "Deleting auto-generated pages from site.")
     for fh in os.listdir(OUTPUT_PATH):
         delete_me = f"{OUTPUT_PATH}/{fh}"
         os.remove(delete_me)
@@ -556,14 +527,14 @@ def new_source():
 
 
 def make_index():
-    #  ___           _
-    # |_ _|_ __   __| | _____  __  _ __   __ _  __ _  ___  ___
-    #  | || '_ \ / _` |/ _ \ \/ / | '_ \ / _` |/ _` |/ _ \/ __|
-    #  | || | | | (_| |  __/>  <  | |_) | (_| | (_| |  __/\__ \
-    # |___|_| |_|\__,_|\___/_/\_\ | .__/ \__,_|\__, |\___||___/
-    #                             |_|          |___/
+    #  __  __       _          ___           _           
+    # |  \/  | __ _| | _____  |_ _|_ __   __| | _____  __
+    # | |\/| |/ _` | |/ / _ \  | || '_ \ / _` |/ _ \ \/ /
+    # | |  | | (_| |   <  __/  | || | | | (_| |  __/>  < 
+    # |_|  |_|\__,_|_|\_\___| |___|_| |_|\__,_|\___/_/\_\
+    #                                                    
     """Builds the index pages"""
-    fig("Index Page", "Making blog index")
+    fig("Make Index", "Making blog index")
     build_ydict()
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
@@ -597,15 +568,15 @@ def make_index():
         fh.write("</ol>\n")
 
 
-def categories():
-    #   ____      _                        _
-    #  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
-    # | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
-    # | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
-    #  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-    #                     |___/
-    """Find the categories"""
-    fig("Categories", "Finding categories...")
+def find_categories():
+    #  _____ _           _    ____      _                        _           
+    # |  ___(_)_ __   __| |  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
+    # | |_  | | '_ \ / _` | | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
+    # |  _| | | | | | (_| | | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
+    # |_|   |_|_| |_|\__,_|  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
+    #                                           |___/                        
+    """Find Categories"""
+    fig("Find Categories")
     cat_dict = defaultdict(list)
     word_list = defaultdict(list)
     pwords = defaultdict(lambda x=None: x)
@@ -660,8 +631,8 @@ def category_grid():
     # fig("Cat Page", "Building category page...")
     """Build the 100-cell grid of categories."""
     global cdict
-    rows = 20
     cols = 5
+    rows = NUMBER_OF_CATEGORIES // cols
     counter = 0
     top_cats = get_top_cats()
     with open(CATEGORY_GRID, "w") as fh:
@@ -730,29 +701,6 @@ def category_pages():
 
     # Create the category pages:
     for i, cat in enumerate(top_cats):
-
-        # Set arrow-key navigation:
-        # if i:
-        #     aprev = top_cats[i - 1]
-        #     prev_slug = slugify(aprev)
-        #     prev_title = cdict[aprev]["title"]
-        #     prev_arrow = f'<span class="arrow">&larr;&nbsp;</span><a href="/{prev_slug}/">{prev_title}</a>'
-        # else:
-        #     aprev = None
-        #     prev_slug = None
-        #     prev_title = None
-        #     prev_arrow = '<span class="arrow">&nbsp;</span>'
-        # if i < len(top_cats) - 1:
-        #     anext = top_cats[i + 1]
-        #     next_slug = slugify(anext)
-        #     next_title = cdict[anext]["title"]
-        #     next_arrow = f'<a href="/{next_slug}/">{next_title}</a><span class="arrow">&nbsp;&rarr;</span>'
-        # else:
-        #     anext = None
-        #     next_slug = None
-        #     next_title = None
-        #     next_arrow = f'<span class="arrow">&nbsp;</span>'
-
         slug = slugify(cat)
         filename = f"{PATH}{REPO}cat_{slug}.md"
         include_file = f"cat_{slug}.md"
@@ -955,7 +903,7 @@ def get_top_cats():
 
 
 def sq(text):
-    """Safely return a quoted string."""
+    """Safely return a quoted string for YAML front matter."""
     # Do you put quotes around that YAML data or not?
     # Why decide when a function can decide for you.
     if not text:
@@ -964,12 +912,14 @@ def sq(text):
     text = text.strip('"')
     text = re.sub(r"\"{2,}", '"', text)
     text = text.replace('"', "'")
+    text = text.replace('<', "&lt;")
+    text = text.replace('>', "&gt;")
     # Replace all cariage returns and line feeds with spaces:
     text = re.sub(r"[\r\n]+", " ", text)
     # Replace all multiple spaces with a single space:
     text = re.sub(r"\s+", " ", text)
     # If any of the following characters (including single quotes) are in the text, do if:
-    if re.search(r"[;:]", text):
+    if re.search(r"[;:`]", text):
         text = f'"{text}"'
     return text
 
@@ -984,13 +934,6 @@ def normalize_key(keyword):
     keyword = keyword.lower()
     return keyword
 
-
-#  _____ _            ____  _                                             _
-# |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
-#   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
-#   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
-#   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
-# Put new stuff here                |___/ |___/
 
 def arrow_maker(i, length, href_title_list):
     """Returns the prev/next arrows for a page. It must be given a list of
@@ -1021,6 +964,19 @@ def arrow_maker(i, length, href_title_list):
     arrow_link = f'<div class="post-nav">{prev_link}{next_link}</div>'
     return arrow_link
 
+#  _____ _            ____  _                                             _
+# |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
+#   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
+#   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
+#   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
+# Put new stuff here                |___/ |___/
+
+def num_tokens_from_string(string: str, encoding_name: str) -> int:
+    """Returns the number of tokens in a text string."""
+    encoding = tiktoken.get_encoding(encoding_name)
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -1031,7 +987,7 @@ def arrow_maker(i, length, href_title_list):
 deletes()  # Deletes old posts
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 make_index()  # Builds index page of all posts (for blog page)
-categories()  # Builds global categories and builds category pages
+find_categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
 git_push()  # Pushes changes to Github (publishes)
 
