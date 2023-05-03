@@ -134,6 +134,7 @@ CATEGORY_FILTER = [
 
 # Activate the fields that should be filled-in by OpenAI
 NUMBER_OF_CATEGORIES = 150
+NUMBER_OF_COLUMNS = 3
 AI_FIELDS = ["headline", "description", "keywords"]
 
 # OpenAI CONSTANTS - Adjust these to your liking
@@ -631,15 +632,14 @@ def category_grid():
     # fig("Cat Page", "Building category page...")
     """Build the 100-cell grid of categories."""
     global cdict
-    cols = 5
-    rows = NUMBER_OF_CATEGORIES // cols
+    rows = NUMBER_OF_CATEGORIES // NUMBER_OF_COLUMNS
     counter = 0
     top_cats = get_top_cats()
     with open(CATEGORY_GRID, "w") as fh:
         if cdict:
             for row in range(rows):
                 fh.write("\n")
-                for col in range(cols):
+                for col in range(NUMBER_OF_COLUMNS):
                     cat = top_cats[counter]
                     title = cdict[cat]["title"]
                     slug = slugify(cat)
@@ -989,7 +989,7 @@ sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 make_index()  # Builds index page of all posts (for blog page)
 find_categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
-git_push()  # Pushes changes to Github (publishes)
+#git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
 print("If run from NeoVim, :bdel closes this buffer.")
