@@ -1,6 +1,6 @@
 # Author: Mike Levin, SEO in NYC
 # Description: Chop up a YAMLesque (journal.md) file into individual posts.
-# USAGE: python ~/repos/yamlchop/chop.py -f ~/repos/hide/MikeLev.in/_drafts/journal.md
+# USAGE: python ~/repos/yamlchop/chop.py -f ~/repos/MikeLev.in/_drafts/journal.md
 # PURPOSE: Continual refinement and constant improvement.
 #
 # __   __ _    __  __ _         _                      chop
@@ -12,9 +12,9 @@
 #   TO DO:                                               |\___/| |_| | '__|_ __ |     |
 #   - Beware of rabbit holes!            ___             |     |\__,_| |  | '_ \| __ _|
 #   - Combine prompt functions          |   |         _____    |     |_|  | | | |/ _` |
-#   - Global config to _config.yml      |_  |        /     \         |    |_| |_| (_| |
+#   - Stop Prev/Next abutting           |_  |        /     \         |    |_| |_| (_| |
 #   - Blend in YouTube videos             \ |       |       \        |    |     |\__,_|
-#   - Stop Prev/Next from abutting        |  \      |       /             |     |     |
+#                                         |  \      |       /             |     |     |
 #                                          \  \____ \_      \                   |     |
 #                                           \      \_/      |                         |
 #                                     ___.   \_            _/                          _
@@ -55,7 +55,7 @@ from collections import Counter, defaultdict
 
 # Activate the fields that should be filled-in by OpenAI
 NUMBER_OF_CATEGORIES = 150
-NUMBER_OF_COLUMNS = 3
+NUMBER_OF_COLUMNS = 4
 AI_FIELDS = ["headline", "description", "keywords"]
 
 # OpenAI CONSTANTS - Adjust these to your liking
@@ -529,11 +529,12 @@ def find_categories():
     """Find Categories"""
     fig("Find Categories")
 
-    with open(apath, "r") as stream:
-    try:
-        _config = yaml.safe_load(stream)
-    except yaml.YAMLError as exc:
-        print(exc) 
+    config_file = f"{REPO}_config.yml"
+    with open(config_file, "r") as stream:
+        try:
+            _config = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc) 
 
     if "category_filter" in _config:
         category_filter = _config["category_filter"]
