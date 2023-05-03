@@ -207,7 +207,7 @@ def odb(DBNAME, slug, afunc, prompt):
             result = db[slug]
         else:
             fig(f"OpenAI", DBNAME)
-            chop_at = 4000
+            chop_at = 3500
             # Chop the article down to a summarize able length
             required_tokens = num_tokens_from_string(prompt, "cl100k_base")
             if required_tokens > chop_at:
@@ -529,7 +529,7 @@ def find_categories():
     """Find Categories"""
     fig("Find Categories")
 
-    config_file = f"{REPO}_config.yml"
+    config_file = f"{PATH}{REPO}_config.yml"
     with open(config_file, "r") as stream:
         try:
             _config = yaml.safe_load(stream)
