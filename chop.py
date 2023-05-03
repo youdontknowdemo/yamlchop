@@ -14,8 +14,8 @@
 #   - Combine prompt functions          |   |         _____    |     |_|  | | | |/ _` |
 #   - Stop Prev/Next abutting           |_  |        /     \         |    |_| |_| (_| |
 #   - Blend in YouTube videos             \ |       |       \        |    |     |\__,_|
-#                                         |  \      |       /             |     |     |
-#                                          \  \____ \_      \                   |     |
+#   - Discrete sequences                  |  \      |       /             |     |     |
+#   - Pinning posts                        \  \____ \_      \                   |     |
 #                                           \      \_/      |                         |
 #                                     ___.   \_            _/                          _
 #                    .-,             /    \    |          |                            _
