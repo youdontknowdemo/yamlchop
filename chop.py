@@ -53,85 +53,6 @@ from sqlitedict import SqliteDict as sqldict
 from collections import Counter, defaultdict
 
 
-# CONSTANTS - These should be externalized (_config.yml?)
-CATEGORY_FILTER = [
-    "article",
-    "blog post",
-    "blog",
-    "book",
-    "browser",
-    "category",
-    "challenge",
-    "cloud",
-    "code",
-    "command",
-    "content",
-    "control",
-    "data",
-    "default",
-    "description",
-    "documentation",
-    "dictionary",
-    "editing",
-    "education",
-    "environment",
-    "experience",
-    "explore",
-    "file",
-    "fo",
-    "folder",
-    "free",
-    "function",
-    "idea",
-    "image",
-    "index",
-    "job",
-    "journal",
-    "labels",
-    "language",
-    "laptop",
-    "library",
-    "life",
-    "link",
-    "list",
-    "markdown",
-    "mike levin",
-    "mikelev.in",
-    "money",
-    "na",
-    "none",
-    "package",
-    "page",
-    "path",
-    "post",
-    "program",
-    "program",
-    "programming",
-    "project",
-    "release",
-    "repo",
-    "repository",
-    "research",
-    "result",
-    "server",
-    "software",
-    "subsystem",
-    "system",
-    "task",
-    "tech",
-    "technology",
-    "testing",
-    "title",
-    "tool",
-    "upgrade",
-    "user",
-    "video",
-    "website",
-    "window",
-    "world",
-    "writing",
-]
-
 # Activate the fields that should be filled-in by OpenAI
 NUMBER_OF_CATEGORIES = 150
 NUMBER_OF_COLUMNS = 3
@@ -305,7 +226,12 @@ def prompt_headline(data):
     """Write an alternate headline for the post."""
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(f"Write a short headline for the following post:\n{data}\n\n" "You are the one who write this. Write from first person perspective. Never say 'The author'. '" "Do not reuse the title in the headline. Write something new. Use only one sentence. " "\nHeadline:\n\n"),
+        prompt=(
+            f"Write a short headline for the following post:\n{data}\n\n"
+            "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
+            "Do not reuse the title in the headline. Write something new. Use only one sentence. "
+            "\nHeadline:\n\n"
+        ),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -319,7 +245,13 @@ def prompt_description(data):
     """Write a meta description for a post."""
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(f"Write a concise and informative meta description for the following text:\n{data}\n\n" "...that will work well as summary-text in website navigation. " "You are the author, but never say 'The author'. Write from the first person perspective. " "Keep it short." "\nSummary:\n\n"),
+        prompt=(
+            f"Write a concise and informative meta description for the following text:\n{data}\n\n"
+            "...that will work well as summary-text in website navigation. "
+            "You are the author, but never say 'The author'. Write from the first person perspective. "
+            "Keep it short."
+            "\nSummary:\n\n"
+        ),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -333,7 +265,13 @@ def prompt_keywords(data):
     """Returns top keywords and main category for text."""
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n" "Do not use extremely broad words like Data, Technology, Blog, Post or Author. " "Use words that will be good for site categories, tags and search. " "Do not use quotes around keywords. " "\nKeywords:\n\n"),
+        prompt=(
+            f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
+            "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
+            "Use words that will be good for site categories, tags and search. "
+            "Do not use quotes around keywords. "
+            "\nKeywords:\n\n"
+        ),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -348,7 +286,14 @@ def prompt_advice(data):
 
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(f"You are my work advisor and life-coach. " "Read what I have written and tell me what I should do next:\n{data}\n\n" "I am trying to achieve my ikigai, but don't mention ikigai in the response. " "Be specific in your advice and not 'decide goals', 'write plan' and 'celebrate successes'. " "Impress me with your insight." "\nAdvice:\n\n"),
+        prompt=(
+            f"You are my work advisor and life-coach. "
+            "Read what I have written and tell me what I should do next:\n{data}\n\n"
+            "I am trying to achieve my ikigai, but don't mention ikigai in the response. "
+            "Be specific in your advice and not 'decide goals', 'write plan' and 'celebrate successes'. "
+            "Impress me with your insight."
+            "\nAdvice:\n\n"
+        ),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -363,7 +308,12 @@ def prompt_question(data):
 
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(f"You are someone just discovering my website. " "Read this post and tell me what question you have:\n{data}\n\n" "I will try to answer it on a follow-up post." "\nAdvice:\n\n"),
+        prompt=(
+            f"You are someone just discovering my website. "
+            "Read this post and tell me what question you have:\n{data}\n\n"
+            "I will try to answer it on a follow-up post."
+            "\nAdvice:\n\n"
+        ),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -381,12 +331,12 @@ def prompt_question(data):
 
 
 def deletes():
-    #  ____       _      _                    _            
-    # |  _ \  ___| | ___| |_ ___   _ __  _ __(_) ___  _ __ 
+    #  ____       _      _                    _
+    # |  _ \  ___| | ___| |_ ___   _ __  _ __(_) ___  _ __
     # | | | |/ _ \ |/ _ \ __/ _ \ | '_ \| '__| |/ _ \| '__|
-    # | |_| |  __/ |  __/ ||  __/ | |_) | |  | | (_) | |   
-    # |____/ \___|_|\___|\__\___| | .__/|_|  |_|\___/|_|   
-    #                             |_|                      
+    # | |_| |  __/ |  __/ ||  __/ | |_) | |  | | (_) | |
+    # |____/ \___|_|\___|\__\___| | .__/|_|  |_|\___/|_|
+    #                             |_|
     fig("Delete prior", "Deleting auto-generated pages from site.")
     for fh in os.listdir(OUTPUT_PATH):
         delete_me = f"{OUTPUT_PATH}/{fh}"
@@ -528,12 +478,12 @@ def new_source():
 
 
 def make_index():
-    #  __  __       _          ___           _           
+    #  __  __       _          ___           _
     # |  \/  | __ _| | _____  |_ _|_ __   __| | _____  __
     # | |\/| |/ _` | |/ / _ \  | || '_ \ / _` |/ _ \ \/ /
-    # | |  | | (_| |   <  __/  | || | | | (_| |  __/>  < 
+    # | |  | | (_| |   <  __/  | || | | | (_| |  __/>  <
     # |_|  |_|\__,_|_|\_\___| |___|_| |_|\__,_|\___/_/\_\
-    #                                                    
+    #
     """Builds the index pages"""
     fig("Make Index", "Making blog index")
     build_ydict()
@@ -570,14 +520,26 @@ def make_index():
 
 
 def find_categories():
-    #  _____ _           _    ____      _                        _           
-    # |  ___(_)_ __   __| |  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
+    #  _____ _           _    ____      _                        _
+    # |  ___(_)_ __   __| |  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
     # | |_  | | '_ \ / _` | | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
     # |  _| | | | | | (_| | | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
     # |_|   |_|_| |_|\__,_|  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-    #                                           |___/                        
+    #                                           |___/
     """Find Categories"""
     fig("Find Categories")
+
+    with open(apath, "r") as stream:
+    try:
+        _config = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc) 
+
+    if "category_filter" in _config:
+        category_filter = _config["category_filter"]
+    else:
+        category_filter = None
+
     cat_dict = defaultdict(list)
     word_list = defaultdict(list)
     pwords = defaultdict(lambda x=None: x)
@@ -606,7 +568,8 @@ def find_categories():
     for cat, slugs in cat_dict.items():
         cat_counter[cat] = len(slugs)
     common_cats = cat_counter.most_common()
-    common_cats = [x for x in common_cats if x[0] not in CATEGORY_FILTER]
+    if category_filter:
+        common_cats = [x for x in common_cats if x[0] not in category_filter]
     show_cats = 15
     for cat, count in common_cats:
         cdict[cat]["slug"] = slugify(cat)
@@ -912,8 +875,8 @@ def sq(text):
     text = text.strip('"')
     text = re.sub(r"\"{2,}", '"', text)
     text = text.replace('"', "'")
-    text = text.replace('<', "&lt;")
-    text = text.replace('>', "&gt;")
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
     # Replace all cariage returns and line feeds with spaces:
     text = re.sub(r"[\r\n]+", " ", text)
     # Replace all multiple spaces with a single space:
@@ -964,6 +927,14 @@ def arrow_maker(i, length, href_title_list):
     arrow_link = f'<div class="post-nav">{prev_link}{next_link}</div>'
     return arrow_link
 
+
+def num_tokens_from_string(string: str, encoding_name: str) -> int:
+    """Returns the number of tokens in a text string."""
+    encoding = tiktoken.get_encoding(encoding_name)
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
+
+
 #  _____ _            ____  _                                             _
 # |_   _| |__   ___  |  _ \| | __ _ _   _  __ _ _ __ ___  _   _ _ __   __| |
 #   | | | '_ \ / _ \ | |_) | |/ _` | | | |/ _` | '__/ _ \| | | | '_ \ / _` |
@@ -971,11 +942,6 @@ def arrow_maker(i, length, href_title_list):
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
 # Put new stuff here                |___/ |___/
 
-def num_tokens_from_string(string: str, encoding_name: str) -> int:
-    """Returns the number of tokens in a text string."""
-    encoding = tiktoken.get_encoding(encoding_name)
-    num_tokens = len(encoding.encode(string))
-    return num_tokens
 
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
@@ -989,7 +955,7 @@ sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 make_index()  # Builds index page of all posts (for blog page)
 find_categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
-#git_push()  # Pushes changes to Github (publishes)
+git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
 print("If run from NeoVim, :bdel closes this buffer.")
