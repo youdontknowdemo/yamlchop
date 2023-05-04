@@ -57,6 +57,7 @@ from collections import Counter, defaultdict
 NUMBER_OF_CATEGORIES = 150
 NUMBER_OF_COLUMNS = 4
 AI_FIELDS = ["headline", "description", "keywords"]
+ALL_FIELDS = ["date", "title", "headline", "description", "keyword", "categories"]
 
 # OpenAI CONSTANTS - Adjust these to your liking
 ENGINE = "text-davinci-003"
@@ -179,16 +180,19 @@ def yaml_generator(full_path, reverse=False):
             posts.reverse()  # Reverse so article indexes don't change.
         for i, post in enumerate(posts):
             rv = None, post, post  # Always rebuild source at very least.
-            parsed_yaml, yaml_str, body = None, "", ""
+            py, yaml_str, body = None, "", ""
             if "---" in post:
                 yaml_str, body = post.split("---", 1)
                 try:
-                    parsed_yaml = yaml.load(yaml_str, Loader=yaml.FullLoader)
-                    rv = parsed_yaml, body, post
+                    py = yaml.load(yaml_str, Loader=yaml.FullLoader)
+                    rv = py, body, post
                 except yaml.YAMLError:
                     # Deliberately passing silently to prevent attempts
                     # to create pages where there is no page to create.
                     ...
+                if py and "published" in py and py["published"] == False:
+                    # Skip unpublished posts
+                    continue
             yield rv
 
 
@@ -514,7 +518,7 @@ def make_index():
                 description = description.replace(">", "&gt;")
                 adate = fm["date"]
                 fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
-                if i >= 11:
+                if i == 11:
                     break
         fh.write("</ol>\n")
 
@@ -697,6 +701,7 @@ layout: default
                 alink = f'<li><a href="{apermalink}">{title}</a> ({adate})\n<br/>{description}</li>\n'
                 fh.write(alink)
             fh.write("</ol>\n")
+            # Arrow Maker needs index, len of list and list of tuples.
             arrow_link = arrow_maker(i, len(top_cats), href_title_list)
             fh.write(arrow_link)
 
@@ -709,50 +714,60 @@ def yaml_chop():
     #   |_/_/   \_\_|  |_|_____|| \____|_| |_|\___/| .__/ (_)(_)(_)
     fig("Chop the YAML!")  #    |                  |_|
     """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
+    num_pages = len(ydict)
+    href_title_list = [(f'{BLOG}{ydict[x]["slug"]}', ydict[x]["title"]) for x in ydict]
+    counter = 0
     for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE)):
         if fm and isinstance(fm, dict) and len(fm) > 2:
-            title = fm["title"]
-            stem = slugify(title)
+
+            # Print a progress indicator:
             if (i + 1) % 10 == 0:
                 print(f"{i+1} ", end="", flush=True)
-            adate = fm["date"]
-            description = sq(fm["description"])
-            headline = sq(fm["headline"])
-            keywords = sq(fm["keywords"])
-            keyword_list = keywords.split(", ")
-            categories = set()
+
+            # Build the categories:
+            keyword_list = fm["keywords"].split(", ")
             top_cats = get_top_cats()
+            categories = set()
             for keyword in keyword_list:
                 keyword = keyword.lower()
-                if keyword in top_cats:
+                nkey = normalize_key(keyword)
+                if keyword in top_cats or nkey in top_cats:
                     categories.add(keyword)
             categories = ", ".join(categories)
-            permalink = f"{BLOG}{stem}/"
+            fm["categories"] = categories
+            
+            # Format the date:
+            adate = fm["date"]
             date_object = datetime.strptime(adate, "%a %b %d, %Y")
             adate = date_object.strftime("%Y-%m-%d")
+            fm["date"] = adate
+
+            # Build the permalink:
+            stem = slugify(fm["title"])
+            fm["permalink"] = f"{BLOG}{stem}/"
+
             filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
             with open(filename, "w", encoding="utf-8") as fh:
-                fh.write(
-                    f"""---
-date: {adate}
-title: {sq(title)}
-permalink: {permalink}
-headline: {sq(headline)}
-description: {sq(description)}
-keywords: {sq(keywords)}
-categories: {sq(categories)}
-layout: post
----"""
-                )
+                fh.write("---\n")
+                for afield in fm:
+                    fh.write(f"{afield}: {sq(fm[afield])}\n")
+                fh.write("layout: post\n")
+                fh.write("---\n")
                 fh.write(body)
-                fh.write("## Categories\n")
+                # If it's not published, skip the bottom-matter.
+                if "published" in fm and fm["published"] == "false":
+                    continue
+                # Arrow Maker needs index, len of list and list of tuples.
+                arrow_link = arrow_maker(counter, num_pages, href_title_list)
+                fh.write(arrow_link)
+                fh.write("\n## Categories\n")
                 fh.write("\n<ul>")
                 for asubcat in categories.split(", "):
                     asubcat = asubcat.strip().lower()
                     if asubcat in top_cats:
                         fh.write(f"\n<li><h4><a href='/{slugify(asubcat)}/'>{cdict[asubcat]['title']}</a></h4></li>")
                 fh.write("</ul>")
-                # fh.write("\n{% include category_list.md %}")
+                counter += 1
     print("chopped!")
 
 
@@ -912,7 +927,11 @@ def arrow_maker(i, length, href_title_list):
 
     # Detect if we're at the beginning or end of the sequence:
     if i:
-        prev_slug, prev_title = href_title_list[i - 1]
+        try:
+            prev_slug, prev_title = href_title_list[i - 1]
+        except:
+            print(f"href_title_list: {href_title_list[i]}")
+            raise SystemExit()
         prev_arrow = f'{larr}<a href="{prev_slug}">{prev_title}</a>'
     else:
         prev_arrow = '<span class="arrow">&nbsp;</span>'
