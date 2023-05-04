@@ -166,7 +166,7 @@ with open("/home/ubuntu/repos/yamlchop/openai.txt", "r") as fh:
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/   And finally, Flow Control.
 
 
-def yaml_generator(full_path, reverse=False):
+def yaml_generator(full_path, reverse=False, drafts=False):
     # __   __ _    __  __ _        ____                           _
     # \ \ / // \  |  \/  | |      / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
     #  \ V // _ \ | |\/| | |     | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
@@ -190,10 +190,15 @@ def yaml_generator(full_path, reverse=False):
                     # Deliberately passing silently to prevent attempts
                     # to create pages where there is no page to create.
                     ...
-                if py and "published" in py and py["published"] == False:
-                    # Skip unpublished posts
-                    continue
-            yield rv
+            if py and "published" in py and py["published"] == False and drafts:
+                # It's a draft and function invoked with drafts=True
+                yield rv
+            elif py and "published" in py and py["published"] == False:
+                # It's a draft and function invoked with drafts=False (default)
+                # so skip it.
+                continue
+            elif not drafts:
+                yield rv
 
 
 def odb(DBNAME, slug, afunc, prompt):
@@ -312,12 +317,7 @@ def prompt_question(data):
 
     response = openai.Completion.create(
         engine=ENGINE,
-        prompt=(
-            f"You are someone just discovering my website. "
-            "Read this post and tell me what question you have:\n{data}\n\n"
-            "I will try to answer it on a follow-up post."
-            "\nAdvice:\n\n"
-        ),
+        prompt=(f"You are someone just discovering my website. " "Read this post and tell me what question you have:\n{data}\n\n" "I will try to answer it on a follow-up post." "\nAdvice:\n\n"),
         temperature=TEMPERATURE,
         max_tokens=MAX_TOKENS,
         n=1,
@@ -372,7 +372,6 @@ def sync_check():
             title = fm["title"]
             slug = slugify(title)
             ydict[slug]["title"] = title
-
             # Setting these values ALSO commits it to the databases
             hits = []
             for afield in AI_FIELDS:
@@ -383,10 +382,7 @@ def sync_check():
                 exec(command)
                 if eval(hit_var):
                     hits.append(hit_var)
-
-            # Give user a moment to review. Could always :bdel!
             print()
-
             if any(hits):
                 for afield in AI_FIELDS:
                     print(f"{afield}: {eval(afield)}")
@@ -538,7 +534,7 @@ def find_categories():
         try:
             _config = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
-            print(exc) 
+            print(exc)
 
     if "category_filter" in _config:
         category_filter = _config["category_filter"]
@@ -719,7 +715,6 @@ def yaml_chop():
     counter = 0
     for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE)):
         if fm and isinstance(fm, dict) and len(fm) > 2:
-
             # Print a progress indicator:
             if (i + 1) % 10 == 0:
                 print(f"{i+1} ", end="", flush=True)
@@ -735,7 +730,7 @@ def yaml_chop():
                     categories.add(keyword)
             categories = ", ".join(categories)
             fm["categories"] = categories
-            
+
             # Format the date:
             adate = fm["date"]
             date_object = datetime.strptime(adate, "%a %b %d, %Y")
@@ -754,9 +749,11 @@ def yaml_chop():
                 fh.write("layout: post\n")
                 fh.write("---\n")
                 fh.write(body)
-                # If it's not published, skip the bottom-matter.
-                if "published" in fm and fm["published"] == "false":
-                    continue
+
+                # THE NEXT TWO LINES I DON'T THINK ARE NEEDED ANYMORE.
+                # if "published" in fm and fm["published"] == "false":
+                #     continue
+
                 # Arrow Maker needs index, len of list and list of tuples.
                 arrow_link = arrow_maker(counter, num_pages, href_title_list)
                 fh.write(arrow_link)
@@ -963,6 +960,39 @@ def num_tokens_from_string(string: str, encoding_name: str) -> int:
 # Put new stuff here                |___/ |___/
 
 
+def drafts():
+    #  ____             __ _       
+    # |  _ \ _ __ __ _ / _| |_ ___ 
+    # | | | | '__/ _` | |_| __/ __|
+    # | |_| | | | (_| |  _| |_\__ \
+    # |____/|_|  \__,_|_|  \__|___/
+    """Builds the drafts."""
+    fig("Drafts")
+    for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE, drafts=True)):
+        # Format the date:
+        adate = fm["date"]
+        date_object = datetime.strptime(adate, "%a %b %d, %Y")
+        adate = date_object.strftime("%Y-%m-%d")
+        fm["date"] = adate
+
+        # Build the permalink:
+        stem = slugify(fm["title"])
+        fm["permalink"] = f"{BLOG}{stem}/"
+
+        filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
+        print(filename)
+        with open(filename, "w", encoding="utf-8") as fh:
+            fh.write("---\n")
+            for afield in fm:
+                if afield != "published":
+                    fh.write(f"{afield}: {sq(fm[afield])}\n")
+            fh.write("layout: plain\n")
+            fh.write("---\n")
+            fh.write(f"# {fm['title']}\n\n")
+            fh.write(body)
+    print("drafts chopped!")
+
+
 #  _____ _                                 _             _
 # |  ___| | _____      __   ___ ___  _ __ | |_ _ __ ___ | |
 # | |_  | |/ _ \ \ /\ / /  / __/ _ \| '_ \| __| '__/ _ \| |
@@ -975,6 +1005,7 @@ sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 make_index()  # Builds index page of all posts (for blog page)
 find_categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
+drafts()  # Writes out all Jekyll-style drafts
 git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
