@@ -12,10 +12,10 @@
 #   TO DO:                                               |\___/| |_| | '__|_ __ |     |
 #   - Beware of rabbit holes!            ___             |     |\__,_| |  | '_ \| __ _|
 #   - Combine prompt functions          |   |         _____    |     |_|  | | | |/ _` |
-#   - Stop Prev/Next abutting           |_  |        /     \         |    |_| |_| (_| |
-#   - Blend in YouTube videos             \ |       |       \        |    |     |\__,_|
-#   - Discrete sequences                  |  \      |       /             |     |     |
-#   - Pinning posts                        \  \____ \_      \                   |     |
+#   - Blend in YouTube videos           |_  |        /     \         |    |_| |_| (_| |
+#   - Discrete sequences                  \ |       |       \        |    |     |\__,_|
+#   - Pinning posts                       |  \      |       /             |     |     |
+#                                          \  \____ \_      \                   |     |
 #                                           \      \_/      |                         |
 #                                     ___.   \_            _/                          _
 #                    .-,             /    \    |          |                            _
@@ -665,7 +665,7 @@ def category_pages():
                         slugcat[keyword].append(slug)
 
     # Make the list of tuples for build_arrow():
-    href_title_list = [(f"/{x}/", cdict[x]["title"]) for x in top_cats]
+    href_title_list = [(f"/{slugify(x)}/", cdict[x]["title"]) for x in top_cats]
 
     # Create the category pages:
     for i, cat in enumerate(top_cats):
@@ -944,7 +944,7 @@ def arrow_maker(i, length, href_title_list):
     # Build the arrows:
     prev_link = f'<div class="post-nav-prev">{prev_arrow}</div>'
     next_link = f'<div class="post-nav-next">{next_arrow}</div>'
-    arrow_link = f'<div class="post-nav">{prev_link}{next_link}</div>'
+    arrow_link = f'<div class="post-nav">{prev_link} &nbsp; {next_link}</div>'
     return arrow_link
 
 
