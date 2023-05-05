@@ -166,7 +166,7 @@ with open("/home/ubuntu/repos/yamlchop/openai.txt", "r") as fh:
 # |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/   And finally, Flow Control.
 
 
-def yaml_generator(full_path, reverse=False, drafts=False):
+def yaml_generator(full_path, reverse=False, drafts=False, clone=False):
     # __   __ _    __  __ _        ____                           _
     # \ \ / // \  |  \/  | |      / ___| ___ _ __   ___ _ __ __ _| |_ ___  _ __
     #  \ V // _ \ | |\/| | |     | |  _ / _ \ '_ \ / _ \ '__/ _` | __/ _ \| '__|
@@ -190,7 +190,10 @@ def yaml_generator(full_path, reverse=False, drafts=False):
                     # Deliberately passing silently to prevent attempts
                     # to create pages where there is no page to create.
                     ...
-            if py and "published" in py and py["published"] == False and drafts:
+            if clone:
+                # If we're cloning, we want to yield everything.
+                yield rv
+            elif py and "published" in py and py["published"] == False and drafts:
                 # It's a draft and function invoked with drafts=True
                 yield rv
             elif py and "published" in py and py["published"] == False:
@@ -366,7 +369,7 @@ def sync_check():
     # |____/ |_| |_| \_|\____|  \____|_| |_|\___|\___|_|\_\
     """Check for new posts needing AI-writing or YAMLESQUE source-file updating."""
     fig("SYNC Check", "Checking for new posts needing AI-writing")
-    for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE)):
+    for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE, clone=True)):
         if fm and len(fm) == 2 and "title" in fm and "date" in fm:
             # Only 2 fields of YAML front matter asks for release.
             title = fm["title"]
@@ -424,7 +427,7 @@ def update_yaml():
     """Updates the YAMLESQUE file data from the database"""
     fig("Update YAML", "Updating YAMLESQUE file...")
     with open(TEMP_OUTPUT, "w", encoding="utf-8") as fh:
-        for i, (fm, body, post) in enumerate(yaml_generator(YAMLESQUE)):
+        for i, (fm, body, post) in enumerate(yaml_generator(YAMLESQUE, clone=True)):
             if i:
                 fh.write(SEPARATOR)
             if fm and len(fm) == 2:
