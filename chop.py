@@ -11,10 +11,10 @@
 #                                          |_|      \___/| (_) | | | |_ __|     |   chop
 #   TO DO:                                               |\___/| |_| | '__|_ __ |     |
 #   - Beware of rabbit holes!            ___             |     |\__,_| |  | '_ \| __ _|
-#   - Combine prompt functions          |   |         _____    |     |_|  | | | |/ _` |
-#   - Blend in YouTube videos           |_  |        /     \         |    |_| |_| (_| |
-#   - Discrete sequences                  \ |       |       \        |    |     |\__,_|
-#   - Pinning posts                       |  \      |       /             |     |     |
+#   - Blend in YouTube videos           |   |         _____    |     |_|  | | | |/ _` |
+#   - Discrete sequences                |_  |        /     \         |    |_| |_| (_| |
+#   - Pinning posts                       \ |       |       \        |    |     |\__,_|
+#                                         |  \      |       /             |     |     |
 #                                          \  \____ \_      \                   |     |
 #                                           \      \_/      |                         |
 #                                     ___.   \_            _/                          _
@@ -204,7 +204,7 @@ def yaml_generator(full_path, reverse=False, drafts=False, clone=False):
                 yield rv
 
 
-def odb(DBNAME, slug, afunc, prompt):
+def odb(DBNAME, slug, name, data):
     #   ___                      _    ___   _   _ _ _
     #  / _ \ _ __   ___ _ __    / \  |_ _| | | | (_) |_
     # | | | | '_ \ / _ \ '_ \  / _ \  | |  | |_| | | __|
@@ -221,84 +221,59 @@ def odb(DBNAME, slug, afunc, prompt):
             fig(f"OpenAI", DBNAME)
             chop_at = 3500
             # Chop the article down to a summarize able length
-            required_tokens = num_tokens_from_string(prompt, "cl100k_base")
+            required_tokens = num_tokens_from_string(data, "cl100k_base")
             if required_tokens > chop_at:
                 while required_tokens > chop_at:
-                    prompt = prompt.rsplit(" ", 1)[0]
-                    required_tokens = num_tokens_from_string(prompt, "cl100k_base")
+                    data = data.rsplit(" ", 1)[0]
+                    required_tokens = num_tokens_from_string(data, "cl100k_base")
 
-            result = afunc(prompt)  # Hits OpenAI API
+            # Build a prompt and get a result from OpenAI.
+            aprompt = make_prompt(name, data)
+            result = openai.Completion.create(
+                engine=ENGINE,
+                prompt=aprompt,
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS,
+                n=1,
+                stop=None,
+            )
+            result = result.choices[0].text.strip()
             db[slug] = result
             db.commit()
             api_hit = True
     return result, api_hit
 
 
-def prompt_headline(data):
-    """Write an alternate headline for the post."""
-    response = openai.Completion.create(
-        engine=ENGINE,
-        prompt=(
+def make_prompt(name, data):
+    #  ____                            _
+    # |  _ \ _ __ ___  _ __ ___  _ __ | |_ ___
+    # | |_) | '__/ _ \| '_ ` _ \| '_ \| __/ __|
+    # |  __/| | | (_) | | | | | | |_) | |_\__ \
+    # |_|   |_|  \___/|_| |_| |_| .__/ \__|___/
+    #                           |_|
+    """Returns an OpenAI prompt for the given name and data."""
+    pdict = {
+        "headline": (
             f"Write a short headline for the following post:\n{data}\n\n"
             "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
             "Do not reuse the title in the headline. Write something new. Use only one sentence. "
             "\nHeadline:\n\n"
         ),
-        temperature=TEMPERATURE,
-        max_tokens=MAX_TOKENS,
-        n=1,
-        stop=None,
-    )
-    headline = response.choices[0].text.strip()
-    return headline
-
-
-def prompt_description(data):
-    """Write a meta description for a post."""
-    response = openai.Completion.create(
-        engine=ENGINE,
-        prompt=(
+        "description": (
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
             "...that will work well as summary-text in website navigation. "
             "You are the author, but never say 'The author'. Write from the first person perspective. "
             "Keep it short."
             "\nSummary:\n\n"
         ),
-        temperature=TEMPERATURE,
-        max_tokens=MAX_TOKENS,
-        n=1,
-        stop=None,
-    )
-    description = response.choices[0].text.strip()
-    return description
-
-
-def prompt_keywords(data):
-    """Returns top keywords and main category for text."""
-    response = openai.Completion.create(
-        engine=ENGINE,
-        prompt=(
+        "keywords": (
             f"Create a line of comma separated list of keywords to categorize the following text:\n\n{data}\n\n"
             "Do not use extremely broad words like Data, Technology, Blog, Post or Author. "
             "Use words that will be good for site categories, tags and search. "
             "Do not use quotes around keywords. "
             "\nKeywords:\n\n"
         ),
-        temperature=TEMPERATURE,
-        max_tokens=MAX_TOKENS,
-        n=1,
-        stop=None,
-    )
-    keywords = response.choices[0].text.strip()
-    return keywords
-
-
-def prompt_advice(data):
-    """Returns some advice from OpenAI based on content."""
-
-    response = openai.Completion.create(
-        engine=ENGINE,
-        prompt=(
+        "advice": (
             f"You are my work advisor and life-coach. "
             "Read what I have written and tell me what I should do next:\n{data}\n\n"
             "I am trying to achieve my ikigai, but don't mention ikigai in the response. "
@@ -306,28 +281,14 @@ def prompt_advice(data):
             "Impress me with your insight."
             "\nAdvice:\n\n"
         ),
-        temperature=TEMPERATURE,
-        max_tokens=MAX_TOKENS,
-        n=1,
-        stop=None,
-    )
-    advice = response.choices[0].text.strip()
-    return advice
-
-
-def prompt_question(data):
-    """Return a question for me based on content."""
-
-    response = openai.Completion.create(
-        engine=ENGINE,
-        prompt=(f"You are someone just discovering my website. " "Read this post and tell me what question you have:\n{data}\n\n" "I will try to answer it on a follow-up post." "\nAdvice:\n\n"),
-        temperature=TEMPERATURE,
-        max_tokens=MAX_TOKENS,
-        n=1,
-        stop=None,
-    )
-    question = response.choices[0].text.strip()
-    return question
+        "question": (
+            f"You are someone just discovering my website. "
+            "Read this post and tell me what question you have:\n{data}\n\n"
+            "I will try to answer it on a follow-up post."
+            "\nAdvice:\n\n"
+        ),
+    }
+    return pdict[name]
 
 
 #  _____ _                 _ _
@@ -377,18 +338,17 @@ def sync_check():
             ydict[slug]["title"] = title
             # Setting these values ALSO commits it to the databases
             hits = []
+            rdict = {}
             for afield in AI_FIELDS:
-                db_var = f"{afield.upper()}DB"
-                hit_var = f"hit_{afield}"
-                prompt_var = f"prompt_{afield}"
-                command = f"{afield}, {hit_var} = odb({db_var}, slug, {prompt_var}, combined)"
-                exec(command)
-                if eval(hit_var):
-                    hits.append(hit_var)
+                dbname = f"{REPO_DATA}{afield}.db"
+                result, api_hit = odb(dbname, slug, afield, combined)
+                rdict[afield] = result
+                if api_hit:
+                    hits.append(api_hit)
             print()
             if any(hits):
                 for afield in AI_FIELDS:
-                    print(f"{afield}: {eval(afield)}")
+                    print(f"{afield}: {rdict[afield]}")
                     print()
             build_ydict()  # Rebuilds ydict from database
             update_yaml()  # Updates YAMLESQUE file data from database
@@ -771,6 +731,41 @@ def yaml_chop():
     print("chopped!")
 
 
+def drafts():
+    #  ____             __ _
+    # |  _ \ _ __ __ _ / _| |_ ___
+    # | | | | '__/ _` | |_| __/ __|
+    # | |_| | | | (_| |  _| |_\__ \
+    # |____/|_|  \__,_|_|  \__|___/
+    """Because we can't preview drafts with Github Pages, the system publishes
+    with a secret permalink so you can view the rendered draft in a no-CSS
+    style that is appropriate for copy/pasting into Docs or Word."""
+    fig("Drafts")
+    for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE, drafts=True)):
+        # Format the date:
+        adate = fm["date"]
+        date_object = datetime.strptime(adate, "%a %b %d, %Y")
+        adate = date_object.strftime("%Y-%m-%d")
+        fm["date"] = adate
+
+        # Build the permalink:
+        stem = slugify(fm["title"])
+        fm["permalink"] = f"{BLOG}{stem}/"
+
+        filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
+        print(filename)
+        with open(filename, "w", encoding="utf-8") as fh:
+            fh.write("---\n")
+            for afield in fm:
+                if afield != "published":  # Necessary to render previews
+                    fh.write(f"{afield}: {sq(fm[afield])}\n")
+            fh.write("layout: plain\n")
+            fh.write("---\n")
+            fh.write(f"# {fm['title']}\n\n")
+            fh.write(body)
+    print("drafts chopped!")
+
+
 def git_push():
     """Pushes the changes to Github"""
     #   ____ _ _     ____            _
@@ -961,39 +956,6 @@ def num_tokens_from_string(string: str, encoding_name: str) -> int:
 #   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
 # Put new stuff here                |___/ |___/
-
-
-def drafts():
-    #  ____             __ _       
-    # |  _ \ _ __ __ _ / _| |_ ___ 
-    # | | | | '__/ _` | |_| __/ __|
-    # | |_| | | | (_| |  _| |_\__ \
-    # |____/|_|  \__,_|_|  \__|___/
-    """Builds the drafts."""
-    fig("Drafts")
-    for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE, drafts=True)):
-        # Format the date:
-        adate = fm["date"]
-        date_object = datetime.strptime(adate, "%a %b %d, %Y")
-        adate = date_object.strftime("%Y-%m-%d")
-        fm["date"] = adate
-
-        # Build the permalink:
-        stem = slugify(fm["title"])
-        fm["permalink"] = f"{BLOG}{stem}/"
-
-        filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
-        print(filename)
-        with open(filename, "w", encoding="utf-8") as fh:
-            fh.write("---\n")
-            for afield in fm:
-                if afield != "published":
-                    fh.write(f"{afield}: {sq(fm[afield])}\n")
-            fh.write("layout: plain\n")
-            fh.write("---\n")
-            fh.write(f"# {fm['title']}\n\n")
-            fh.write(body)
-    print("drafts chopped!")
 
 
 #  _____ _                                 _             _
