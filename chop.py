@@ -194,13 +194,13 @@ def yaml_generator(full_path, reverse=False, drafts=False, clone=False):
                 # If we're cloning, we want to yield everything.
                 yield rv
             elif py and "published" in py and py["published"] == False and drafts:
-                # It's a draft and function invoked with drafts=True
+                # It's a draft and we're rendering drafts.
                 yield rv
             elif py and "published" in py and py["published"] == False:
-                # It's a draft and function invoked with drafts=False (default)
-                # so skip it.
+                # It's a draft and we're not rendering drafts.
                 continue
             elif not drafts:
+                # The general default.
                 yield rv
 
 
