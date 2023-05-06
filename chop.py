@@ -131,6 +131,12 @@ KEYWORDS_FILE = "{PATH}{REPO}_data/keywords.txt"
 CATEGORY_PAGE = f"{PATH}{REPO}category.md"
 CATEGORY_GRID = f"{INCLUDES}category_list.md"
 CATEGORY_INCLUDE = f"{INCLUDES}category.md"
+# LOAD SITE CONFIG
+with open(f"{PATH}{REPO}_config.yml", "r") as stream:
+    try:
+        CONFIG = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
 
 # Set database constant names
 SUMMARIESDB = REPO_DATA + "summaries.db"
@@ -494,19 +500,10 @@ def find_categories():
     """Find Categories"""
     fig("Find Categories")
     global cdict
-
-    config_file = f"{PATH}{REPO}_config.yml"
-    with open(config_file, "r") as stream:
-        try:
-            _config = yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
-
-    if "categories" in _config and "filter" in _config["categories"]:
-        category_filter = _config["categories"]["filter"]
+    if "categories" in CONFIG and "filter" in CONFIG["categories"]:
+        category_filter = CONFIG["categories"]["filter"]
     else:
         category_filter = None
-
     cat_dict = defaultdict(list)
     word_list = defaultdict(list)
     pwords = defaultdict(lambda x=None: x)
