@@ -262,7 +262,7 @@ def make_prompt(dict_key, data):
         "description": (
             f"Write a concise and informative meta description for the following text:\n{data}\n\n"
             "...that will work well as summary-text in website navigation. "
-            "You are the author, but never say 'The author'. Write from the first person perspective. "
+            "Write from the first person perspective. "
             "Keep it short."
             "\nSummary:\n\n"
         ),
