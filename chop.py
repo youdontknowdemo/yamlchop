@@ -53,14 +53,13 @@ from sqlitedict import SqliteDict as sqldict
 from collections import Counter, defaultdict
 
 
-# Activate the fields that should be filled-in by OpenAI
+# OpenAI, Arrows & Categories, OH MY!
+ALL_FIELDS = ["date", "title", "headline", "description", "keyword", "categories"]
+AI_FIELDS = ["headline", "description", "keywords"]
+ENGINE = "text-davinci-003"
 NUMBER_OF_CATEGORIES = 150
 NUMBER_OF_COLUMNS = 4
-AI_FIELDS = ["headline", "description", "keywords"]
-ALL_FIELDS = ["date", "title", "headline", "description", "keyword", "categories"]
-
-# OpenAI CONSTANTS - Adjust these to your liking
-ENGINE = "text-davinci-003"
+PAST_IS_LEFT = True
 TEMPERATURE = 0.5
 MAX_TOKENS = 100
 
@@ -219,8 +218,9 @@ def odb(DBNAME, slug, name, data):
             result = db[slug]
         else:
             fig(f"OpenAI", DBNAME)
-            chop_at = 3500
             # Chop the article down to a summarize able length
+            prompt_tokens = num_tokens_from_string(data, "cl100k_base")
+            chop_at = 4096 - prompt_tokens
             required_tokens = num_tokens_from_string(data, "cl100k_base")
             if required_tokens > chop_at:
                 while required_tokens > chop_at:
@@ -244,15 +244,15 @@ def odb(DBNAME, slug, name, data):
     return result, api_hit
 
 
-def make_prompt(name, data):
+def make_prompt(dict_key, data):
     #  ____                            _
     # |  _ \ _ __ ___  _ __ ___  _ __ | |_ ___
     # | |_) | '__/ _ \| '_ ` _ \| '_ \| __/ __|
     # |  __/| | | (_) | | | | | | |_) | |_\__ \
     # |_|   |_|  \___/|_| |_| |_| .__/ \__|___/
     #                           |_|
-    """Returns an OpenAI prompt for the given name and data."""
-    pdict = {
+    """Returns an OpenAI prompt for the given dict key-name and post data."""
+    dict_o_prompts = {
         "headline": (
             f"Write a short headline for the following post:\n{data}\n\n"
             "You are the one who write this. Write from first person perspective. Never say 'The author'. '"
@@ -288,7 +288,7 @@ def make_prompt(name, data):
             "\nAdvice:\n\n"
         ),
     }
-    return pdict[name]
+    return dict_o_prompts[dict_key]
 
 
 #  _____ _                 _ _
@@ -330,6 +330,7 @@ def sync_check():
     # |____/ |_| |_| \_|\____|  \____|_| |_|\___|\___|_|\_\
     """Check for new posts needing AI-writing or YAMLESQUE source-file updating."""
     fig("SYNC Check", "Checking for new posts needing AI-writing")
+    global ydict
     for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE, clone=True)):
         if fm and len(fm) == 2 and "title" in fm and "date" in fm:
             # Only 2 fields of YAML front matter asks for release.
@@ -491,6 +492,7 @@ def find_categories():
     #                                           |___/
     """Find Categories"""
     fig("Find Categories")
+    global cdict
 
     config_file = f"{PATH}{REPO}_config.yml"
     with open(config_file, "r") as stream:
@@ -520,6 +522,10 @@ def find_categories():
                 if "keywords" in yml:
                     keywords = yml["keywords"].split(", ")
                     for keyword in keywords:
+                        # Check if keyword is just a number-string (like "404")
+                        # or a float like "20.04". Allow domain names like "example.com":
+                        if keyword.isnumeric() or keyword.replace(".", "").isnumeric():
+                            continue
                         nkey = normalize_key(keyword)
                         word_list[nkey].append(keyword)
                         cat_dict[nkey].append(slug)
@@ -608,6 +614,7 @@ def category_pages():
     #                              |___/
     # fig("Cat Pages", "Building category pages (plural)...")
     """Outputs the individual category pages and includes"""
+    global ydict
     build_ydict()
     top_cats = get_top_cats()
     # Map every slug to a category:
@@ -673,8 +680,9 @@ def yaml_chop():
     #   |_/_/   \_\_|  |_|_____|| \____|_| |_|\___/| .__/ (_)(_)(_)
     fig("Chop the YAML!")  #    |                  |_|
     """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
+    global ydict
     num_pages = len(ydict)
-    href_title_list = [(f'{BLOG}{ydict[x]["slug"]}', ydict[x]["title"]) for x in ydict]
+    href_title_list = [(f'{BLOG}{ydict[x]["slug"]}/', ydict[x]["title"]) for x in ydict]
     counter = 0
     for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE)):
         if fm and isinstance(fm, dict) and len(fm) > 2:
@@ -712,11 +720,6 @@ def yaml_chop():
                 fh.write("layout: post\n")
                 fh.write("---\n")
                 fh.write(body)
-
-                # THE NEXT TWO LINES I DON'T THINK ARE NEEDED ANYMORE.
-                # if "published" in fm and fm["published"] == "false":
-                #     continue
-
                 # Arrow Maker needs index, len of list and list of tuples.
                 arrow_link = arrow_maker(counter, num_pages, href_title_list)
                 fh.write(arrow_link)
@@ -916,30 +919,42 @@ def arrow_maker(i, length, href_title_list):
     return the HTML for the prev/next arrows. Path issues must be dealt with
     beforehand in the tuple sequence."""
 
-    # Get the prev/next slugs and titles:
+    # Arrows always appear on their implied sides: left on left and right on right.
     larr = '<span class="arrow">&larr;&nbsp;</span>'
     rarr = '<span class="arrow">&nbsp;&rarr;</span>'
-
-    # Detect if we're at the beginning or end of the sequence:
-    if i:
-        try:
-            prev_slug, prev_title = href_title_list[i - 1]
-        except:
-            print(f"href_title_list: {href_title_list[i]}")
-            raise SystemExit()
-        prev_arrow = f'{larr}<a href="{prev_slug}">{prev_title}</a>'
+  
+    # Handle arrows at beginning and end of sequence
+    if not i:
+        older_slug, older_title = href_title_list[i + 1]
+        newer_slug, newer_title = "", ""
+    elif i < length - 1:
+        older_slug, older_title = href_title_list[i + 1]
+        newer_slug, newer_title = href_title_list[i - 1]
     else:
-        prev_arrow = '<span class="arrow">&nbsp;</span>'
-    if i < length - 1:
-        next_slug, next_title = href_title_list[i + 1]
-        next_arrow = f'<a href="{next_slug}">{next_title}</a>{rarr}'
-    else:
-        next_arrow = '<span class="arrow">&nbsp;</span>'
+        older_slug, older_title = "", ""
+        newer_slug, newer_title = href_title_list[i - 1]
 
-    # Build the arrows:
-    prev_link = f'<div class="post-nav-prev">{prev_arrow}</div>'
-    next_link = f'<div class="post-nav-next">{next_arrow}</div>'
-    arrow_link = f'<div class="post-nav">{prev_link} &nbsp; {next_link}</div>'
+    if PAST_IS_LEFT:
+        if not i:
+            rarr = ""
+        elif i == length - 1:
+            larr = ""
+        left_link = f'<a href="{older_slug}">{older_title}</a>'
+        right_link = f'<a href="{newer_slug}">{newer_title}</a>'
+    else:
+        if not i:
+            larr = ""
+        elif i == length - 1:
+            rarr = ""
+        left_link = f'<a href="{newer_slug}">{newer_title}</a>'
+        right_link = f'<a href="{older_slug}">{older_title}</a>'
+
+    outer_div = '<div class="arrow-links">'
+    left_div = '<div class="post-nav-prev">'
+    right_div = '<div class="post-nav-next">'
+    end_div = '</div>'
+    
+    arrow_link = f"{outer_div}{left_div}{larr}{left_link}{end_div} &nbsp; {right_div}{right_link}{rarr}{end_div}{end_div}"
     return arrow_link
 
 
