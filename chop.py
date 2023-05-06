@@ -873,7 +873,10 @@ def get_top_cats():
     # Sure global category dictionary (cdict) has keyword count statistics,
     # but which keywords are most popular, minus the meta-data? This shows!
     global cdict
-    tcats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
+    if "categories" in CONFIG:
+        tcats = [x for x in CONFIG["categories"].keys() if x not in ['all', 'filters']]
+    else:
+        tcats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
     return tcats
 
 
