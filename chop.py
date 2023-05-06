@@ -38,6 +38,7 @@ import re
 import sys
 import yaml
 import shlex
+import pickle
 import openai
 import shutil
 import argparse
@@ -501,8 +502,8 @@ def find_categories():
         except yaml.YAMLError as exc:
             print(exc)
 
-    if "category_filter" in _config:
-        category_filter = _config["category_filter"]
+    if "categories" in _config and "filter" in _config["categories"]:
+        category_filter = _config["categories"]["filter"]
     else:
         category_filter = None
 
@@ -522,13 +523,12 @@ def find_categories():
                 if "keywords" in yml:
                     keywords = yml["keywords"].split(", ")
                     for keyword in keywords:
-                        # Check if keyword is just a number-string (like "404")
-                        # or a float like "20.04". Allow domain names like "example.com":
-                        if keyword.isnumeric() or keyword.replace(".", "").isnumeric():
-                            continue
                         nkey = normalize_key(keyword)
                         word_list[nkey].append(keyword)
                         cat_dict[nkey].append(slug)
+    cat_file = f"{REPO_DATA}categories.yml"
+    with open(cat_file, "w") as fh:
+        yaml.dump(list(word_list.keys()), fh)
     for key in word_list:
         alist = word_list[key]
         pwords[key] = Counter(alist).most_common(1)[0][0]
@@ -540,6 +540,7 @@ def find_categories():
     common_cats = cat_counter.most_common()
     if category_filter:
         common_cats = [x for x in common_cats if x[0] not in category_filter]
+    common_cats = [x for x in common_cats if not keyword.isnumeric() and not keyword.replace(".", "").isnumeric()]
     show_cats = 15
     for cat, count in common_cats:
         cdict[cat]["slug"] = slugify(cat)
@@ -984,9 +985,14 @@ deletes()  # Deletes old posts
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 make_index()  # Builds index page of all posts (for blog page)
 find_categories()  # Builds global categories and builds category pages
+
+# pickle cdict into _data/cdict.pkl
+with open(f"{REPO_DATA}cdict.pkl", "wb") as f:
+    pickle.dump(cdict, f)
+
 yaml_chop()  # Writes out all Jekyll-style posts
 drafts()  # Writes out all Jekyll-style drafts
-git_push()  # Pushes changes to Github (publishes)
+# git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
 print("If run from NeoVim, :bdel closes this buffer.")
