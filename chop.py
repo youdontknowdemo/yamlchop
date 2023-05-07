@@ -877,30 +877,15 @@ def get_top_cats():
     """Returns the top categories either from the config or the cdict."""
     global cdict
     if "categories" in CONFIG and len(CONFIG["categories"]) > 1:
-        # Get the raw category mapping
-        craw = CONFIG["categories"]
+        category_map = get_cat_map()
 
-        # Create category map and make every key-name map to itself as a value.
-        cmap = {}
-        for key in craw:
-            cmap[key] = key
-
-        # Map each key-name to each of it's value-list's contents.
-        for i, key in enumerate(craw):
-            if craw[key]:
-                for j, sub_key in enumerate(craw[key]):
-                    if key != "filter":
-                        if isinstance(sub_key, dict):
-                            sub_key = list(sub_key.keys())[0]
-                        cmap[sub_key] = key
-
-        if len(cmap) < NUMBER_OF_CATEGORIES:
-            tcats = cmap.keys()
+        if len(category_map) < NUMBER_OF_CATEGORIES:
+            top_cats = category_map.keys()
         else:
-            tcats = list(cmap.keys())[0:NUMBER_OF_CATEGORIES]
+            top_cats = list(category_map.keys())[0:NUMBER_OF_CATEGORIES]
     else:
-        tcats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
-    return tcats
+        top_cats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
+    return top_cats
 
 
 def sq(text):
@@ -995,6 +980,29 @@ def num_tokens_from_string(string: str, encoding_name: str) -> int:
 #   | | | | | |  __/ |  __/| | (_| | |_| | (_| | | | (_) | |_| | | | | (_| |
 #   |_| |_| |_|\___| |_|   |_|\__,_|\__, |\__, |_|  \___/ \__,_|_| |_|\__,_|
 # Put new stuff here                |___/ |___/
+
+
+def get_cat_map():
+    """Returns a flat dictionary mapping keywords to categories."""
+
+    craw = CONFIG["categories"]  # Get hierarchical mapping
+    cmap = {}  # Will be a flat map.
+
+    # First pass maps every parent key to itself.
+    for key in craw:
+        cmap[key] = key
+
+    # Second pass maps every sub-list item to parent category (the flattening).
+    for key in craw:
+        if craw[key]:
+            for j, sub_key in enumerate(craw[key]):
+                if key != "filter":
+                    if isinstance(sub_key, dict):
+                        # A trailing colon was left on a subcat mapping
+                        # Grab first key-name of accidental dict as val.
+                        sub_key = list(sub_key.keys())[0]
+                    cmap[sub_key] = key
+    return cmap
 
 
 #  _____ _                                 _             _
