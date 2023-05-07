@@ -58,7 +58,7 @@ from collections import Counter, defaultdict
 ALL_FIELDS = ["date", "title", "headline", "description", "keyword", "categories"]
 AI_FIELDS = ["headline", "description", "keywords"]
 ENGINE = "text-davinci-003"
-NUMBER_OF_CATEGORIES = 150
+NUMBER_OF_CATEGORIES = 10
 NUMBER_OF_COLUMNS = 4
 PAST_IS_LEFT = True
 TEMPERATURE = 0.5
@@ -137,6 +137,7 @@ with open(f"{PATH}{REPO}_config.yml", "r") as stream:
         CONFIG = yaml.safe_load(stream)
     except yaml.YAMLError as exc:
         print(exc)
+        raise SystemExit()
 
 # Set database constant names
 SUMMARIESDB = REPO_DATA + "summaries.db"
@@ -535,19 +536,15 @@ def find_categories():
     for cat, slugs in cat_dict.items():
         cat_counter[cat] = len(slugs)
     common_cats = cat_counter.most_common()
-    if category_filter:
-        common_cats = [x for x in common_cats if x[0] not in category_filter]
-    common_cats = [x for x in common_cats if not keyword.isnumeric() and not keyword.replace(".", "").isnumeric()]
-    show_cats = 15
     for cat, count in common_cats:
         cdict[cat]["slug"] = slugify(cat)
         cdict[cat]["count"] = count
         cdict[cat]["title"] = pwords[cat]
     print(f"Found {len(cdict):,} categories.")
-    for i, acat in enumerate(cdict):
-        print(f"{i+1}. {pwords[acat]} ({cdict[acat]['count']})")
-        if i + 1 >= show_cats:
-            break
+    # for i, acat in enumerate(cdict):
+    #     print(f"{i+1}. {pwords[acat]} ({cdict[acat]['count']})")
+    #     if i + 1 >= show_cats:
+    #         break
     category_grid()  # Builds category_list.md include
     category_page()  # Builds category.md and include
     category_pages()  # Builds cat_*.md and cat_*.md includes
@@ -567,7 +564,7 @@ def category_grid():
     counter = 0
     top_cats = get_top_cats()
     with open(CATEGORY_GRID, "w") as fh:
-        if cdict:
+        if cdict and len(top_cats) > (rows * NUMBER_OF_COLUMNS):
             for row in range(rows):
                 fh.write("\n")
                 for col in range(NUMBER_OF_COLUMNS):
@@ -577,6 +574,10 @@ def category_grid():
                     markdown_link = f"[{title}](/{slug}/)"
                     fh.write(f"{markdown_link} | ")
                     counter += 1
+        else:
+            # Make the include empty.
+            print("Skipping category grid. Check _config.yml")
+            fh.write("")
 
 
 def category_page():
@@ -598,7 +599,11 @@ def category_page():
                 top_cats = get_top_cats()
                 for i, cat in enumerate(top_cats):
                     permalink = slugify(cat)
-                    title = cdict[cat]["title"]
+                    try:
+                        title = cdict[cat]["title"]
+                    except:
+                        print(title)
+                        raise SystemExit()
                     fh2.write(f'<li><a href="/{permalink}/">{title}</a></li>\n')
                 fh2.write("</ol>\n")
 
@@ -682,6 +687,7 @@ def yaml_chop():
     num_pages = len(ydict)
     href_title_list = [(f'{BLOG}{ydict[x]["slug"]}/', ydict[x]["title"]) for x in ydict]
     counter = 0
+    top_cats = get_top_cats()
     for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE)):
         if fm and isinstance(fm, dict) and len(fm) > 2:
             # Print a progress indicator:
@@ -690,7 +696,6 @@ def yaml_chop():
 
             # Build the categories:
             keyword_list = fm["keywords"].split(", ")
-            top_cats = get_top_cats()
             categories = set()
             for keyword in keyword_list:
                 keyword = keyword.lower()
@@ -869,12 +874,30 @@ def compare_files(file1, file2):
 
 
 def get_top_cats():
-    """Returns the top categories"""
-    # Sure global category dictionary (cdict) has keyword count statistics,
-    # but which keywords are most popular, minus the meta-data? This shows!
+    """Returns the top categories either from the config or the cdict."""
     global cdict
-    if "categories" in CONFIG and len(CONFIG["categories"]) > 2:
-        tcats = [x for x in CONFIG["categories"].keys() if x not in ['all', 'filters']]
+    if "categories" in CONFIG and len(CONFIG["categories"]) > 1:
+        # Get the raw category mapping
+        craw = CONFIG["categories"]
+
+        # Create category map and make every key-name map to itself as a value.
+        cmap = {}
+        for key in craw:
+            cmap[key] = key
+
+        # Map each key-name to each of it's value-list's contents.
+        for i, key in enumerate(craw):
+            if craw[key]:
+                for j, sub_key in enumerate(craw[key]):
+                    if key != "filter":
+                        if isinstance(sub_key, dict):
+                            sub_key = list(sub_key.keys())[0]
+                        cmap[sub_key] = key
+
+        if len(cmap) < NUMBER_OF_CATEGORIES:
+            tcats = cmap.keys()
+        else:
+            tcats = list(cmap.keys())[0:NUMBER_OF_CATEGORIES]
     else:
         tcats = [x[1] for x in enumerate(cdict) if x[0] < NUMBER_OF_CATEGORIES]
     return tcats
@@ -985,11 +1008,6 @@ deletes()  # Deletes old posts
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 make_index()  # Builds index page of all posts (for blog page)
 find_categories()  # Builds global categories and builds category pages
-
-# pickle cdict into _data/cdict.pkl
-with open(f"{REPO_DATA}cdict.pkl", "wb") as f:
-    pickle.dump(cdict, f)
-
 yaml_chop()  # Writes out all Jekyll-style posts
 drafts()  # Writes out all Jekyll-style drafts
 # git_push()  # Pushes changes to Github (publishes)
