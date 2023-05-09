@@ -1,6 +1,6 @@
  USAGE: `python ~/repos/yamlchop/chop.py -f ~/repos/MikeLev.in/_drafts/journal.md`
 
-```bash
+```code
    __   __ _    __  __ _         _                      chop
    \ \ / // \  |  \/  | |    ___| |__   ___  _ __        _|   chop
     \ V // _ \ | |\/| | |   / __| '_ \ / _ \| '_ \      | |     |   chop
