@@ -1,4 +1,4 @@
- USAGE: `python ~/repos/yamlchop/chop.py -f ~/repos/MikeLev.in/_drafts/journal.md`
+ USAGE: `python ~/repos/yamlchop/chop.py -f ~/[path_to_jekyll_repo]/_drafts/journal.md`
 
 ```code
    __   __ _    __  __ _         _                      chop
