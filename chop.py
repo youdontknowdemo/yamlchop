@@ -1,22 +1,18 @@
-# Author: Mike Levin, SEO in NYC
-# Description: Chop up a YAMLesque (journal.md) file into individual posts.
 # USAGE: python ~/repos/yamlchop/chop.py -f ~/repos/MikeLev.in/_drafts/journal.md
-# PURPOSE: Continual refinement and constant improvement.
-#
 # __   __ _    __  __ _         _                      chop
 # \ \ / // \  |  \/  | |    ___| |__   ___  _ __        _|   chop
 #  \ V // _ \ | |\/| | |   / __| '_ \ / _ \| '_ \      | |     |   chop
 #   | |/ ___ \| |  | | |__| (__| | | | (_) | |_) |  _  | | ___ |     |  chop
 #   |_/_/   \_\_|  |_|_____\___|_| |_|\___/| .__/  | |_| |/ _ \|_   _|    |   chop
 #                                          |_|      \___/| (_) | | | |_ __|     |   chop
-#   TO DO:                                               |\___/| |_| | '__|_ __ |     |
-#   - Beware of rabbit holes!            ___             |     |\__,_| |  | '_ \| __ _|
-#   - Blend in YouTube videos           |   |         _____    |     |_|  | | | |/ _` |
-#   - Discrete sequences                |_  |        /     \         |    |_| |_| (_| |
-#   - Pinning posts                       \ |       |       \        |    |     |\__,_|
-#                                         |  \      |       /             |     |     |
-#                                          \  \____ \_      \                   |     |
-#                                           \      \_/      |                         |
+#   I'm building better blogging                         |\___/| |_| | '__|_ __ |     |
+#   To replace a bygone era              ___             |     |\__,_| |  | '_ \| __ _|
+#   Where your CMS is flogging          |   |         _____    |     |_|  | | | |/ _` |
+#   You to take up something clearer,   |_  |        /     \         |    |_| |_| (_| |
+#   So you catalog your cat tails         \ |       |       \        |    |     |\__,_|
+#   In one file for the hashing           |  \      |       /             |     |     |
+#   Using YAML for the data                \  \____ \_      \                   |     |
+#   And then Jekyll for the lashing.        \      \_/      |                         |
 #                                     ___.   \_            _/                          _
 #                    .-,             /    \    |          |                            _
 #                    |  \          _/      `--_/           \_                          _
@@ -58,7 +54,7 @@ from collections import Counter, defaultdict
 ALL_FIELDS = ["date", "title", "headline", "description", "keyword", "categories"]
 AI_FIELDS = ["headline", "description", "keywords"]
 ENGINE = "text-davinci-003"
-NUMBER_OF_CATEGORIES = 10
+NUMBER_OF_CATEGORIES = 24  # Best as a multiple of NUMBER_OF_COLUMNS
 NUMBER_OF_COLUMNS = 4
 PAST_IS_LEFT = True
 TEMPERATURE = 0.5
@@ -80,7 +76,7 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("YAMLchop...", "A way to journal using 1-file for life.")
+fig("YAMLchop...", "Improve your life through better blogging.")
 
 #  ____                          _         Command-line says  ()   ,
 # |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___   do that   O  \\  .
@@ -149,8 +145,8 @@ for afield in AI_FIELDS:
 
 # Print the pertinents to the user
 fig(REPO, f"REPO: {REPO}")  # Print the repo name
-print(f"PATH: {PATH}")
-print(f"FILE: {FILE}")
+# print(f"PATH: {PATH}")
+# print(f"FILE: {FILE}")
 
 # global variables (yes, this is fine in Python)
 ydict = defaultdict(dict)  # A dict of all journal entry front matter
@@ -486,7 +482,7 @@ def make_index():
                 description = description.replace(">", "&gt;")
                 adate = fm["date"]
                 fh.write(f'<li><a href="{BLOG}{slug}/">{title}</a> ({adate})\n<br />{description}</li>\n')
-                if i == 11:
+                if i == 10:
                     break
         fh.write("</ol>\n")
 
@@ -507,7 +503,7 @@ def find_categories():
         category_filter = None
     cat_dict = defaultdict(list)
     word_list = defaultdict(list)
-    pwords = defaultdict(lambda x=None: x)
+    proper_words = defaultdict(lambda x=None: x)
     with open(YAMLESQUE) as fh:
         for post in CHOP.split(fh.read()):
             ystr, body = post.split("---", 1)
@@ -521,28 +517,43 @@ def find_categories():
                 if "keywords" in yml:
                     keywords = yml["keywords"].split(", ")
                     for keyword in keywords:
-                        nkey = normalize_key(keyword)
-                        word_list[nkey].append(keyword)
-                        cat_dict[nkey].append(slug)
+                        normalized_keyword = normalize_key(keyword)
+                        word_list[normalized_keyword].append(keyword)
+                        cat_dict[normalized_keyword].append(slug)
+    # It's good to have an external data file of categories.
     cat_file = f"{REPO_DATA}categories.yml"
     with open(cat_file, "w") as fh:
         yaml.dump(list(word_list.keys()), fh)
+    # Now we have a list of categories, but we need to know which
+    # category is the most popular for each keyword.
     for key in word_list:
         alist = word_list[key]
-        pwords[key] = Counter(alist).most_common(1)[0][0]
+        proper_words[key] = Counter(alist).most_common(1)[0][0]
+
+    # Now we have a dictionary of categories and slugs.
     for key in cat_dict:
-        cat_dict[key].reverse()
+        cat_dict[key].reverse()  # Reverse the list so it's in chronological order.
+
     cat_counter = Counter()  # Create a counter object
     for cat, slugs in cat_dict.items():
         cat_counter[cat] = len(slugs)
-    common_cats = cat_counter.most_common()
-    for cat, count in common_cats:
-        cdict[cat]["slug"] = slugify(cat)
+    # common_cats = cat_counter.most_common()
+
+    # Create the global category dictionary (cdict):
+    for cat, count in cat_counter.most_common():
+        # if category_filter and cat not in category_filter:
+        #     continue
+        # cdict[cat]["slug"] = slugify(cat)
         cdict[cat]["count"] = count
-        cdict[cat]["title"] = pwords[cat]
+        cdict[cat]["title"] = proper_words[cat]
+
+    # It's also good to have an external file of category frequencies.
+    cat_file = f"{REPO_DATA}category_frequency.yml"
+    with open(cat_file, "w") as fh:
+        yaml.dump(cdict, fh)
     print(f"Found {len(cdict):,} categories.")
     # for i, acat in enumerate(cdict):
-    #     print(f"{i+1}. {pwords[acat]} ({cdict[acat]['count']})")
+    #     print(f"{i+1}. {proper_words[acat]} ({cdict[acat]['count']})")
     #     if i + 1 >= show_cats:
     #         break
     category_grid()  # Builds category_list.md include
@@ -564,12 +575,16 @@ def category_grid():
     counter = 0
     top_cats = get_top_cats()
     with open(CATEGORY_GRID, "w") as fh:
-        if cdict and len(top_cats) > (rows * NUMBER_OF_COLUMNS):
+        # print(f"Len of top_cats: {len(top_cats)}")
+        # print(f"Number of cells: {rows * NUMBER_OF_COLUMNS}")
+        # raise SystemExit()
+        if cdict and len(top_cats) >= (rows * NUMBER_OF_COLUMNS):
             for row in range(rows):
                 fh.write("\n")
                 for col in range(NUMBER_OF_COLUMNS):
                     cat = top_cats[counter]
                     title = cdict[cat]["title"]
+
                     slug = slugify(cat)
                     markdown_link = f"[{title}](/{slug}/)"
                     fh.write(f"{markdown_link} | ")
@@ -683,7 +698,7 @@ def yaml_chop():
     #   |_/_/   \_\_|  |_|_____|| \____|_| |_|\___/| .__/ (_)(_)(_)
     fig("Chop the YAML!")  #    |                  |_|
     """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
-    global ydict
+    global ydict, cdict
     num_pages = len(ydict)
     href_title_list = [(f'{BLOG}{ydict[x]["slug"]}/', ydict[x]["title"]) for x in ydict]
     counter = 0
@@ -696,14 +711,17 @@ def yaml_chop():
 
             # Build the categories:
             keyword_list = fm["keywords"].split(", ")
+            category_map = get_cat_map()
+
+            # Gather the page's keywords:
             categories = set()
             for keyword in keyword_list:
                 keyword = keyword.lower()
-                nkey = normalize_key(keyword)
-                if keyword in top_cats or nkey in top_cats:
-                    categories.add(keyword)
-            categories = ", ".join(categories)
-            fm["categories"] = categories
+                normalized_keyword = normalize_key(keyword)
+                for candidate in [keyword, normalized_keyword]:
+                    if candidate in category_map:
+                        categories.add(category_map[candidate])
+            fm["categories"] = ", ".join(categories)
 
             # Format the date:
             adate = fm["date"]
@@ -728,10 +746,13 @@ def yaml_chop():
                 fh.write(arrow_link)
                 fh.write("\n## Categories\n")
                 fh.write("\n<ul>")
-                for asubcat in categories.split(", "):
-                    asubcat = asubcat.strip().lower()
-                    if asubcat in top_cats:
-                        fh.write(f"\n<li><h4><a href='/{slugify(asubcat)}/'>{cdict[asubcat]['title']}</a></h4></li>")
+                for acat in categories:
+                    acat = normalize_key(acat)
+                    try:
+                        fh.write(f"\n<li><h4><a href='/{slugify(acat)}/'>{cdict[acat]['title']}</a></h4></li>")
+                    except:
+                        print(f"Category {acat} not found!")
+                        raise SystemExit()
                 fh.write("</ul>")
                 counter += 1
     print("chopped!")
@@ -1018,7 +1039,7 @@ make_index()  # Builds index page of all posts (for blog page)
 find_categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
 drafts()  # Writes out all Jekyll-style drafts
-# git_push()  # Pushes changes to Github (publishes)
+git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
 print("If run from NeoVim, :bdel closes this buffer.")
