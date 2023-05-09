@@ -225,11 +225,22 @@ def odb(DBNAME, slug, name, data):
             # Chop the article down to a summarize able length
             prompt_tokens = num_tokens_from_string(data, "cl100k_base")
             chop_at = 4096 - prompt_tokens
-            required_tokens = num_tokens_from_string(data, "cl100k_base")
+            try:
+                required_tokens = num_tokens_from_string(data, "cl100k_base")
+            except:
+                print("Encoding problem")
+                raise SystemExit()
             if required_tokens > chop_at:
                 while required_tokens > chop_at:
                     data = data.rsplit(" ", 1)[0]
-                    required_tokens = num_tokens_from_string(data, "cl100k_base")
+                    try:
+                        required_tokens = num_tokens_from_string(data, "cl100k_base")
+                        print(f"Prompt shrunk to {required_tokens}")
+                    except:
+                        print("Encoding problem while shrinking")
+                        raise SystemExit()
+
+            print(f"Final prompt size: {required_tokens}")
 
             # Build a prompt and get a result from OpenAI.
             aprompt = make_prompt(name, data)
