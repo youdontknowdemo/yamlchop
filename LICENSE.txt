@@ -11,9 +11,11 @@ conditions:
    all copies or substantial portions of the Software.
 
 2. If the Software is modified in any way, a prominent notice must be included
-   in the forked or new repository stating that the Software has been modified,
-   and a link back to the original repository `https://github.com/miklevin/yamlchop/`
-   or the creator's site `https://mikelev.in/` must be provided.
+in the forked or new repository stating that the Software has been modified,
+and a link back to the original repository
+[https://github.com/miklevin/yamlchop/](https://github.com/miklevin/yamlchop/)
+or the creator's site [https://mikelev.in/](https://mikelev.in/) must be
+provided.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,

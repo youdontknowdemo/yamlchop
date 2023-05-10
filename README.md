@@ -191,3 +191,9 @@ If anything needed OpenAI fields written, the automatic git commit and push
 that publishes the site will not occur until the next time you run that
 command, assuming you wish to have a chance to review and edit the OpenAI
 fields.
+
+## License
+
+This software is provided under a very liberal MIT license that only requires
+you to include the license text in any redistribution. See the LICENSE file for
+details.
