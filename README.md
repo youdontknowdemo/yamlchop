@@ -125,20 +125,20 @@ During this process, if there are any posts for which you have given a title
 description, and a keyword field with extracted keywords. You'll need an
 `openai.txt` file with your API key in it in the yamlchop repo folder.
 `.gitignore` will keep it from getting committed.
-
- ┌──────────────────────┐     ┌──────────────────────┐
- │title: My Blog Post   │     │title: My Blog Post   │
- │date: 2021-05-09      │     │date: 2021-05-09      │
- │---                   │     │headline: [OpenAI]    │
- │                      │────►│description: [OpenAI] │
- │# My Blog Post        │     │keywords: [OpenAI]    │
- │                      │     │---                   │
- │This is my blog post. │     │                      │
- └──────────────────────┘     │# My Blog Post        │
-                              │                      │
-                              │This is my blog post. │
-                              └──────────────────────┘
-
+    
+     ┌──────────────────────┐     ┌──────────────────────┐
+     │title: My Blog Post   │     │title: My Blog Post   │
+     │date: 2021-05-09      │     │date: 2021-05-09      │
+     │---                   │     │headline: [OpenAI]    │
+     │                      │────►│description: [OpenAI] │
+     │# My Blog Post        │     │keywords: [OpenAI]    │
+     │                      │     │---                   │
+     │This is my blog post. │     │                      │
+     └──────────────────────┘     │# My Blog Post        │
+                                  │                      │
+                                  │This is my blog post. │
+                                  └──────────────────────┘
+    
 ## Tell Them About the Arrows!
 
 Since the pages have a natural sequential order, that can help with Web
