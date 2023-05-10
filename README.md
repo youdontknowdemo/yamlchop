@@ -37,9 +37,9 @@
 
 ## What is this?
 
-So you know how the Jekyll static site generator in Github Pages works? You
-make these lightweight little text files with YAML front-matter and Markdown
-content, then the Jekyll system turns them into HTML pages like so:
+So you know the Jekyll SSG in Github called github.io or Github Pages? It is a
+static site generator uses lightweight little text files with YAML front-matter
+and Markdown content to publish slick low tech-liability HTML pages like so:
 
     ┌──────────────────────┐          ┌────────────────────────────────┐
     │title: My Blog Post   │          │<html>                          │
