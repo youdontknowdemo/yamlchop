@@ -37,9 +37,10 @@
 
 ## What is this?
 
-So you know the Jekyll static site generator (SSG) in Github called github.io
-or Github Pages? It takes a repo with simple text files with YAML front-matter
-and Markdown content to publish slick low tech-liability HTML pages like so:
+So you know the Jekyll static site generator (SSG) in Github called `github.io`
+or `Github Pages`? It takes a repo with simple text files with YAML
+front-matter and Markdown content to publish slick low tech-liability HTML
+pages like so:
 
     ┌──────────────────────┐          ┌────────────────────────────────┐
     │title: My Blog Post   │          │<html>                          │
