@@ -217,33 +217,25 @@ def odb(DBNAME, slug, name, data):
     """Retrieves and saves OpenAI request not already done.
     It checks if the data is there first, so safe to re-run."""
     api_hit = False
+    chop_at = 3400
+    encoding = "cl100k_base"
     with sqldict(DBNAME) as db:
         if slug in db:
             result = db[slug]
         else:
             fig(f"OpenAI", DBNAME)
             # Chop the article down to a summarize able length
-            prompt_tokens = num_tokens_from_string(data, "cl100k_base")
-            chop_at = 4096 - prompt_tokens
-            try:
-                required_tokens = num_tokens_from_string(data, "cl100k_base")
-            except:
-                print("Encoding problem")
-                raise SystemExit()
-            if required_tokens > chop_at:
-                while required_tokens > chop_at:
+            prompt_length = num_tokens_from_string(data, encoding)
+            if prompt_length > chop_at:
+                while prompt_length > chop_at:
                     data = data.rsplit(" ", 1)[0]
-                    try:
-                        required_tokens = num_tokens_from_string(data, "cl100k_base")
-                        print(f"Prompt shrunk to {required_tokens}")
-                    except:
-                        print("Encoding problem while shrinking")
-                        raise SystemExit()
+                    prompt_length = num_tokens_from_string(data, encoding)
+                    print(".", end="")
+                print(f"Prompt is now {prompt_length} tokens.")
 
-            print(f"Final prompt size: {required_tokens}")
+            aprompt = make_prompt(name, data)
 
             # Build a prompt and get a result from OpenAI.
-            aprompt = make_prompt(name, data)
             result = openai.Completion.create(
                 engine=ENGINE,
                 prompt=aprompt,
