@@ -143,10 +143,7 @@ for afield in AI_FIELDS:
     command = f'{db_var} = "{db_file}"'
     exec(command)
 
-# Print the pertinents to the user
-fig(REPO, f"REPO: {REPO}")  # Print the repo name
-# print(f"PATH: {PATH}")
-# print(f"FILE: {FILE}")
+fig(REPO, f"Preparing to chop {PATH}{REPO}{FILE}")  # Print the repo name
 
 # global variables (yes, this is fine in Python)
 ydict = defaultdict(dict)  # A dict of all journal entry front matter
@@ -491,14 +488,14 @@ def make_index():
 
 
 def find_categories():
-    #  _____ _           _    ____      _                        _
-    # |  ___(_)_ __   __| |  / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___
-    # | |_  | | '_ \ / _` | | |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
-    # |  _| | | | | | (_| | | |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
-    # |_|   |_|_| |_|\__,_|  \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-    #                                           |___/
+    #  ____      _                        _           
+    # / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
+    #| |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
+    #| |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
+    # \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
+    #                    |___/                        
     """Find Categories"""
-    fig("Find Categories")
+    fig("Categories")
     global cdict
     if "categories" in CONFIG and "filter" in CONFIG["categories"]:
         category_filter = CONFIG["categories"]["filter"]
