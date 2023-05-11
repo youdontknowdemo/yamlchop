@@ -76,7 +76,7 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("YAMLchop...", "Improve your life through better blogging.")
+fig("YAMLchop/chop...", "Improve your life through better blogging.")
 
 #  ____                          _         Command-line says  ()   ,
 # |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___   do that   O  \\  .
@@ -302,7 +302,7 @@ def make_prompt(dict_key, data):
 # |_|   |_|\___/ \_/\_/   |_|\__\___|_| |_| |_|___/
 
 
-def deletes():
+def delete_old():
     #  ____       _      _                    _
     # |  _ \  ___| | ___| |_ ___   _ __  _ __(_) ___  _ __
     # | | | |/ _ \ |/ _ \ __/ _ \ | '_ \| '__| |/ _ \| '__|
@@ -487,15 +487,15 @@ def make_index():
         fh.write("</ol>\n")
 
 
-def find_categories():
-    #  ____      _                        _           
-    # / ___|__ _| |_ ___  __ _  ___  _ __(_) ___  ___ 
-    #| |   / _` | __/ _ \/ _` |/ _ \| '__| |/ _ \/ __|
-    #| |__| (_| | ||  __/ (_| | (_) | |  | |  __/\__ \
-    # \____\__,_|\__\___|\__, |\___/|_|  |_|\___||___/
-    #                    |___/                        
+def category_scan():
+    #   ____      _                                ____                  
+    #  / ___|__ _| |_ ___  __ _  ___  _ __ _   _  / ___|  ___ __ _ _ __  
+    # | |   / _` | __/ _ \/ _` |/ _ \| '__| | | | \___ \ / __/ _` | '_ \ 
+    # | |__| (_| | ||  __/ (_| | (_) | |  | |_| |  ___) | (_| (_| | | | |
+    #  \____\__,_|\__\___|\__, |\___/|_|   \__, | |____/ \___\__,_|_| |_|
+    #                     |___/            |___/                         
     """Find Categories"""
-    fig("Categories")
+    fig("Category Scan")
     global cdict
     if "categories" in CONFIG and "filter" in CONFIG["categories"]:
         category_filter = CONFIG["categories"]["filter"]
@@ -690,7 +690,7 @@ layout: default
             fh.write(arrow_link)
 
 
-def yaml_chop():
+def chop_the_yaml():
     # __   __ _    __  __ _     |  ____ _                  _  _  _
     # \ \ / // \  |  \/  | |    | / ___| |__   ___  _ __  | || || |
     #  \ V // _ \ | |\/| | |    || |   | '_ \ / _ \| '_ \ | || || |
@@ -759,12 +759,13 @@ def yaml_chop():
     print(f"{counter} files chopped!")
 
 
-def drafts():
-    #  ____             __ _
-    # |  _ \ _ __ __ _ / _| |_ ___
-    # | | | | '__/ _` | |_| __/ __|
-    # | |_| | | | (_| |  _| |_\__ \
-    # |____/|_|  \__,_|_|  \__|___/
+def make_drafts():
+    #  __  __       _          ____             __ _       
+    # |  \/  | __ _| | _____  |  _ \ _ __ __ _ / _| |_ ___ 
+    # | |\/| |/ _` | |/ / _ \ | | | | '__/ _` | |_| __/ __|
+    # | |  | | (_| |   <  __/ | |_| | | | (_| |  _| |_\__ \
+    # |_|  |_|\__,_|_|\_\___| |____/|_|  \__,_|_|  \__|___/
+    #                                                      
     """Because we can't preview drafts with Github Pages, the system publishes
     with a secret permalink so you can view the rendered draft in a no-CSS
     style that is appropriate for copy/pasting into Docs or Word."""
@@ -1034,12 +1035,12 @@ def get_cat_map():
 # |_|   |_|\___/ \_/\_/    \___\___/|_| |_|\__|_|  \___/|_|
 # This controls the entire (usually linear) flow. Edit for debugging.
 
-deletes()  # Deletes old posts
+delete_old()  # Deletes old posts
 sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 make_index()  # Builds index page of all posts (for blog page)
-find_categories()  # Builds global categories and builds category pages
-yaml_chop()  # Writes out all Jekyll-style posts
-drafts()  # Writes out all Jekyll-style drafts
+category_scan()  # Builds global categories and builds category pages
+chop_the_yaml()  # Writes out all Jekyll-style posts
+make_drafts()  # Writes out all Jekyll-style drafts
 # git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
