@@ -336,7 +336,7 @@ def sync_check():
     #  ___) || | | |\  | |___  | |___| | | |  __/ (__|   <
     # |____/ |_| |_| \_|\____|  \____|_| |_|\___|\___|_|\_\
     """Check for new posts needing AI-writing or YAMLESQUE source-file updating."""
-    fig("SYNC Check", "Checking for new posts needing AI-writing")
+    fig("SYNC Check", "Checking for new posts needing AI-writing.")
     global ydict
     for i, (fm, apost, combined) in enumerate(yaml_generator(YAMLESQUE, clone=True)):
         if fm and len(fm) == 2 and "title" in fm and "date" in fm:
@@ -382,7 +382,7 @@ def build_ydict(yamlesque=YAMLESQUE):
                 slug = slugify(fm["title"])
                 fm["slug"] = slug
                 ydict[slug] = fm
-    print(f"Source has {len(ydict)} posts.")
+    return len(ydict)
 
 
 def update_yaml():
@@ -456,8 +456,8 @@ def make_index():
     # |_|  |_|\__,_|_|\_\___| |___|_| |_|\__,_|\___/_/\_\
     #
     """Builds the index pages"""
-    fig("Make Index", "Making blog index")
-    build_ydict()
+    num_posts = build_ydict()  # Rebuilds ydict from database
+    fig("Make Index", f"Making blog index of {num_posts} posts.")
     with open(f"{INCLUDES}post_list.html", "w", encoding="utf-8") as fh:
         num_posts = len(ydict) + 1
         fh.write(f'<ol start="{num_posts}" reversed >\n')
@@ -709,8 +709,9 @@ def yaml_chop():
     for i, (fm, body, combined) in enumerate(yaml_generator(YAMLESQUE)):
         if fm and isinstance(fm, dict) and len(fm) > 2:
             # Print a progress indicator:
-            if (i + 1) % 10 == 0:
-                print(f"{i+1} ", end="", flush=True)
+            magic_number = (i + 1) - 10
+            if magic_number and not magic_number % 10:
+                print(f"{magic_number} ", end="", flush=True)
 
             # Build the categories:
             keyword_list = fm["keywords"].split(", ")
@@ -758,7 +759,7 @@ def yaml_chop():
                         raise SystemExit()
                 fh.write("</ul>")
                 counter += 1
-    print("chopped!")
+    print(f"{counter} files chopped!")
 
 
 def drafts():
@@ -1042,7 +1043,7 @@ make_index()  # Builds index page of all posts (for blog page)
 find_categories()  # Builds global categories and builds category pages
 yaml_chop()  # Writes out all Jekyll-style posts
 drafts()  # Writes out all Jekyll-style drafts
-git_push()  # Pushes changes to Github (publishes)
+# git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
 print("If run from NeoVim, :bdel closes this buffer.")

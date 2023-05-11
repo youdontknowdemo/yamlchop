@@ -169,7 +169,7 @@ and read lots of rambling at
 
         -------------------------------------------------------------------------------- 
         date: 2021-05-09
-        ---
+        [triple dash]
 
 3. Add a Markdown block to the bottom of the file, like this:
 
