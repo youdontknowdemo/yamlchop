@@ -690,12 +690,12 @@ layout: default
 
 
 def chop_the_yaml():
-    # __   __ _    __  __ _     |  ____ _                  _  _  _
-    # \ \ / // \  |  \/  | |    | / ___| |__   ___  _ __  | || || |
-    #  \ V // _ \ | |\/| | |    || |   | '_ \ / _ \| '_ \ | || || |
-    #   | |/ ___ \| |  | | |___ || |___| | | | (_) | |_) ||_||_||_|
-    #   |_/_/   \_\_|  |_|_____|| \____|_| |_|\___/| .__/ (_)(_)(_)
-    fig("Chop the YAML!")  #    |                  |_|
+    # __   __ _    __  __ _    |  ____ _                  _  _  _
+    # \ \ / // \  |  \/  | |   | / ___| |__   ___  _ __  | || || |
+    #  \ V // _ \ | |\/| | |   || |   | '_ \ / _ \| '_ \ | || || |
+    #   | |/ ___ \| |  | | |___|| |___| | | | (_) | |_) ||_||_||_|
+    #   |_/_/   \_\_|  |_|_____| \____|_| |_|\___/| .__/ (_)(_)(_)
+    fig("Chop the YAML!!!")  # |                  |_|
     """Chop a YAMLesque text-file into the individual text-files (posts) it implies."""
     global ydict, cdict
     num_pages = len(ydict)
@@ -1040,7 +1040,7 @@ make_index()  # Builds index page of all posts (for blog page)
 category_scan()  # Builds global categories and builds category pages
 chop_the_yaml()  # Writes out all Jekyll-style posts
 make_drafts()  # Writes out all Jekyll-style drafts
-# git_push()  # Pushes changes to Github (publishes)
+git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
 print("If run from NeoVim, :bdel closes this buffer.")
