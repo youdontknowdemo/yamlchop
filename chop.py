@@ -1,4 +1,4 @@
-# USAGE: python ~/repos/yamlchop/chop.py -f ~/repos/MikeLev.in/_drafts/journal.md
+# USAGE: python ~/repos/yamlchop/chop.py -f ~/repos/blog/_drafts/blog.md
 # __   __ _    __  __ _         _                      chop
 # \ \ / // \  |  \/  | |    ___| |__   ___  _ __        _|   chop
 #  \ V // _ \ | |\/| | |   / __| '_ \ / _ \| '_ \      | |     |   chop
