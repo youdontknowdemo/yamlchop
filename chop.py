@@ -76,16 +76,15 @@ def fig(text, description=None):
     sleep(0.5)
 
 
-fig("YAMLchop/chop...", "Improve your life through better blogging.")
-
-#  ____                          _         Command-line says  ()   ,
-# |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___   do that   O  \\  .
-# | |_) / _` | '__/ __|/ _ \   / _ \ | '__/ _` / __|   to this.  o |\\/|
-# |  __/ (_| | |  \__ \  __/  / ___ \| | | (_| \__ \               / " '\
-# |_|   \__,_|_|  |___/\___| /_/   \_\_|  \__, |___/              . .   .
-#                                         |___/                  /    ) |
-# Define command line arguments.                                '  _.'  |
-# Use in your .vimrc or inti.vim like this:                     '-'/    \
+fig("YAMLchop/chop...", "What's missing in your life is a timeless journal.")
+#  ____                          _                             ()   ,
+# |  _ \ __ _ _ __ ___  ___     / \   _ __ __ _ ___              O  \\  .
+# | |_) / _` | '__/ __|/ _ \   / _ \ | '__/ _` / __|              0 |\\/|
+# |  __/ (_| | |  \__ \  __/  / ___ \| | | (_| \__ \                / " '\
+# |_|   \__,_|_|  |___/\___| /_/   \_\_|  \__, |___/               . .   .
+# Define command line arguments.          |___/                   /    ) |
+#                                                                '  _.'  |
+# Use in your .vimrc or init.vim like this:                      '-'/    \
 # let @p = ":terminal python ~/repos/yamlchop/chop.py -f " . expand('%:p')
 
 aparser = argparse.ArgumentParser()
