@@ -33,6 +33,7 @@ import os
 import re
 import sys
 import yaml
+import nltk
 import shlex
 import pickle
 import openai
@@ -49,6 +50,12 @@ from nltk.stem import WordNetLemmatizer
 from sqlitedict import SqliteDict as sqldict
 from collections import Counter, defaultdict
 
+
+try:
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    print("Downloading 'wordnet'...")
+    nltk.download('wordnet')
 
 # OpenAI, Arrows & Categories, OH MY!
 ALL_FIELDS = ["date", "title", "headline", "description", "keyword", "categories"]
