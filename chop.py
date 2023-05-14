@@ -51,11 +51,7 @@ from sqlitedict import SqliteDict as sqldict
 from collections import Counter, defaultdict
 
 
-try:
-    nltk.data.find('corpora/wordnet')
-except LookupError:
-    print("Downloading 'wordnet'...")
-    nltk.download('wordnet')
+nltk.download('wordnet', quiet=True)  # Update Lemmatizer
 
 # OpenAI, Arrows & Categories, OH MY!
 ALL_FIELDS = ["date", "title", "headline", "description", "keyword", "categories"]
