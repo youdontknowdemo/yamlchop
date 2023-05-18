@@ -1042,7 +1042,7 @@ sync_check()  # Catches YAMLESQUE file up with database of OpenAI responses
 make_index()  # Builds index page of all posts (for blog page)
 category_scan()  # Builds global categories and builds category pages
 chop_the_yaml()  # Writes out all Jekyll-style posts
-make_drafts()  # Writes out all Jekyll-style drafts
+# make_drafts()  # Writes out all Jekyll-style drafts (optional / easy un-publish)
 git_push()  # Pushes changes to Github (publishes)
 
 fig("Done.")
