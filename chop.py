@@ -216,7 +216,8 @@ def odb(DBNAME, slug, name, data):
     """Retrieves and saves OpenAI request not already done.
     It checks if the data is there first, so safe to re-run."""
     api_hit = False
-    chop_at = 3400
+    # chop_at = 3400
+    chop_at = 3000
     encoding = "cl100k_base"
     with sqldict(DBNAME) as db:
         if slug in db:
@@ -737,6 +738,8 @@ def chop_the_yaml():
             fm["permalink"] = f"{BLOG}{stem}/"
 
             filename = f"{OUTPUT_PATH}/{adate}-{stem}.md"
+            if i == 1:
+                print(filename)
             with open(filename, "w", encoding="utf-8") as fh:
                 fh.write("---\n")
                 for afield in fm:
