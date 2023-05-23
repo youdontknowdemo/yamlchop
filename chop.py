@@ -216,8 +216,11 @@ def odb(DBNAME, slug, name, data):
     """Retrieves and saves OpenAI request not already done.
     It checks if the data is there first, so safe to re-run."""
     api_hit = False
-    # chop_at = 3400
-    chop_at = 3000
+
+    if name in ['description', 'keywords']:
+        chop_at = 3200
+    else:
+        chop_at = 3600
     encoding = "cl100k_base"
     with sqldict(DBNAME) as db:
         if slug in db:
