@@ -1,6 +1,6 @@
- # Chop The YAML!
+# Chop The YAML!
 
- USAGE: `python ~/repos/yamlchop/chop.py -f ~/[path_to_jekyll_repo]/_drafts/journal.md`
+USAGE: `python ~/repos/yamlchop/chop.py -f ~/[path_to_jekyll_repo]/_drafts/journal.md`
 
 ```code
    __   __ _    __  __ _         _                      chop
@@ -13,7 +13,7 @@
      To replace a bygone era              ___             |     |\__,_| |  | '_ \| __ _|
      Where your CMS is flogging          |   |         _____    |     |_|  | | | |/ _` |
      You to take up something clearer,   |_  |        /     \         |    |_| |_| (_| |
-     So you catalog your cat tails         \ |       |       \        |    |     |\__,_|
+     So you catalog your cat tales         \ |       |       \        |    |     |\__,_|
      In one file for the hashing           |  \      |       /             |     |     |
      Using YAML for the data                \  \____ \_      \                   |     |
      And then Jekyll for the lashing.        \      \_/      |                         |

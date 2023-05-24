@@ -9,7 +9,7 @@
 #   To replace a bygone era              ___             |     |\__,_| |  | '_ \| __ _|
 #   Where your CMS is flogging          |   |         _____    |     |_|  | | | |/ _` |
 #   You to take up something clearer,   |_  |        /     \         |    |_| |_| (_| |
-#   So you catalog your cat tails         \ |       |       \        |    |     |\__,_|
+#   So you catalog your cat tales         \ |       |       \        |    |     |\__,_|
 #   In one file for the hashing           |  \      |       /             |     |     |
 #   Using YAML for the data                \  \____ \_      \                   |     |
 #   And then Jekyll for the lashing.        \      \_/      |                         |
